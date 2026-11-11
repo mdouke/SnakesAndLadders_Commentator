@@ -6,9 +6,10 @@ build-backend = "hatchling.build"
 name = "snakes-ladders-commentator"
 version = "0.1.0"
 description = "Game state and live commentary system for a physical Snakes & Ladders game"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
   "fastapi>=0.115,<1",
+  "pydantic>=2.9,<3",
   "uvicorn[standard]>=0.34,<1",
 ]
 
@@ -40,7 +41,7 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 strict = true
-files = ["apps/server/src/commentator"]
+files = ["apps/server/src/commentator", "apps/server/tests"]
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { createDefaultGame, gameAction, getCurrentGame, submitRoll } from "./api";
 import type { GameState } from "./types";
@@ -32,13 +32,22 @@ function PlayerList({ game }: { game: GameState }) {
 function AdminView() {
   const [game, setGame] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
 
   const run = useCallback(async (operation: () => Promise<GameState>) => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
     try {
       setError(null);
       setGame(await operation());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "操作に失敗しました");
+      await getCurrentGame().then(setGame).catch(() => undefined);
+    } finally {
+      pending.current = false;
+      setBusy(false);
     }
   }, []);
 
@@ -56,6 +65,7 @@ function AdminView() {
         <a href="/player" target="_blank" rel="noreferrer">プレイヤー画面を開く</a>
       </header>
 
+      <fieldset disabled={busy} className="operation-area">
       {!game ? (
         <section className="panel empty">
           <h2>ゲームを準備</h2>
@@ -72,6 +82,9 @@ function AdminView() {
           <section className="panel controls">
             <h2>ゲーム操作</h2>
             <div className="button-row">
+              {(game.status === "completed" || game.status === "aborted") && (
+                <button onClick={() => run(createDefaultGame)}>新しいゲーム</button>
+              )}
               {game.status === "ready" && (
                 <button onClick={() => run(() => gameAction(game.id, "start"))}>開始</button>
               )}
@@ -94,13 +107,14 @@ function AdminView() {
               <h2>手動で出目を確定</h2>
               <div className="dice-row">
                 {[1, 2, 3, 4, 5, 6].map((value) => (
-                  <button key={value} onClick={() => run(() => submitRoll(game.id, value))}>{value}</button>
+                  <button key={value} onClick={() => run(() => submitRoll(game.id, value, game.turnNumber))}>{value}</button>
                 ))}
               </div>
             </section>
           )}
         </>
       )}
+      </fieldset>
       {error && <p className="error">{error}</p>}
     </main>
   );

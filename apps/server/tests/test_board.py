@@ -45,6 +45,7 @@ class BoardTest(unittest.TestCase):
         result = self.board.move(76, 4)
         self.assertEqual(result.normal_position, 80)
         self.assertEqual(result.final_position, 100)
+        assert result.jump is not None
         self.assertEqual(result.jump.type, JumpType.LADDER)
 
     def test_rejects_chained_jumps(self) -> None:

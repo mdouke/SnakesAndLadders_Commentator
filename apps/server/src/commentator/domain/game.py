@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from .board import Board, Jump, JumpType
 
@@ -19,6 +20,17 @@ class GameStatus(StrEnum):
     SUSPENDED = "suspended"
     COMPLETED = "completed"
     ABORTED = "aborted"
+
+
+class EventType(StrEnum):
+    NORMAL_MOVE = "normal_move"
+    LARGE_ROLL = "large_roll"
+    SMALL_ROLL = "small_roll"
+    GOAL_OVERSHOOT = "goal_overshoot"
+    LADDER = "ladder"
+    SNAKE = "snake"
+    GOAL = "goal"
+    NEAR_GOAL = "near_goal"
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +95,9 @@ class PlayerState:
         if self.spoken_name is None:
             self.spoken_name = self.display_name
 
-    def to_dict(self, *, is_current: bool, goal: int, minimum_rolls: int) -> dict[str, Any]:
+    def to_dict(
+        self, *, is_current: bool, goal: int, minimum_rolls: int, winning_rolls: list[int]
+    ) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -96,7 +110,7 @@ class PlayerState:
             "reachedGoal": self.reached_goal,
             "reachedGoalAt": self.reached_goal_at.isoformat() if self.reached_goal_at else None,
             "remainingSquares": goal - self.position,
-            "requiredRoll": goal - self.position if 1 <= goal - self.position <= 6 else None,
+            "winningRolls": winning_rolls,
             "isCurrent": is_current,
             "theoreticalMinimumRolls": minimum_rolls,
             "statistics": self.statistics.to_dict(),
@@ -114,7 +128,7 @@ class TurnRecord:
     final_position: int
     overshoot: bool
     jump_type: JumpType | None
-    events: tuple[str, ...]
+    events: tuple[EventType, ...]
     occurred_at: datetime
 
     def to_dict(self) -> dict[str, Any]:
@@ -138,6 +152,8 @@ class GameState:
     id: str
     board: Board
     players: list[PlayerState]
+    branch_id: str = "main"
+    suspension_history: list[datetime] = field(default_factory=list)
     status: GameStatus = GameStatus.READY
     current_player_index: int | None = 0
     turn_number: int = 0
@@ -188,7 +204,7 @@ class GameState:
         self.turn_number += 1
         events = self._events_for(result.overshoot, result.jump, result.final_position, value)
         turn = TurnRecord(
-            id=str(uuid4()),
+            id=str(uuid5(NAMESPACE_URL, f"{self.id}/{self.branch_id}/turn/{self.turn_number}")),
             number=self.turn_number,
             player_id=player.id,
             roll=value,
@@ -201,7 +217,9 @@ class GameState:
             occurred_at=occurred_at,
         )
         self.turns.append(turn)
-        self._apply_statistics(player, turn, result.jump)
+        player.statistics = compute_statistics(
+            [item for item in self.turns if item.player_id == player.id]
+        )
         player.position = result.final_position
 
         if player.position == self.board.goal:
@@ -226,13 +244,13 @@ class GameState:
         if self.status not in {GameStatus.PAUSED, GameStatus.SUSPENDED}:
             raise ValueError("一時停止または保存終了したゲームだけを再開できます")
         self.status = GameStatus.IN_PROGRESS
-        self.suspended_at = None
 
     def suspend(self, *, now: datetime | None = None) -> None:
         if self.status not in {GameStatus.IN_PROGRESS, GameStatus.PAUSED}:
             raise ValueError("進行中または一時停止中のゲームだけを保存終了できます")
         self.status = GameStatus.SUSPENDED
         self.suspended_at = now or datetime.now(UTC)
+        self.suspension_history.append(self.suspended_at)
 
     def abort(self, *, now: datetime | None = None) -> None:
         if self.status in {GameStatus.COMPLETED, GameStatus.ABORTED}:
@@ -272,6 +290,8 @@ class GameState:
         return {
             "id": self.id,
             "boardId": self.board.id,
+            "branchId": self.branch_id,
+            "suspensionHistory": [value.isoformat() for value in self.suspension_history],
             "status": self.status.value,
             "turnNumber": self.turn_number,
             "currentPlayerId": current_id,
@@ -283,6 +303,7 @@ class GameState:
                     is_current=player.id == current_id,
                     goal=self.board.goal,
                     minimum_rolls=self.board.minimum_rolls_from(player.position),
+                    winning_rolls=self.board.winning_rolls(player.position),
                 )
                 for player in self.players
             ],
@@ -314,47 +335,71 @@ class GameState:
         last.rank = len(self.players)
         last.rank_confirmed = True
 
-    def _apply_statistics(
-        self, player: PlayerState, turn: TurnRecord, jump: Jump | None
-    ) -> None:
-        stats = player.statistics
-        stats.rolls.append(turn.roll)
-        stats.face_counts[turn.roll] += 1
-        stats.normal_movement_total += 0 if turn.overshoot else turn.roll
-        stats.actual_position_change_total += abs(turn.final_position - turn.before)
-        stats.overshoot_count += int(turn.overshoot)
-        stats.maximum_position = max(stats.maximum_position, turn.final_position)
-        if jump is None:
-            return
-        history = JumpHistory(turn.number, jump.start, jump.end)
-        if jump.type is JumpType.LADDER:
-            stats.ladder_count += 1
-            stats.ladder_distance_total += jump.end - jump.start
-            stats.ladder_history.append(history)
-        else:
-            stats.snake_count += 1
-            stats.snake_distance_total += jump.start - jump.end
-            stats.snake_history.append(history)
-
     def _events_for(
         self,
         overshoot: bool,
         jump: Jump | None,
         final_position: int,
         value: int,
-    ) -> tuple[str, ...]:
-        events = ["normal_move"]
+    ) -> tuple[EventType, ...]:
+        events = [EventType.GOAL_OVERSHOOT if overshoot else EventType.NORMAL_MOVE]
         if value >= 5:
-            events.append("large_roll")
+            events.append(EventType.LARGE_ROLL)
         elif value <= 2:
-            events.append("small_roll")
-        if overshoot:
-            events = ["goal_overshoot"]
-        elif jump is not None:
-            events.append("ladder" if jump.type is JumpType.LADDER else "snake")
+            events.append(EventType.SMALL_ROLL)
+        if jump is not None:
+            events.append(EventType.LADDER if jump.type is JumpType.LADDER else EventType.SNAKE)
         if final_position == self.board.goal:
-            events.append("goal")
+            events.append(EventType.GOAL)
         elif self.board.goal - final_position <= 6:
-            events.append("near_goal")
+            events.append(EventType.NEAR_GOAL)
         return tuple(events)
+
+
+def compute_statistics(turns: list[TurnRecord]) -> PlayerStatistics:
+    """Derive one player's statistics solely from their effective turn history."""
+    stats = PlayerStatistics()
+    for turn in turns:
+        stats.rolls.append(turn.roll)
+        stats.face_counts[turn.roll] += 1
+        stats.normal_movement_total += 0 if turn.overshoot else turn.roll
+        stats.actual_position_change_total += abs(turn.final_position - turn.before)
+        stats.overshoot_count += int(turn.overshoot)
+        stats.maximum_position = max(
+            stats.maximum_position, turn.before, turn.normal_position, turn.final_position
+        )
+        history = JumpHistory(turn.number, turn.normal_position, turn.final_position)
+        if turn.jump_type is JumpType.LADDER:
+            stats.ladder_count += 1
+            stats.ladder_distance_total += turn.final_position - turn.normal_position
+            stats.ladder_history.append(history)
+        elif turn.jump_type is JumpType.SNAKE:
+            stats.snake_count += 1
+            stats.snake_distance_total += turn.normal_position - turn.final_position
+            stats.snake_history.append(history)
+    return stats
+
+
+@dataclass(frozen=True, slots=True)
+class RollInput:
+    value: int
+    occurred_at: datetime
+
+
+def replay(
+    initial: GameState, rolls: list[RollInput], *, started_at: datetime,
+    branch_id: str | None = None,
+) -> GameState:
+    """Rebuild without mutating the initial setup; all nondeterministic inputs are explicit."""
+    if initial.status is not GameStatus.READY or initial.turns:
+        raise ValueError("再生には開始前の初期状態が必要です")
+    state = deepcopy(initial)
+    if branch_id is not None:
+        if not branch_id.strip():
+            raise ValueError("ブランチIDは空にできません")
+        state.branch_id = branch_id
+    state.start(now=started_at)
+    for roll in rolls:
+        state.roll(roll.value, now=roll.occurred_at)
+    return state
 

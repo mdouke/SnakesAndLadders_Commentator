@@ -44,8 +44,10 @@ class GameTest(unittest.TestCase):
         game.start(now=self.now)
 
         game.roll(3, now=self.now)
+        assert game.current_player is not None
         self.assertEqual(game.current_player.id, "p2")
         game.roll(1, now=self.now)  # 21 -> 42 via ladder
+        assert game.current_player is not None
         self.assertEqual(game.current_player.id, "p3")
         game.roll(1, now=self.now)
 

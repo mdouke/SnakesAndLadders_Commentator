@@ -7,6 +7,7 @@ export type GameStatus =
   | "aborted";
 
 export interface PlayerState {
+  winningRolls: number[];
   id: string;
   displayName: string;
   color: string;

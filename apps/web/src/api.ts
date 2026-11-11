@@ -32,10 +32,12 @@ export function gameAction(gameId: string, action: string): Promise<GameState> {
   return request(`/api/games/${gameId}/${action}`, { method: "POST" });
 }
 
-export function submitRoll(gameId: string, value: number): Promise<GameState> {
+export function submitRoll(
+  gameId: string, value: number, expectedTurnNumber: number
+): Promise<GameState> {
   return request(`/api/games/${gameId}/rolls`, {
     method: "POST",
-    body: JSON.stringify({ value })
+    body: JSON.stringify({ value, expectedTurnNumber })
   });
 }
 

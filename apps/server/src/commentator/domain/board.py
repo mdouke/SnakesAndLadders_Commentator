@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from enum import StrEnum
+from types import MappingProxyType
 from typing import Any
 
 
@@ -36,6 +38,7 @@ class Board:
     name: str
     goal: int
     jumps: tuple[Jump, ...]
+    jump_by_start: Mapping[int, Jump] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.goal < 2:
@@ -63,9 +66,33 @@ class Board:
                 f"{first.start} -> {first.end}"
             )
 
-    @property
-    def jump_by_start(self) -> dict[int, Jump]:
-        return {jump.start: jump for jump in self.jumps}
+        object.__setattr__(self, "jump_by_start", MappingProxyType({
+            jump.start: jump for jump in self.jumps
+        }))
+        # Reverse reachability also rejects reachable traps, not just a blocked start.
+        reverse: dict[int, set[int]] = {square: set() for square in range(self.goal + 1)}
+        for square in range(self.goal):
+            for roll in range(1, 7):
+                reverse[self.move(square, roll).final_position].add(square)
+        reachable = {self.goal}
+        pending = [self.goal]
+        while pending:
+            for square in reverse[pending.pop()] - reachable:
+                reachable.add(square)
+                pending.append(square)
+        if len(reachable) != self.goal + 1:
+            raise ValueError("ゴールへ到達できないマスを含む盤面です")
+
+    def winning_rolls(self, position: int) -> list[int]:
+        if position == self.goal:
+            return []
+        return [
+            roll for roll in range(1, 7)
+            if self.move(position, roll).final_position == self.goal
+        ]
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Board:
+        return self
 
     def move(self, position: int, roll: int) -> MoveResult:
         if not 0 <= position <= self.goal:

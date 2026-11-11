@@ -6,6 +6,8 @@
 }
 
 * { box-sizing: border-box; }
+.operation-area { border: 0; padding: 0; margin: 0; min-width: 0; }
+button:disabled { opacity: 0.5; cursor: wait; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, a { font: inherit; }
 button {

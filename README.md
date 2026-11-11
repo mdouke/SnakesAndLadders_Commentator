@@ -2,7 +2,7 @@
 
 実物の Snakes & Ladders と連動し、カメラで認識したサイコロの出目をもとにゲーム状態を管理し、LLM が実況コメントを生成・表示・読み上げるシステムです。
 
-現在は要件整理と設計の段階です。既存のサイコロ認識プロトタイプは `dice_recognize/` にあります。本体へ移植して検証が終わるまでは参照用として残し、移植後に削除します。
+現在はゲームエンジン、手動入力API、管理者・プレイヤー画面の初期実装が動作する段階です。既存のサイコロ認識プロトタイプは `dice_recognize/` にあります。本体へ移植して検証が終わるまでは参照用として残し、移植後に削除します。
 
 ## ドキュメント
 
@@ -26,6 +26,12 @@
 
 ## 現在の起動方法
 
+開発環境はPython 3.13系（`.python-version`）とNode.js 22系（`.nvmrc`）を使用します。nvmを利用する場合はセットアップ前に `nvm install && nvm use` を実行してください。
+
+`.npmrc` の `engine-strict=true` により、指定外のNodeバージョンでは `npm install` がエラーになります。先にNode 22系へ切り替えてください。
+
+AI間の引き継ぎ文書 `TOCLAUDE.md` と `TOCHATGPT.md` は、レビューと対応の経緯としてGit管理対象にします。
+
 ```bash
 # 初回セットアップ
 python3 -m venv .venv
@@ -45,11 +51,15 @@ npm run dev:web
 
 現段階の状態はメモリ上にのみ保存され、プロセスを終了すると消えます。DB保存、Undo/Redo、WebSocket配信は次の実装段階です。
 
+手動出目APIは `expectedTurnNumber` を必須とし、現在のターン番号と異なる要求には409を返します。画面の操作中は送信ボタンを無効にします。現在の排他制御は単一プロセス内で有効なため、APIは1ワーカーで起動してください。
+
+プレイヤー情報のゴール可能な出目は `winningRolls` として返します。ハシゴで100へ到達する出目も含みます（75マスでは `[5]`）。
+
 品質チェックは次のコマンドで実行します。
 
 ```bash
 .venv/bin/ruff check apps/server
-.venv/bin/mypy apps/server/src/commentator
+.venv/bin/mypy
 .venv/bin/pytest
 npm run check:web
 npm run build:web
