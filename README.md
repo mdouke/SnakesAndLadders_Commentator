@@ -24,6 +24,38 @@
 
 この技術構成は暫定です。実装開始時に `docs/decisions/` の ADR で確定事項を記録します。
 
+## 現在の起動方法
+
+```bash
+# 初回セットアップ
+python3 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
+npm install
+
+# ターミナル1: API
+.venv/bin/uvicorn commentator.main:app --app-dir apps/server/src --reload
+
+# ターミナル2: Web UI
+npm run dev:web
+```
+
+- 管理者画面: `http://127.0.0.1:5173/`
+- プレイヤー画面: `http://127.0.0.1:5173/player`
+- APIドキュメント: `http://127.0.0.1:8000/docs`
+
+現段階の状態はメモリ上にのみ保存され、プロセスを終了すると消えます。DB保存、Undo/Redo、WebSocket配信は次の実装段階です。
+
+品質チェックは次のコマンドで実行します。
+
+```bash
+.venv/bin/ruff check apps/server
+.venv/bin/mypy apps/server/src/commentator
+.venv/bin/pytest
+npm run check:web
+npm run build:web
+npm audit
+```
+
 ## 確定したゲーム進行方針
 
 - プレイヤー人数のデフォルトは2人

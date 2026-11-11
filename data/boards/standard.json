@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "standard",
+  "name": "標準盤面",
+  "goal": 100,
+  "jumps": [
+    { "type": "snake", "from": 98, "to": 78 },
+    { "type": "snake", "from": 95, "to": 75 },
+    { "type": "snake", "from": 93, "to": 73 },
+    { "type": "snake", "from": 87, "to": 24 },
+    { "type": "snake", "from": 64, "to": 60 },
+    { "type": "snake", "from": 62, "to": 19 },
+    { "type": "snake", "from": 56, "to": 53 },
+    { "type": "snake", "from": 49, "to": 11 },
+    { "type": "snake", "from": 48, "to": 26 },
+    { "type": "snake", "from": 16, "to": 6 },
+    { "type": "ladder", "from": 1, "to": 38 },
+    { "type": "ladder", "from": 4, "to": 14 },
+    { "type": "ladder", "from": 9, "to": 31 },
+    { "type": "ladder", "from": 21, "to": 42 },
+    { "type": "ladder", "from": 28, "to": 84 },
+    { "type": "ladder", "from": 36, "to": 44 },
+    { "type": "ladder", "from": 51, "to": 67 },
+    { "type": "ladder", "from": 71, "to": 91 },
+    { "type": "ladder", "from": 80, "to": 100 }
+  ],
+  "layout": {
+    "type": "serpentine",
+    "columns": 10,
+    "rows": 10,
+    "startCorner": "bottom-left"
+  }
+}
+

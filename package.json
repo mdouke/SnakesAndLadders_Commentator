@@ -1,0 +1,16 @@
+{
+  "name": "snakes-ladders-commentator",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "check:web": "npm --workspace apps/web run check"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}
+

@@ -1,0 +1,52 @@
+:root {
+  color: #172218;
+  background: #f2efe5;
+  font-family: Inter, "Hiragino Sans", "Yu Gothic", sans-serif;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, a { font: inherit; }
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.75rem 1.15rem;
+  color: white;
+  background: #28613c;
+  cursor: pointer;
+  font-weight: 700;
+}
+button:hover { filter: brightness(1.08); }
+button.secondary { background: #526258; }
+button.danger { background: #9f3732; }
+a { color: #28613c; font-weight: 700; }
+main { width: min(100% - 2rem, 1080px); margin: 0 auto; padding: 2rem 0 4rem; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+h1, h2, h3, p { margin-top: 0; }
+.eyebrow { color: #657068; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+.panel, .status-bar, .player-card, .commentary-placeholder {
+  border: 1px solid #d8d4c8;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 8px 30px rgba(32, 46, 35, 0.06);
+}
+.panel { margin-top: 1rem; padding: 1.25rem; }
+.empty { margin-top: 3rem; text-align: center; padding: 4rem 1rem; }
+.status-bar { display: flex; justify-content: space-between; margin-top: 1.5rem; padding: 1rem 1.25rem; font-weight: 800; }
+.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.player-card { display: flex; align-items: center; gap: 1rem; padding: 1.25rem; }
+.player-card.current { outline: 3px solid #d9a62e; }
+.player-card h3, .player-card p { margin-bottom: 0.25rem; }
+.token { width: 2rem; height: 2rem; border: 3px solid white; border-radius: 999px; box-shadow: 0 0 0 1px #888; flex: 0 0 auto; }
+.button-row, .dice-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.dice-row button { width: 3.5rem; height: 3.5rem; font-size: 1.25rem; }
+.error { margin-top: 1rem; border-radius: 10px; padding: 1rem; color: #7b1f1c; background: #ffe5e2; }
+.player-view { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+.commentary-placeholder { margin-top: 2rem; padding: 3rem 1rem; color: #657068; font-size: clamp(1.2rem, 3vw, 2rem); }
+
+@media (max-width: 640px) {
+  header { align-items: flex-start; flex-direction: column; }
+  main { padding-top: 1rem; }
+}
+

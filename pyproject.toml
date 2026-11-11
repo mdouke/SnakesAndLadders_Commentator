@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "snakes-ladders-commentator"
+version = "0.1.0"
+description = "Game state and live commentary system for a physical Snakes & Ladders game"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1",
+  "mypy>=1.14,<2",
+  "pytest>=8.3,<9",
+  "ruff>=0.9,<1",
+]
+vision = [
+  "numpy>=1.26,<3",
+  "opencv-python>=4.10,<5",
+  "Pillow>=10,<13",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["apps/server/src/commentator"]
+
+[tool.pytest.ini_options]
+pythonpath = ["apps/server/src"]
+testpaths = ["apps/server/tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["apps/server/src/commentator"]
+
