@@ -23,7 +23,7 @@ jobs:
           node-version: "22"
           cache: npm
       - name: Install Python dependencies
-        run: pip install -e '.[dev]'
+        run: pip install -e '.[dev,vision]'
       - name: Install web dependencies
         run: npm ci
       - name: Ruff

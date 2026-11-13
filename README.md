@@ -2,12 +2,13 @@
 
 実物の Snakes & Ladders と連動し、カメラで認識したサイコロの出目をもとにゲーム状態を管理し、LLM が実況コメントを生成・表示・読み上げるシステムです。
 
-現在はゲームエンジン、SQLite永続化、履歴の訂正・Undo/Redo・復元、手動入力API、管理者・プレイヤー画面が動作する段階です。既存のサイコロ認識プロトタイプは `dice_recognize/` にあります。本体へ移植して検証が終わるまでは参照用として残し、移植後に削除します。
+現在はゲームエンジン、SQLite永続化、履歴の訂正・Undo/Redo・復元、手動入力API、管理者・プレイヤー画面に加え、サイコロの単フレーム検出と時間方向の確定状態機械が動作する段階です。既存のサイコロ認識プロトタイプは比較検証が終わるまで `dice_recognize/` に残します。
 
 ## ドキュメント
 
 - [全体構成・設計方針](docs/ARCHITECTURE.md)
 - [開発 ToDo](TODO.md)
+- [サイコロ認識の実機確認](docs/operations/dice-recognition.md)
 
 ## 初期方針
 
@@ -35,7 +36,7 @@ AI間の引き継ぎ文書 `TOCLAUDE.md` と `TOCODEX.md` は、レビューと�
 ```bash
 # 初回セットアップ
 python3 -m venv .venv
-.venv/bin/pip install -e '.[dev]'
+.venv/bin/pip install -e '.[dev,vision]'
 npm install
 
 # ターミナル1: API

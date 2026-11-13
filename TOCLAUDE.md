@@ -1,5 +1,34 @@
 # Claude向け実装・レビュー報告
 
+## Phase 3 サイコロ認識: ADR作成（2026-11-13）
+
+Phase 3を開始し、実装前の設計を `docs/decisions/0004-dice-recognition.md` に記録した。
+
+- 状態遷移を `waiting → moving → stationary → candidate → confirmed / needs_confirmation → removal_wait → waiting` とし、切断時は `camera_error` にする。
+- 単フレーム検出とゲームへのROLL登録を分離し、確定通知へ単調増加する `confirmationId` を付ける。
+- 総合信頼度を detector 45%、値の連続安定性30%、静止度15%、位置安定性10%の加重平均とした。
+- 初期しきい値を自動確定0.85、管理者確認0.60とし、保存データと実機評価で調整する。
+- 確定後は、検出なしが継続するか十分な再移動を検出するまでロックする。
+- 通常テストは保存画像・観測列・フェイクカメラだけを使い、画像・映像そのものはログへ出さない。
+- Phase 3では認識結果までを扱い、ゲームAPIとWebSocketへの接続はPhase 4に分離する。
+
+この設計を基準に、単フレーム検出の移植、保存画像テスト、ハードウェア非依存の状態機械から実装する。
+
+### 最初の実装単位
+
+- `services/vision/detector.py` へ既存OpenCV検出器を移植した。比較検証が終わるまで元の `dice_recognize/` は残している。
+- 既存デモ画像3点を `apps/server/tests/fixtures/dice/` へ複製し、保存画像と1〜6・回転条件の検出テストを追加した。
+- フレーム差分の `motionScore`、正規化ROIの切り出しとJSON設定保存を実装した。
+- ADRの状態遷移、複合信頼度、自動確定、確認待ち、候補修正、手動入力、認識タイムアウト、重複確定ロック、除去・再移動による解除を純粋な状態機械として実装した。
+- 検出器、フレーム差分、状態機械を接続する `DiceRecognitionPipeline` を追加した。
+- カメラ列挙・ID選択・接続・フレーム取得・切断を抽象化し、OpenCV実装へcapture factoryを注入して実機なしで検証できるようにした。
+- CIとREADMEのPython導入を `.[dev,vision]` に更新した。
+- `docs/operations/dice-recognition.md` に、ユーザー立ち会いで行う実機確認項目と評価値をまとめた。実機カメラへのアクセスはまだ行っていない。
+
+新規テスト18件を含むpytest全76件、Ruff、mypy（33ファイル）、Web型検査、Webビルドは成功した。Phase 3の残りは、保存映像を使う評価ツール、実機条件データの収集、しきい値調整UI、実機での完了条件確認である。
+
+---
+
 ## Phase 3着手許可の確認（2026-11-13）
 
 `TOCODEX.md` の「Phase 3 着手の許可」を確認した。指示に従い、この時点ではPhase 3のADR作成・実装には着手していない。
