@@ -205,6 +205,21 @@ def test_empty_stationary_area_returns_to_waiting() -> None:
     assert result.state is RecognitionState.WAITING
 
 
+def test_default_stationary_window_handles_low_frame_rate_camera() -> None:
+    session = DiceRecognitionSession()
+    session.observe(frame(0, 0.2))
+    for timestamp in range(1, 10):
+        result = session.observe(frame(timestamp / 10, 0.0))
+        assert result.state is RecognitionState.MOVING
+    assert session.observe(frame(1.0, 0.0)).state is RecognitionState.STATIONARY
+    session.observe(frame(1.1, 0.0, value=3))
+    session.observe(frame(1.2, 0.0, value=3))
+    confirmed = session.observe(frame(1.3, 0.0, value=3))
+    assert confirmed.state is RecognitionState.CONFIRMED
+    assert confirmed.confirmation is not None
+    assert confirmed.confirmation.value == 3
+
+
 def test_below_threshold_candidate_is_exposed_as_discarded() -> None:
     session = ready_session(detector_confidence=0.0)
     result = session.observe(frame(5, 0.0, value=4, confidence=0.0))
@@ -293,7 +308,10 @@ def test_pipeline_connects_frame_motion_detection_and_confirmation() -> None:
         ) -> tuple[list[DieDetection], np.ndarray, int]:
             return [detection], np.zeros(image.shape[:2], dtype=np.uint8), 0
 
-    pipeline = DiceRecognitionPipeline(detector=FixedDetector())
+    pipeline = DiceRecognitionPipeline(
+        detector=FixedDetector(),
+        session=DiceRecognitionSession(RecognitionConfig(stationary_frames=3)),
+    )
     dark = np.zeros((10, 10, 3), dtype=np.uint8)
     light = np.full((10, 10, 3), 255, dtype=np.uint8)
     assert pipeline.process(dark, monotonic_time=0).snapshot.state is (

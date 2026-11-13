@@ -32,7 +32,7 @@ class ConfirmationSource(StrEnum):
 class RecognitionConfig:
     movement_threshold: float = 0.08
     stationary_threshold: float = 0.02
-    stationary_frames: int = 3
+    stationary_frames: int = 10
     consecutive_value_frames: int = 3
     candidate_window_frames: int = 5
     removal_frames: int = 3

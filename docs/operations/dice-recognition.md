@@ -57,13 +57,13 @@
   --output var/evaluations/study-video.report.json
 ```
 
-`--settings`と`--config`は省略できる。`--settings`は保存済みROI、`--config`は次のような認識条件を適用する。省略したキーには既定値を使う。
+`--settings`と`--config`は省略できる。`--settings`は保存済みのカメラID、ROI、白領域しきい値、`--config`は次のような認識条件を適用する。省略したキーには既定値を使う。
 
 ```json
 {
   "movementThreshold": 0.08,
   "stationaryThreshold": 0.02,
-  "stationaryFrames": 3,
+  "stationaryFrames": 10,
   "consecutiveValueFrames": 3,
   "candidateWindowFrames": 5,
   "removalFrames": 3,
@@ -92,3 +92,12 @@
 - 保存先: `recordings/dice-evaluation/YYYYMMDD/`。このディレクトリはGit管理対象外である。
 - 画角: サイコロと黒い背景だけを基本とし、顔、名札、画面、書類などの個人情報を映さない。手が入る条件は重複防止と除去判定の確認に必要な範囲だけにする。
 - 正解ラベル: 各投擲の開始・終了時刻と実際の出目を、映像と同じ時間軸で記録する。
+
+## 2026-11-13 実機スモークテスト
+
+- USBの `FHD Camera` をOpenCV ID 0、1920×1080で使用した。実測取得速度は約10 FPSだった。
+- ROIはトレーだけを含む `x=0.34, y=0.06, width=0.34, height=0.54` とした。
+- 黒いトレーの反射により大津の二値化は白領域を過大結合した。固定しきい値220では、トレー縁に接した出目3を75フレーム連続で検出できた。
+- 既定の静止判定を3フレームから10フレームへ変更した。約10 FPSでは1秒、30 FPSでは約0.33秒の静止を待つ。
+- 保存映像の再生で `waiting → moving → stationary → confirmed(3) → removal_wait → waiting` を確認し、総合信頼度は0.926だった。
+- これは1投擲の通し確認であり、60投擲の認識率・誤確定率評価は未実施である。

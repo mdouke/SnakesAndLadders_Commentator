@@ -42,10 +42,13 @@ class NormalizedRoi:
 class VisionSettings:
     camera_id: int | None = None
     roi: NormalizedRoi = NormalizedRoi()
+    white_threshold: int | None = None
 
     def __post_init__(self) -> None:
         if self.camera_id is not None and self.camera_id < 0:
             raise ValueError("カメラIDは0以上にしてください")
+        if self.white_threshold is not None and not 0 <= self.white_threshold <= 255:
+            raise ValueError("白領域しきい値は0〜255で指定してください")
 
 
 class VisionSettingsStore:
@@ -74,6 +77,10 @@ class VisionSettingsStore:
                     width=float(roi.get("width", 1.0)),
                     height=float(roi.get("height", 1.0)),
                 ),
+                white_threshold=(
+                    int(value["whiteThreshold"])
+                    if value.get("whiteThreshold") is not None else None
+                ),
             )
         except (TypeError, ValueError) as error:
             raise ValueError("サイコロ認識設定の値が不正です") from error
@@ -82,7 +89,11 @@ class VisionSettingsStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
         roi: dict[str, Any] = asdict(settings.roi)
-        payload = {"cameraId": settings.camera_id, "roi": roi}
+        payload = {
+            "cameraId": settings.camera_id,
+            "roi": roi,
+            "whiteThreshold": settings.white_threshold,
+        }
         temporary.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",

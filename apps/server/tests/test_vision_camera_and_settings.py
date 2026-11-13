@@ -70,7 +70,7 @@ def test_roi_crop_and_settings_round_trip(tmp_path: Path) -> None:
 
     store = VisionSettingsStore(tmp_path / "vision.json")
     assert store.load() == VisionSettings()
-    settings = VisionSettings(camera_id=2, roi=roi)
+    settings = VisionSettings(camera_id=2, roi=roi, white_threshold=200)
     store.save(settings)
     assert store.load() == settings
 

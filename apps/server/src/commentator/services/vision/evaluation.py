@@ -14,6 +14,7 @@ from typing import Any, cast
 
 import cv2
 
+from .detector import DiceDetector
 from .motion import Frame
 from .pipeline import DiceRecognitionPipeline, FrameDetector
 from .recognition import (
@@ -427,15 +428,22 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     arguments = parser.parse_args()
     labels = EvaluationLabels.load(arguments.labels)
-    roi = (
-        VisionSettingsStore(arguments.settings).load().roi
+    vision_settings = (
+        VisionSettingsStore(arguments.settings).load()
         if arguments.settings is not None else None
+    )
+    roi = vision_settings.roi if vision_settings is not None else None
+    detector = (
+        DiceDetector(white_threshold=vision_settings.white_threshold)
+        if vision_settings is not None else None
     )
     config = (
         load_recognition_config(arguments.config)
         if arguments.config is not None else None
     )
-    report = SavedVideoEvaluator(roi=roi, config=config).evaluate(
+    report = SavedVideoEvaluator(
+        detector=detector, roi=roi, config=config
+    ).evaluate(
         arguments.video, labels
     ).report()
     output = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
