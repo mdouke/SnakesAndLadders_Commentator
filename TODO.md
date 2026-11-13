@@ -12,6 +12,7 @@
 - [x] `P0` Python / Node.js の対応バージョンを固定する
 - [x] `P0` `pyproject.toml` とフロントエンドプロジェクトを作成する
 - [x] `P0` GitHub ActionsでLint、型検査、テスト、WebビルドのCIを設定する
+- [ ] `P0` GitHub Actions上でQualityワークフローの成功を確認する（支払いの問題の解決待ち）
 - [x] `P0` Lint、型検査、単体テストを設定する
 - [x] `P0` `.env.example`、秘密情報の管理方法、Git除外設定を作る
 - [x] `P0` 共通ID、時刻（UTC保存）、エラー形式、構造化ログ規約を決める
