@@ -39,7 +39,8 @@ python3 -m venv .venv
 npm install
 
 # ターミナル1: API
-.venv/bin/uvicorn commentator.main:app --app-dir apps/server/src --reload
+.venv/bin/uvicorn commentator.main:create_production_app --factory \
+  --app-dir apps/server/src --reload --no-access-log
 
 # ターミナル2: Web UI
 npm run dev:web
@@ -67,15 +68,20 @@ npm run dev:web
 .venv/bin/pytest
 npm run check:web
 npm run build:web
-npm audit
 ```
+
+この5項目はGitHub ActionsでもPull Requestと`main`へのpush時に実行します。`npm audit`は外部データの更新だけで結果が変わるため必須CIには含めず、定期または手動で実行します。
+
+サーバーログはstdoutと既定の `var/log/commentator.jsonl` に1行1 JSONで出力します。保存方法は `COMMENTATOR_LOG_RETENTION=rotate|permanent` で選択できます。`permanent`は自動削除されないため、ディスク容量と研究データの管理に注意してください。詳細は [ログ運用](docs/operations/logging.md) を参照してください。
 
 ## 確定したゲーム進行方針
 
 - プレイヤー人数のデフォルトは2人
+- プレイヤー人数は2〜6人。同じゲーム内で色は重複させない
 - 参加者がN人の場合、N−1人がゴールした時点で全順位を確定して終了する
 - 残った1人は最下位として順位確定するが、ゴール済みにはしない
 - ゴール済みプレイヤーは以降の手番から外す
 - 管理者操作では、一時停止、保存して終了、ゲーム中止を区別する
 - 保存して終了したゲームは後から再開できる
 - 中止したゲームには正式な最終順位を付けない
+- 同じマスの暫定順位は競技順位方式（例: 1位、1位、3位）とし、ゴール順位は到達順で一意にする

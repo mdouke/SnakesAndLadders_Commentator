@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  ApiRequestError,
   activateGame,
   correctPosition,
   correctRoll,
@@ -60,7 +61,11 @@ function AdminView() {
       setGame(await operation());
       getGames().then(setSavedGames).catch(() => undefined);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "操作に失敗しました");
+      if (reason instanceof ApiRequestError && reason.code === "state_version_conflict") {
+        setError("別の操作でゲームが更新されました。最新状態を読み込みました。");
+      } else {
+        setError(reason instanceof Error ? reason.message : "操作に失敗しました");
+      }
       await getCurrentGame().then(setGame).catch(() => undefined);
     } finally {
       pending.current = false;
@@ -97,9 +102,17 @@ function AdminView() {
       );
       let confirmed = true;
       if (preview.requiresConfirmation) {
-        const details = preview.invalidatedTurns.map((item) =>
+        const turnDetails = preview.invalidatedTurns.map((item) =>
           `ターン${item.turnNumber}（出目${item.value}）`
-        ).join("、");
+        );
+        const operationNames: Record<string, string> = {
+          start: "ゲーム開始", pause: "一時停止", resume: "再開",
+          suspend: "保存終了", abort: "中止", position_correction: "位置訂正"
+        };
+        const operationDetails = preview.invalidatedOperations.map((item) =>
+          operationNames[item.type] ?? item.type
+        );
+        const details = [...turnDetails, ...operationDetails].join("、");
         confirmed = window.confirm(`${details}を無効にします。よろしいですか？`);
       } else {
         confirmed = window.confirm(`ターン${turnNumber}の出目を${value}に訂正しますか？`);

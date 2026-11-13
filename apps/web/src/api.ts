@@ -1,5 +1,24 @@
 import type { GameState } from "./types";
 
+interface ApiErrorDetail {
+  code: string;
+  message: string;
+  context: Record<string, unknown>;
+  requestId: string;
+}
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly context: Record<string, unknown>,
+    readonly requestId: string
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -7,11 +26,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
-      detail?: string | { message?: string }
+      detail?: string | Partial<ApiErrorDetail>
     } | null;
     const detail = body?.detail;
-    throw new Error(
-      typeof detail === "string" ? detail : detail?.message ?? `HTTP ${response.status}`
+    if (detail && typeof detail !== "string") {
+      throw new ApiRequestError(
+        detail.message ?? `HTTP ${response.status}`,
+        detail.code ?? "http_error",
+        detail.context ?? {},
+        detail.requestId ?? "unknown"
+      );
+    }
+    throw new ApiRequestError(
+      typeof detail === "string" ? detail : `HTTP ${response.status}`,
+      "http_error", {}, "unknown"
     );
   }
   return response.json() as Promise<T>;
@@ -98,6 +126,14 @@ export interface RollCorrectionPreview {
     playerId: string;
     value: number;
     reason: "player_already_finished" | "game_completed";
+  }>;
+  invalidatedOperations: Array<{
+    eventId: string;
+    timelineIndex: number;
+    type: "start" | "pause" | "resume" | "suspend" | "abort" | "position_correction";
+    reason: "player_already_finished" | "game_completed";
+    playerId?: string;
+    position?: number;
   }>;
 }
 

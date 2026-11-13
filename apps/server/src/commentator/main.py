@@ -1,20 +1,23 @@
 """Application factory with an injectable repository."""
 from __future__ import annotations
 
+import logging
 import os
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
+from time import monotonic
 from typing import Any, Protocol
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api.errors import ApiError, install_error_handlers
 from .api.schemas import (
     GameCreate,
     PositionCorrection,
@@ -30,6 +33,7 @@ from .domain.game import (
     GameStatus,
     PlayerState,
 )
+from .infrastructure.logging import configure_logging, load_log_config
 from .infrastructure.persistence import SQLiteGameRepository
 from .presets import load_board_preset
 
@@ -94,17 +98,25 @@ def recover_interrupted_games(repo: GameRepository) -> None:
                 last_saved_at=repo.last_saved_at(game.id),
             )
             repo.save(game)
+            logging.getLogger("commentator.recovery").warning(
+                "interrupted game paused",
+                extra={
+                    "event": "game_interruption_detected",
+                    "gameId": game.id,
+                    "stateVersion": game.state_version,
+                },
+            )
 
 
 def _apply_action(action: Callable[[], object]) -> None:
     try:
         action()
     except (ValueError, RuntimeError) as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
+        raise ApiError(409, "invalid_game_operation", str(error)) from error
 
 
 def create_app(
-    board: Board | None = None, repository: GameRepository | None = None
+    board: Board | None = None, repository: GameRepository | None = None,
 ) -> FastAPI:
     board = board if board is not None else load_board_preset()
     repo = repository if repository is not None else MemoryGameRepository()
@@ -119,21 +131,60 @@ def create_app(
     application = FastAPI(
         title="Snakes & Ladders Commentator API", version="0.1.0", lifespan=lifespan
     )
+    install_error_handlers(application)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
         allow_credentials=False, allow_methods=["*"], allow_headers=["*"],
     )
+    request_logger = logging.getLogger("commentator.api")
+
+    @application.middleware("http")
+    async def request_context(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        request_id = str(uuid4())
+        request.state.request_id = request_id
+        started = monotonic()
+        try:
+            response = await call_next(request)
+        except Exception:
+            request_logger.exception(
+                "request failed",
+                extra={
+                    "event": "http_request_failed",
+                    "requestId": request_id,
+                    "durationMs": round((monotonic() - started) * 1000, 3),
+                },
+            )
+            raise
+        response.headers["X-Request-ID"] = request_id
+        request_logger.info(
+            "request completed",
+            extra={
+                "event": "http_request_completed",
+                "requestId": request_id,
+                "durationMs": round((monotonic() - started) * 1000, 3),
+                "method": request.method,
+                "path": request.url.path,
+                "statusCode": response.status_code,
+            },
+        )
+        return response
 
     def game_or_404(game_id: str) -> GameState:
         game = repo.get(game_id)
         if game is None:
-            raise HTTPException(status_code=404, detail="ゲームが見つかりません")
+            raise ApiError(404, "game_not_found", "ゲームが見つかりません")
         return game
 
     def check_version(game: GameState, expected: int) -> None:
         if expected != game.state_version:
-            raise HTTPException(status_code=409, detail="ゲーム状態が更新されています")
+            raise ApiError(
+                409, "state_version_conflict", "ゲーム状態が更新されています",
+                {"expectedStateVersion": expected, "actualStateVersion": game.state_version},
+            )
 
     def save_or_503(game: GameState, *, make_current: bool = False) -> None:
         try:
@@ -142,18 +193,31 @@ def create_app(
             else:
                 repo.save(game)
         except Exception as error:
-            raise HTTPException(
-                status_code=503, detail="ゲーム状態を保存できませんでした"
+            logging.getLogger("commentator.persistence").exception(
+                "game save failed",
+                extra={
+                    "event": "game_save_failed", "gameId": game.id,
+                    "stateVersion": game.state_version, "errorCode": "game_save_failed",
+                },
+            )
+            raise ApiError(
+                503, "game_save_failed", "ゲーム状態を保存できませんでした"
             ) from error
+        logging.getLogger("commentator.game").info(
+            "game state saved",
+            extra={
+                "event": "game_state_saved",
+                "gameId": game.id,
+                "stateVersion": game.state_version,
+                "turnId": game.turns[-1].id if game.turns else None,
+            },
+        )
 
     def require_ended_confirmation(game: GameState, confirmed: bool) -> None:
         if game.status in {GameStatus.COMPLETED, GameStatus.ABORTED} and not confirmed:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "ended_game_confirmation_required",
-                    "message": "終了したゲームの結果を変更するには確認が必要です",
-                },
+            raise ApiError(
+                409, "ended_game_confirmation_required",
+                "終了したゲームの結果を変更するには確認が必要です",
             )
 
     @application.get("/health")
@@ -186,7 +250,9 @@ def create_app(
         with lock:
             game = repo.current()
             if game is None:
-                raise HTTPException(status_code=404, detail="ゲームがまだ作成されていません")
+                raise ApiError(
+                    404, "current_game_not_found", "ゲームがまだ作成されていません"
+                )
             return game.to_dict()
 
     @application.get("/api/games/{game_id}")
@@ -211,7 +277,7 @@ def create_app(
                 request.expected_turn_number is not None
                 and request.expected_turn_number != game.turn_number
             ):
-                raise HTTPException(status_code=409, detail="手番が更新されています")
+                raise ApiError(409, "turn_conflict", "手番が更新されています")
             _apply_action(lambda: game.roll(request.value))
             save_or_503(game)
             return game.to_dict()
@@ -241,10 +307,13 @@ def create_app(
                 try:
                     invalidated = game.preview_roll_correction(turn_id, request.value)
                 except (ValueError, RuntimeError) as error:
-                    raise HTTPException(status_code=409, detail=str(error)) from error
+                    raise ApiError(
+                        409, "roll_correction_failed", str(error)
+                    ) from error
                 return {
-                    "requiresConfirmation": bool(invalidated),
-                    "invalidatedTurns": invalidated,
+                    "requiresConfirmation": invalidated.requires_confirmation,
+                    "invalidatedTurns": invalidated.turns,
+                    "invalidatedOperations": invalidated.operations,
                 }
             try:
                 game.correct_roll(
@@ -252,16 +321,16 @@ def create_app(
                     confirm_invalidated_rolls=request.confirm_invalidated_rolls,
                 )
             except CorrectionConfirmationRequired as error:
-                raise HTTPException(
-                    status_code=409,
-                    detail={
-                        "code": "roll_invalidation_confirmation_required",
-                        "message": "後続ターンの無効化には確認が必要です",
+                raise ApiError(
+                    409, "roll_invalidation_confirmation_required",
+                    "後続操作の無効化には確認が必要です",
+                    {
                         "invalidatedTurns": error.invalidated_turns,
+                        "invalidatedOperations": error.invalidated_operations,
                     },
                 ) from error
             except (ValueError, RuntimeError) as error:
-                raise HTTPException(status_code=409, detail=str(error)) from error
+                raise ApiError(409, "roll_correction_failed", str(error)) from error
             save_or_503(game)
             return game.to_dict()
 
@@ -273,7 +342,9 @@ def create_app(
             require_ended_confirmation(game, request.confirm_ended_game)
             snapshot = repo.snapshot(game_id, request.target_state_version)
             if snapshot is None:
-                raise HTTPException(status_code=404, detail="スナップショットが見つかりません")
+                raise ApiError(
+                    404, "snapshot_not_found", "スナップショットが見つかりません"
+                )
             _apply_action(lambda: game.restore_from(snapshot))
             save_or_503(game)
             return game.to_dict()
@@ -291,7 +362,7 @@ def create_app(
                 "undo": game.undo, "redo": game.redo,
             }
             if action not in actions:
-                raise HTTPException(status_code=404, detail="操作が見つかりません")
+                raise ApiError(404, "game_action_not_found", "操作が見つかりません")
             if action in {"undo", "redo"}:
                 require_ended_confirmation(game, request.confirm_ended_game)
             _apply_action(actions[action])
@@ -303,9 +374,12 @@ def create_app(
     return application
 
 
-repository_root = Path(__file__).resolve().parents[4]
-database_path = Path(os.environ.get(
-    "COMMENTATOR_DB_PATH", str(repository_root / "var" / "commentator.sqlite3")
-))
-app = create_app(repository=SQLiteGameRepository(database_path))
+def create_production_app() -> FastAPI:
+    """Build the production app only when the ASGI server invokes its factory."""
+    repository_root = Path(__file__).resolve().parents[4]
+    configure_logging(load_log_config(default_directory=repository_root / "var" / "log"))
+    database_path = Path(os.environ.get(
+        "COMMENTATOR_DB_PATH", str(repository_root / "var" / "commentator.sqlite3")
+    ))
+    return create_app(repository=SQLiteGameRepository(database_path))
 

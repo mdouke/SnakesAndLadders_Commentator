@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -18,7 +18,14 @@ class PlayerCreate(RequestModel):
 
 
 class GameCreate(RequestModel):
-    players: list[PlayerCreate] = Field(min_length=2)
+    players: list[PlayerCreate] = Field(min_length=2, max_length=6)
+
+    @model_validator(mode="after")
+    def unique_colors(self) -> GameCreate:
+        colors = [player.color.casefold() for player in self.players]
+        if len(colors) != len(set(colors)):
+            raise ValueError("プレイヤーの色は重複できません")
+        return self
 
 
 class RollCreate(RequestModel):

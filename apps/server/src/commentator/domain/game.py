@@ -48,9 +48,24 @@ class OperationType(StrEnum):
 
 
 class CorrectionConfirmationRequired(ValueError):
-    def __init__(self, invalidated_turns: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        invalidated_turns: list[dict[str, Any]],
+        invalidated_operations: list[dict[str, Any]],
+    ) -> None:
         super().__init__("後続ターンの無効化には確認が必要です")
         self.invalidated_turns = invalidated_turns
+        self.invalidated_operations = invalidated_operations
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectionInvalidations:
+    turns: list[dict[str, Any]]
+    operations: list[dict[str, Any]]
+
+    @property
+    def requires_confirmation(self) -> bool:
+        return bool(self.turns or self.operations)
 
 
 @dataclass(slots=True)
@@ -244,9 +259,14 @@ class GameState:
     def __post_init__(self) -> None:
         if len(self.players) < 2:
             raise ValueError("プレイヤーは2人以上必要です")
+        if len(self.players) > 6:
+            raise ValueError("プレイヤーは6人以下にしてください")
         ids = [player.id for player in self.players]
         if len(ids) != len(set(ids)):
             raise ValueError("プレイヤーIDが重複しています")
+        colors = [player.color.casefold() for player in self.players]
+        if len(colors) != len(set(colors)):
+            raise ValueError("プレイヤーの色は重複できません")
         if self.initial_players is None:
             self.initial_players = [
                 PlayerState(
@@ -511,11 +531,15 @@ class GameState:
             turn_id, value, reason=reason, operator=operator,
             now=now, branch_id=branch_id,
         )
-        if invalidated and not confirm_invalidated_rolls:
-            raise CorrectionConfirmationRequired(invalidated)
+        if invalidated.requires_confirmation and not confirm_invalidated_rolls:
+            raise CorrectionConfirmationRequired(
+                invalidated.turns, invalidated.operations
+            )
         self._adopt(working)
 
-    def preview_roll_correction(self, turn_id: str, value: int) -> list[dict[str, Any]]:
+    def preview_roll_correction(
+        self, turn_id: str, value: int
+    ) -> CorrectionInvalidations:
         working = deepcopy(self)
         return working._correct_roll_in_place(
             turn_id, value, reason="dry_run", operator="dry_run"
@@ -524,7 +548,7 @@ class GameState:
     def _correct_roll_in_place(
         self, turn_id: str, value: int, *, reason: str, operator: str,
         now: datetime | None = None, branch_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> CorrectionInvalidations:
         target_turn = next((turn for turn in self.turns if turn.id == turn_id), None)
         if target_turn is None:
             raise ValueError("訂正対象のターンが見つかりません")
@@ -562,7 +586,8 @@ class GameState:
         ]
         turn_by_id = {turn.id: turn for turn in self.turns}
         activated: list[str] = []
-        invalidated: list[dict[str, Any]] = []
+        invalidated_turns: list[dict[str, Any]] = []
+        invalidated_operations: list[dict[str, Any]] = []
         for event in suffix:
             event.active = False
         self._rebuild()
@@ -571,6 +596,46 @@ class GameState:
             if event.id == target.id:
                 payload["value"] = value
                 payload.pop("turnId", None)
+            elif self.status is GameStatus.COMPLETED:
+                if event.type is OperationType.ROLL:
+                    original_turn = turn_by_id.get(str(payload.get("turnId")))
+                    invalidated_turns.append({
+                        "eventId": event.id,
+                        "turnId": payload.get("turnId"),
+                        "turnNumber": (
+                            original_turn.number if original_turn else event.timeline_index
+                        ),
+                        "playerId": str(payload.get("playerId", "")),
+                        "value": int(payload["value"]),
+                        "reason": "game_completed",
+                    })
+                else:
+                    invalidated_operations.append({
+                        "eventId": event.id,
+                        "timelineIndex": event.timeline_index,
+                        "type": event.type.value,
+                        "reason": "game_completed",
+                    })
+                continue
+            elif event.type is OperationType.POSITION_CORRECTION:
+                corrected_player_id = str(payload.get("playerId", ""))
+                corrected_player = next(
+                    (
+                        player for player in self.players
+                        if player.id == corrected_player_id
+                    ),
+                    None,
+                )
+                if corrected_player is not None and corrected_player.reached_goal:
+                    invalidated_operations.append({
+                        "eventId": event.id,
+                        "timelineIndex": event.timeline_index,
+                        "type": event.type.value,
+                        "playerId": corrected_player_id,
+                        "position": int(payload["position"]),
+                        "reason": "player_already_finished",
+                    })
+                    continue
             if event.type is OperationType.ROLL and event.id != target.id:
                 expected_player_id = str(payload.get("playerId", ""))
                 expected_player = next(
@@ -583,7 +648,7 @@ class GameState:
                     invalidation_reason = "player_already_finished"
                 if invalidation_reason is not None:
                     original_turn = turn_by_id.get(str(payload.get("turnId")))
-                    invalidated.append({
+                    invalidated_turns.append({
                         "eventId": event.id,
                         "turnId": payload.get("turnId"),
                         "turnNumber": (
@@ -608,7 +673,8 @@ class GameState:
             {
                 "turnId": turn_id, "beforeValue": target_turn.roll, "value": value,
                 "reason": reason, "operator": operator,
-                "invalidatedRolls": deepcopy(invalidated),
+                "invalidatedRolls": deepcopy(invalidated_turns),
+                "invalidatedOperations": deepcopy(invalidated_operations),
             },
             occurred_at, branch_id=new_branch, timeline_index=None, active=False,
         )
@@ -622,7 +688,7 @@ class GameState:
             branch_before=branch_before,
             branch_after=new_branch,
         ))
-        return invalidated
+        return CorrectionInvalidations(invalidated_turns, invalidated_operations)
 
     def _adopt(self, other: GameState) -> None:
         self.players = other.players

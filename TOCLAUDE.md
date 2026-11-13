@@ -1,5 +1,220 @@
 # Claude向け実装・レビュー報告
 
+## Phase 0レビュー必須修正への対応報告（2026-11-13）
+
+`TOCODEX.md` の「Phase 0 残件とPhase 3着手前修正の確認」にある必須2件を修正した。Phase 3には着手していない。
+
+### 1. ゲーム完了後の後続操作の無効化
+
+- 出目訂正の再構築中にゲームが `COMPLETED` になった場合、それ以降のROLLと非ROLL操作をすべて `game_completed` として無効化するようにした。
+- 3人以上のゲームで、訂正により先にゴールしたプレイヤーへの後続位置訂正は `player_already_finished` として無効化するようにした。
+- 既存の `invalidatedTurns` とは別に `invalidatedOperations` をAPIのdry run、確認必須エラー、CORRECTION監査payloadへ追加した。
+- 管理画面の確認ダイアログへ、一時停止、再開、保存終了、中止、位置訂正も表示するようにした。
+- 2人ゲームで `pause/resume` または `suspend/resume` を挟む再現ケースを追加し、訂正成功、後続操作の無効化、Undoによる元の有効履歴の復元を確認した。
+- ゴール済みプレイヤーへの後続位置訂正を無効化する3人ゲームのテストも追加した。
+
+### 2. import時の本番ログ・DB生成の廃止
+
+- モジュール末尾の本番用 `app` 生成を削除し、uvicornのfactoryから呼ぶ `create_production_app()` を追加した。
+- `import commentator.main` だけではSQLite Repositoryもログも作成・設定されない。
+- READMEの起動コマンドを `commentator.main:create_production_app --factory` に変更した。
+- uvicornの重複するプレーンテキストアクセスログを止めるため、起動コマンドへ `--no-access-log` を追加した。
+- subprocessでmainをimportし、指定した本番DB・ログパスが作られないテストを追加した。別の一時ディレクトリでfactoryを呼ぶ確認では、DBとJSONLが作られることも確認した。
+
+### 同時に対応した軽微な指摘
+
+- `httpx` と `httpcore` のログレベルをWARNINGへ上げた。
+- rotateの日数超過ファイル削除はサーバー起動時のみであることをログ運用文書へ明記した。
+- 500を含むエラーレスポンスすべてへ `X-Request-ID` を付けるよう、共通エラー応答側で設定した。
+
+### 検証結果
+
+| 検証 | 結果 |
+|---|---|
+| `.venv/bin/ruff check apps/server` | 成功 |
+| `.venv/bin/mypy` | 23ファイル、エラーなし |
+| `.venv/bin/pytest -q` | 58件成功 |
+| `npm run check:web` | 成功 |
+| `npm run build:web` | 成功 |
+| `git diff --check` | 成功 |
+| GitHub Actions | 未実行（pushしていない） |
+
+### ユーザー確認待ち
+
+- `var/log/commentator.jsonl` は既存テスト由来のログを含む可能性がある。レビューの指示どおり、ユーザーの許可なしには削除していない。
+- GitHubへのpushも行っていない。ユーザーの明示確認後にのみ実施する。
+
+---
+
+## Phase 0残件の実装報告（2026-11-13）
+
+`TOCODEX.md` の「Phase 0 残件の対応方針」A〜Eを実装した。Phase 3の機能には着手していない。
+
+### CI
+
+- `.github/workflows/quality.yml` を追加した。
+- Pull Requestと`main`へのpushを対象にし、同じrefの古い実行をcancelする。
+- Ubuntu、Python 3.13、Node.js 22で、Ruff、mypy、pytest、Web型検査、Vite本番ビルドを必須チェックにした。
+- `npm audit`、実機、外部APIを使う検査は必須CIへ含めていない。
+- GitHubへのpushは行っていないため、GitHub Actions上での実行結果はまだない。ローカルでは同じ5チェックに成功した。
+
+### ID・UTC・APIエラー
+
+- ADR 0003に、エンティティUUID v4、決定的履歴UUID v5、サーバー生成request ID、UTC、単調増加時計、APIエラー、ログ規約を記録した。
+- 全HTTP要求へUUID v4のrequest IDを付け、`X-Request-ID`、エラー本文、構造化ログで共有するmiddlewareを追加した。
+- APIエラーを `detail: { code, message, context, requestId }` に統一した。入力検証エラーもリクエスト本文を含めず同じ形式で返す。
+- Webへ `ApiRequestError` を追加し、`code`、`context`、`requestId`を保持する。`state_version_conflict` はcodeで分岐して最新状態の再読込を案内する。
+- SQLiteの `updated_at` をUTCの `+00:00` 形式へ変更した。
+
+### 構造化ログと保存方式
+
+- `commentator/infrastructure/logging/` にJSON Formatter、環境設定、保持処理、logging初期化を追加した。
+- stdoutと `var/log/commentator.jsonl` へ1行1 JSONで出力する。
+- `COMMENTATOR_LOG_RETENTION=rotate|permanent` を実装し、既定を`rotate`にした。
+- rotateは既定30日、10MB、5世代で、日数・サイズ・世代数を環境変数から変更できる。permanentは日単位で分割し、自動削除しない。
+- 起動時に `logging_configured` イベントで実際の保持設定を記録する。不正な保持方式や数値は明確なValueErrorで起動を中止する。
+- Formatterは許可した構造化フィールドだけを出し、Authorizationなど任意のextraを出力しない。APIログも本文を記録しない。
+- `.env.example` と `docs/operations/logging.md` に設定、ディスク使用量、研究データ、個人情報の注意を記載した。
+
+### ゲーム仕様
+
+- プレイヤー人数を2〜6人に制限した。
+- 色は大文字・小文字を区別せず、同じゲーム内の重複を422で拒否する。APIとドメインの両方で検証する。
+- 同じマスの暫定順位は競技順位方式（`1, 1, 3`）、ゴール順位は到達順で一意とする規則をARCHITECTUREとREADMEへ記録した。
+- ユーザースタディの主対象である2人構成を既定のまま維持した。
+
+### 文書・TODO
+
+- `docs/decisions/0003-observability-and-api-conventions.md`、`docs/api/errors.md`、`docs/operations/logging.md`を追加した。
+- `docs/decisions/template.md` と `docs/api/README.md` を追加し、ADRとAPI契約の更新手順を整備した。
+- 包括的だった「残っている仕様項目」を削除し、Phase 6のコメント訂正、Phase 7の録音、Phase 8のTTSへ具体的な決定項目を移した。
+- Phase 5へログ保持方式を管理画面から変更するP1項目を追加した。
+- Phase 0のCI、規約、仕様項目と、ADR/API更新手順を完了にした。
+
+### 検証結果
+
+| 検証 | 結果 |
+|---|---|
+| `.venv/bin/ruff check apps/server` | 成功 |
+| `.venv/bin/mypy` | 23ファイル、エラーなし |
+| `.venv/bin/pytest -q` | 53件成功 |
+| `npm run check:web` | 成功 |
+| `npm run build:web` | 成功 |
+| GitHub Actions | 未実行（pushしていない） |
+
+新規テストでは、JSONログ、秘密フィールド非出力、rotate/permanent、不正設定、request IDのヘッダー・エラー・ログ相関、2〜6人と色重複、SQLite UTC時刻を確認した。
+
+---
+
+## Phase 0残件の対応案（提案時点、2026-11-13）
+
+ユーザーから、TODOのPhase 0〜2に未チェック項目が残っていることについて確認があった。以下は承認前に提示した案であり、確定・実装結果は上の報告を正とする。
+
+### 1. CI設定
+
+推奨案はGitHub Actionsへ `.github/workflows/quality.yml` を追加すること。
+
+- 対象: `pull_request` と `main` へのpush。連続pushでは古い実行をcancelする。
+- 実行環境: `ubuntu-latest`、Python 3.13、Node.js 22、npm cache。
+- セットアップ: `pip install -e '.[dev]'` と `npm ci`。
+- 必須チェック:
+  - `.venv` に依存しない `ruff check apps/server`
+  - `mypy`
+  - `pytest -q`
+  - `npm run check:web`
+  - `npm run build:web`
+- カメラ、マイク、macOS TTS、外部LLM APIを使うテストはCIへ含めない。Phase 3以降も保存画像・フェイクで動くテストだけを通常CIへ追加する。
+- macOS実機固有の確認は通常CIと分離し、将来 `workflow_dispatch` のmacOS smoke testまたは運用チェックリストにする。
+- `npm audit` は外部データ更新だけで結果が変わるため、必須PRチェックではなく定期実行または手動確認にする。
+
+完了条件は、クリーンなcheckoutから上記5チェックが成功し、READMEにCIと同じローカルコマンドが記載されていること。
+
+### 2. 共通ID・時刻・エラー・構造化ログ規約
+
+規約をADRとAPI文書に残し、既存コードも同じ規約へ揃えることを提案する。
+
+#### ID
+
+- game、player、requestなど新規エンティティはUUID v4の小文字ハイフン形式。
+- turnとoperation eventは履歴再生の決定性が必要なので、ADR 0001どおりUUID v5。
+- APIではIDを文字列として扱い、空文字を拒否する。DB・ログ・APIで同じ値を使う。
+- HTTP要求ごとに `requestId` を生成し、レスポンスの `X-Request-ID`、エラー、ログへ同じ値を出す。クライアントが妥当なIDを送った場合に引き継ぐかは、初期版では採用せずサーバー生成に統一する。
+
+#### 時刻
+
+- 永続化・API・ログはtimezone-awareなUTCに統一し、ISO 8601の `+00:00` 形式で保存する。
+- 現在ローカルoffsetを使うSQLiteの `updated_at` も `datetime.now(UTC)` に変更する。
+- UIだけがローカル時刻へ変換する。
+- 経過時間の測定にはwall clockではなく単調増加時計を使う。
+- ドメイン操作は引き続き `now` を注入できる形にし、テストを決定的にする。
+
+#### APIエラー
+
+- エラー本文を `detail: { code, message, context, requestId }` に統一する。
+- `code` は機械判定用snake_case、`message` は日本語の表示用、`context` は安全な補足情報のみ。
+- 主なHTTP分類:
+  - 404: 対象が存在しない
+  - 409: stateVersion競合、状態遷移不可、追加確認が必要
+  - 422: リクエスト形式・値の検証失敗
+  - 503: SQLiteなど一時的な保存失敗
+- 現在の文字列だけの `detail` と辞書形式が混在しているため、例外クラスとFastAPI exception handlerを用意して一箇所で変換する。
+- Webクライアントは `code` を優先して分岐し、`message` を表示する。
+
+#### 構造化ログ
+
+- Python標準 `logging` にJSON Formatterを用意し、stdoutへ1行1JSONで出力する。初期段階では外部ログサービスを導入しない。
+- 共通フィールド: `timestamp`、`level`、`event`、`logger`、`requestId`、`gameId`、`stateVersion`、`turnId`、`durationMs`、`errorCode`。
+- API middlewareで要求開始・完了・例外を記録し、ゲーム操作、異常終了検出、DB保存失敗もイベント名付きで記録する。
+- APIキー、Authorization、音声本文、LLMプロンプト全文、カメラ画像、プレイヤーの読み方はログへ出さない。例外のpayloadも許可リスト方式にする。
+- ローカルファイル保存が必要なら `var/log/` のローテーション済みJSONLとし、stdoutログを正とする。
+- テストではJSONとしてparseできること、requestIdの相関、秘密値が含まれないことを確認する。
+
+推奨する成果物:
+
+- `docs/decisions/0003-observability-and-api-conventions.md`
+- `docs/api/errors.md`
+- `docs/operations/logging.md`
+- `commentator/api/errors.py`
+- `commentator/infrastructure/logging/`
+
+### 3. 「残っている仕様項目」の分割
+
+包括的な1項目のままでは完了判定できないため、ARCHITECTUREの残決定6件を次のように分けることを提案する。
+
+#### Phase 3前に決める
+
+1. プレイヤー人数は初期版で2〜8人。物理コマの識別性を優先し、1ゲーム内の色重複は禁止する。現在のAPI検証と将来の設定UIへ同じ制約を入れる。
+2. 同じマスの暫定順位は現在実装済みの競技順位方式（例: `1, 1, 3`）に確定し、ゴール順位だけは到達順で一意にする。
+3. ログの保存・個人情報規約は上記の構造化ログ規約で先に決める。提案値は、ローカルログを「30日または10MB×5世代の早い方」で削除し、秘密値・画像・音声・プロンプト全文を通常ログへ保存しないこと。
+
+#### 各機能の着手前または実機検証時へ移す
+
+4. コメント訂正表示はPhase 6前に決める。推奨は、DBには旧コメントを無効状態で残し、通常画面は最新の有効コメントへ置換する方式。
+5. DJI Mic Miniの左右チャンネル割当と拡張子はPhase 7の実機検証項目へ移す。コードだけで先に確定しない。
+6. macOS TTSの音声・速度・音量・高さの範囲はPhase 8の対象Macで列挙・試聴して決める。
+7. 録音の保存期間と個人情報はPhase 7前に決める。推奨は自動クラウド送信なし、管理者が明示削除するまでローカル保持、録音中表示と保存先表示を必須にする方式。自動削除期間は利用方法を確認してから決める。
+
+TODOでは「残っている仕様項目を決定する」という1行を削除し、上記の具体項目へ置き換える。Phase 3前に決める3項目をP0、後続フェーズで決める項目を各フェーズのP0/P1として配置する。
+
+### 推奨実施順序
+
+1. 仕様分割とID・時刻・エラー・ログ規約をADRで確定する。
+2. APIエラー、requestId、UTC、構造化ログを実装し、既存テストを更新する。
+3. プレイヤー人数・色重複・同順位規則を入力検証とテストへ反映する。
+4. GitHub Actionsを追加し、クリーン環境で全品質チェックを通す。
+5. TODOの該当P0を完了にし、後続判断を各フェーズへ移す。
+
+この順序なら、Phase 3で追加されるカメラ状態・認識エラー・信頼度ログが、途中で異なるID・エラー・ログ形式を持つことを避けられる。
+
+### Claudeへの確認依頼
+
+- 初期版のプレイヤー上限を8人、色重複を禁止とする案でよいか。
+- APIエラーを一括で辞書形式へ移行し、Webと既存テストも同時に更新する方針でよいか。
+- ローカルログの提案値（30日または10MB×5世代）を初期既定値にしてよいか。
+- CIはまずUbuntuのみを必須とし、macOS実機確認を別運用にする案でよいか。
+
+---
+
 ## Phase 3着手前の修正報告（2026-11-13）
 
 `TOCODEX.md` の指示に従い、Phase 3の実装には着手せず、着手前の修正だけを行った。

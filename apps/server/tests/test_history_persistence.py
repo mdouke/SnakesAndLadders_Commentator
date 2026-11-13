@@ -233,6 +233,75 @@ def test_roll_correction_skips_finished_player_and_preserves_other_rolls() -> No
     assert [turn.roll for turn in two_players.turns] == [2, 3]
 
 
+@pytest.mark.parametrize("interruption", ["pause", "suspend"])
+def test_roll_correction_invalidates_operations_after_completion_and_undoes(
+    interruption: str,
+) -> None:
+    state = game()
+    state.start(now=NOW)
+    state.correct_position("a", 79, reason="setup", operator="test", now=NOW)
+    target_turn = state.roll(2, now=NOW).id
+    state.roll(3, now=NOW)
+    if interruption == "pause":
+        state.pause(now=NOW)
+    else:
+        state.suspend(now=NOW)
+    state.resume(now=NOW)
+    state.roll(4, now=NOW)
+    original_turns = [turn.to_dict() for turn in state.turns]
+    original_types = [event.type for event in state._active_timeline()]
+
+    with pytest.raises(CorrectionConfirmationRequired) as required:
+        state.correct_roll(target_turn, 1, reason="fix", operator="test", now=NOW)
+    assert [item["value"] for item in required.value.invalidated_turns] == [3, 4]
+    assert [item["type"] for item in required.value.invalidated_operations] == [
+        interruption, "resume",
+    ]
+
+    state.correct_roll(
+        target_turn, 1, reason="fix", operator="test", now=NOW,
+        confirm_invalidated_rolls=True,
+    )
+    assert state.status is GameStatus.COMPLETED
+    assert [turn.roll for turn in state.turns] == [1]
+    correction = next(
+        event for event in reversed(state.operation_events)
+        if event.type is OperationType.CORRECTION
+    )
+    assert [item["type"] for item in correction.payload["invalidatedOperations"]] == [
+        interruption, "resume",
+    ]
+
+    state.undo(now=NOW)
+    assert [turn.to_dict() for turn in state.turns] == original_turns
+    assert [event.type for event in state._active_timeline()] == original_types
+    assert state.to_dict()["status"] == GameStatus.IN_PROGRESS.value
+
+
+def test_roll_correction_invalidates_position_correction_for_finished_player() -> None:
+    state = GameState.create(load_board_preset(), [
+        PlayerState("a", "A", "red"),
+        PlayerState("b", "B", "blue"),
+        PlayerState("c", "C", "green"),
+    ])
+    state.start(now=NOW)
+    state.correct_position("a", 79, reason="setup", operator="test", now=NOW)
+    target_turn = state.roll(2, now=NOW).id
+    state.roll(3, now=NOW)
+    state.correct_position("a", 50, reason="physical board", operator="test", now=NOW)
+
+    with pytest.raises(CorrectionConfirmationRequired) as required:
+        state.correct_roll(target_turn, 1, reason="fix", operator="test", now=NOW)
+    assert required.value.invalidated_operations == [{
+        "eventId": required.value.invalidated_operations[0]["eventId"],
+        "timelineIndex": required.value.invalidated_operations[0]["timelineIndex"],
+        "type": "position_correction",
+        "playerId": "a",
+        "position": 50,
+        "reason": "player_already_finished",
+    }]
+
+
 def test_roll_correction_rejects_cancelled_goal_but_normal_change_succeeds() -> None:
     state = GameState.create(load_board_preset(), [
         PlayerState("a", "A", "red", position=99),
@@ -447,7 +516,7 @@ def test_completed_game_roll_correction_cannot_cancel_goal() -> None:
             payload["confirmEndedGame"] = True
             response = await client.post(path, json=payload)
             assert response.status_code == 409
-            assert "後続のターンをUndo" in response.json()["detail"]
+            assert "後続のターンをUndo" in response.json()["detail"]["message"]
 
     asyncio.run(scenario())
 
