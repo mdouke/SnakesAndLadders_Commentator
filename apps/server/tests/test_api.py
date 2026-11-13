@@ -49,13 +49,15 @@ def test_create_start_and_submit_manual_roll(api: Callable[..., Response]) -> No
     assert game["status"] == "ready"
     assert len(game["players"]) == 2
 
-    started = api("POST", f"/api/games/{game['id']}/start")
+    started = api(
+        "POST", f"/api/games/{game['id']}/start", json={"expectedStateVersion": 0}
+    )
     assert started.status_code == 200
     assert started.json()["status"] == "in_progress"
 
     rolled = api(
         "POST", f"/api/games/{game['id']}/rolls",
-        json={"value": 1, "expectedTurnNumber": 0},
+        json={"value": 1, "expectedStateVersion": 1, "expectedTurnNumber": 0},
     )
     assert rolled.status_code == 200
     state = rolled.json()
@@ -79,11 +81,12 @@ def test_concurrent_duplicate_rolls_only_advance_one_turn(api: Callable[..., Res
     game = api("POST", "/api/games", json={"players": [
         {"name": "A", "color": "red"}, {"name": "B", "color": "blue"}
     ]}).json()
-    api("POST", f"/api/games/{game['id']}/start")
+    api("POST", f"/api/games/{game['id']}/start", json={"expectedStateVersion": 0})
 
     def roll() -> int:
         return api("POST", f"/api/games/{game['id']}/rolls",
-                       json={"value": 1, "expectedTurnNumber": 0}).status_code
+                       json={"value": 1, "expectedStateVersion": 1,
+                             "expectedTurnNumber": 0}).status_code
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         statuses = list(pool.map(lambda _: roll(), range(2)))

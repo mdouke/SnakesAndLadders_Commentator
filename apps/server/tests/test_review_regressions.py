@@ -80,15 +80,19 @@ def test_factory_isolation_validation_and_invalid_transitions() -> None:
             assert created["players"][0]["name"] == "A"
             assert created["players"][0]["spokenName"] == "エー"
             path = f"/api/games/{created['id']}"
-            assert (await client.post(path + "/resume")).status_code == 409
-            assert (await client.post(path + "/abort")).status_code == 200
-            assert (await client.post(path + "/start")).status_code == 409
+            version = {"expectedStateVersion": 0}
+            assert (await client.post(path + "/resume", json=version)).status_code == 409
+            assert (await client.post(path + "/abort", json=version)).status_code == 200
+            assert (await client.post(
+                path + "/start", json={"expectedStateVersion": 1}
+            )).status_code == 409
             created = (await client.post("/api/games", json=payload)).json()
             path = f"/api/games/{created['id']}"
-            await client.post(path + "/start")
-            await client.post(path + "/pause")
+            await client.post(path + "/start", json={"expectedStateVersion": 0})
+            await client.post(path + "/pause", json={"expectedStateVersion": 1})
             response = await client.post(path + "/rolls",
-                                         json={"value": 1, "expectedTurnNumber": 0})
+                                         json={"value": 1, "expectedStateVersion": 2,
+                                               "expectedTurnNumber": 0})
             assert response.status_code == 409
             assert repo.current() is not None
             payload["players"][0]["name"] = "   "
