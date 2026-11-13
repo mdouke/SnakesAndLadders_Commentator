@@ -53,17 +53,42 @@
 .venv/bin/python -m commentator.services.vision.evaluation \
   study-video.mp4 study-video.labels.json \
   --settings var/vision-settings.json \
+  --config var/recognition-config.json \
   --output var/evaluations/study-video.report.json
 ```
 
-`--settings`は省略できる。指定した場合は保存済みROIを映像にも適用する。
+`--settings`と`--config`は省略できる。`--settings`は保存済みROI、`--config`は次のような認識条件を適用する。省略したキーには既定値を使う。
+
+```json
+{
+  "movementThreshold": 0.08,
+  "stationaryThreshold": 0.02,
+  "stationaryFrames": 3,
+  "consecutiveValueFrames": 3,
+  "candidateWindowFrames": 5,
+  "removalFrames": 3,
+  "automaticThreshold": 0.85,
+  "confirmationThreshold": 0.60,
+  "recognitionTimeoutSeconds": 10.0
+}
+```
 
 レポートには次を含む。
 
-- 正しい自動確定または確認候補があった投擲の割合（認識率）
+- 最初の判断が正しい自動確定または確認候補だった投擲の割合（認識率）
 - 誤った自動確定と投擲区間外の自動確定の割合（誤確定率）
 - 投擲開始から最初の正しい判断までの平均・中央値・95パーセンタイル
-- 投擲ごとの正誤、確認待ちの有無、確定時間
+- 投擲ごとの最初の判断、正誤、確認待ちの有無、確定時間
+- しきい値未満で破棄した候補と、その信頼度内訳
 - 判断ごとの総合信頼度と4つの内訳
+- 認識設定、ROI、FPS、総フレーム数、映像時間、評価日時（UTC）
 
 評価ツールは映像を読み取るだけで、映像やフレームを通常ログまたはレポートへ埋め込まない。
+
+## 初回実機評価の条件
+
+- 所要時間: 45〜60分
+- 投擲回数: 最初に接続・ROI・切断復旧を確認した後、評価用に60回。各面が極端に少ない場合は、各面が最低5回になるまで追加する。
+- 保存先: `recordings/dice-evaluation/YYYYMMDD/`。このディレクトリはGit管理対象外である。
+- 画角: サイコロと黒い背景だけを基本とし、顔、名札、画面、書類などの個人情報を映さない。手が入る条件は重複防止と除去判定の確認に必要な範囲だけにする。
+- 正解ラベル: 各投擲の開始・終了時刻と実際の出目を、映像と同じ時間軸で記録する。

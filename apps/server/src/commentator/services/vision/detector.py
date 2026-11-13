@@ -59,7 +59,9 @@ class DiceDetector:
         self.white_threshold = white_threshold
         self.last_white_threshold = 0.0
 
-    def detect(self, frame: np.ndarray) -> tuple[list[DieDetection], np.ndarray]:
+    def detect(
+        self, frame: np.ndarray
+    ) -> tuple[list[DieDetection], np.ndarray, int]:
         if frame is None or frame.size == 0:
             raise ValueError("入力画像が空です")
 
@@ -81,6 +83,7 @@ class DiceDetector:
         contours, _ = cv2.findContours(white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         image_area = float(gray.shape[0] * gray.shape[1])
         detections: list[DieDetection] = []
+        rejected_count = 0
 
         for contour in contours:
             area = cv2.contourArea(contour)
@@ -108,6 +111,7 @@ class DiceDetector:
             pip_local = self._find_pips(warped)
             value = len(pip_local)
             if not 1 <= value <= 6:
+                rejected_count += 1
                 continue
 
             inverse = np.linalg.inv(matrix)
@@ -124,7 +128,7 @@ class DiceDetector:
             )
 
         detections.sort(key=lambda item: (item.center[1], item.center[0]))
-        return detections, white
+        return detections, white, rejected_count
 
     @staticmethod
     def _warp_die(gray: np.ndarray, box: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

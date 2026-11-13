@@ -18,7 +18,7 @@ from .settings import NormalizedRoi
 
 
 class FrameDetector(Protocol):
-    def detect(self, frame: Frame) -> tuple[list[DieDetection], Frame]: ...
+    def detect(self, frame: Frame) -> tuple[list[DieDetection], Frame, int]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +26,7 @@ class RecognitionFrameResult:
     snapshot: RecognitionSnapshot
     motion_score: float
     detections: tuple[DieDetection, ...]
+    rejected_count: int
 
 
 class DiceRecognitionPipeline:
@@ -48,7 +49,7 @@ class DiceRecognitionPipeline:
             if self._previous_frame is not None
             else 0.0
         )
-        detections, _ = self.detector.detect(cropped)
+        detections, _, rejected_count = self.detector.detect(cropped)
         diagonal = hypot(cropped.shape[1], cropped.shape[0])
         observations = tuple(
             DieObservation(
@@ -62,10 +63,13 @@ class DiceRecognitionPipeline:
             monotonic_time=monotonic_time,
             motion_score=motion_score,
             detections=observations,
+            rejected_count=rejected_count,
             roi_diagonal=diagonal,
         ))
         self._previous_frame = cropped.copy()
-        return RecognitionFrameResult(snapshot, motion_score, tuple(detections))
+        return RecognitionFrameResult(
+            snapshot, motion_score, tuple(detections), rejected_count
+        )
 
     def camera_disconnected(self, *, monotonic_time: float) -> RecognitionSnapshot:
         self._previous_frame = None

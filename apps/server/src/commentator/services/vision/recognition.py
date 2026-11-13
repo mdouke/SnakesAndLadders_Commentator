@@ -76,6 +76,7 @@ class FrameObservation:
     monotonic_time: float
     motion_score: float
     detections: tuple[DieObservation, ...] = ()
+    rejected_count: int = 0
     roi_diagonal: float = 1.0
     camera_connected: bool = True
 
@@ -84,6 +85,8 @@ class FrameObservation:
             raise ValueError("動き量は0〜1で指定してください")
         if self.roi_diagonal <= 0:
             raise ValueError("ROIの対角長は正の値にしてください")
+        if self.rejected_count < 0:
+            raise ValueError("却下候補数は0以上にしてください")
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,11 +111,19 @@ class Confirmation:
 
 
 @dataclass(frozen=True, slots=True)
+class DiscardedCandidate:
+    value: int
+    confidence: ConfidenceBreakdown
+    monotonic_time: float
+
+
+@dataclass(frozen=True, slots=True)
 class RecognitionSnapshot:
     state: RecognitionState
     candidate_value: int | None
     confidence: ConfidenceBreakdown | None
     confirmation: Confirmation | None
+    discarded_candidate: DiscardedCandidate | None
     error_code: str | None = None
 
 
@@ -140,6 +151,7 @@ class DiceRecognitionSession:
         self._candidate_value: int | None = None
         self._confidence: ConfidenceBreakdown | None = None
         self._confirmation: Confirmation | None = None
+        self._discarded_candidate: DiscardedCandidate | None = None
         self._confirmation_counter = 0
         self._cycle_started_time: float | None = None
         self._last_observation_time: float | None = None
@@ -150,6 +162,7 @@ class DiceRecognitionSession:
         )
 
     def observe(self, frame: FrameObservation) -> RecognitionSnapshot:
+        self._discarded_candidate = None
         if (
             self._last_observation_time is not None
             and frame.monotonic_time < self._last_observation_time
@@ -164,7 +177,7 @@ class DiceRecognitionSession:
         if self.state is RecognitionState.CAMERA_ERROR:
             self._reset_cycle(RecognitionState.WAITING)
             return self.snapshot()
-        if frame.detections and self.state in {
+        if (frame.detections or frame.rejected_count) and self.state in {
             RecognitionState.MOVING,
             RecognitionState.STATIONARY,
             RecognitionState.CANDIDATE,
@@ -265,6 +278,7 @@ class DiceRecognitionSession:
             candidate_value=self._candidate_value,
             confidence=self._confidence,
             confirmation=self._confirmation,
+            discarded_candidate=self._discarded_candidate,
             error_code=error_code,
         )
 
@@ -284,7 +298,7 @@ class DiceRecognitionSession:
         if len(frame.detections) != 1:
             self._samples.clear()
             self._candidate_value = None
-            if not frame.detections:
+            if not frame.detections and frame.rejected_count == 0:
                 self._absence_count += 1
                 if self._absence_count >= self.config.removal_frames:
                     self._reset_cycle(RecognitionState.WAITING)
@@ -352,7 +366,9 @@ class DiceRecognitionSession:
         elif total >= self.config.confirmation_threshold:
             self.state = RecognitionState.NEEDS_CONFIRMATION
         else:
+            discarded = DiscardedCandidate(candidate, self._confidence, monotonic_time)
             self._reset_cycle(RecognitionState.STATIONARY)
+            self._discarded_candidate = discarded
 
     def _observe_removal(self, frame: FrameObservation) -> None:
         if frame.motion_score >= self.config.movement_threshold:
@@ -400,6 +416,7 @@ class DiceRecognitionSession:
         self._candidate_value = None
         self._confidence = None
         self._confirmation = None
+        self._discarded_candidate = None
         self._samples.clear()
         self._recognition_error_code = None
         self._die_seen_in_cycle = False

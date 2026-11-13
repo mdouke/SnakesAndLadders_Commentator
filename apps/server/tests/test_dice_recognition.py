@@ -34,6 +34,7 @@ def frame(
     confidence: float = 0.98,
     center: tuple[float, float] = (50.0, 50.0),
     connected: bool = True,
+    rejected_count: int = 0,
 ) -> FrameObservation:
     detections = (
         (DieObservation(value, confidence, center),) if value is not None else ()
@@ -42,6 +43,7 @@ def frame(
         monotonic_time=time,
         motion_score=motion,
         detections=detections,
+        rejected_count=rejected_count,
         roi_diagonal=100.0,
         camera_connected=connected,
     )
@@ -66,9 +68,10 @@ def ready_session(*, detector_confidence: float = 0.98) -> DiceRecognitionSessio
 def test_saved_demo_image_detects_expected_dice_values() -> None:
     image = cv2.imread(str(FIXTURES / "demo_dice.png"))
     assert image is not None
-    detections, mask = DiceDetector().detect(image)
+    detections, mask, rejected_count = DiceDetector().detect(image)
     assert sorted(detection.value for detection in detections) == [1, 3, 4, 5, 6]
     assert mask.shape == image.shape[:2]
+    assert rejected_count == 0
 
 
 def test_detector_handles_all_values_and_rotations() -> None:
@@ -83,8 +86,17 @@ def test_detector_handles_all_values_and_rotations() -> None:
     ]
     for center, size, value, angle in specs:
         _draw_die(canvas, center, size, value, angle)
-    detected, _ = DiceDetector().detect(canvas)
+    detected, _, rejected_count = DiceDetector().detect(canvas)
     assert sorted(die.value for die in detected) == [1, 2, 3, 4, 5, 6]
+    assert rejected_count == 0
+
+
+def test_detector_reports_die_shape_with_invalid_pip_count() -> None:
+    canvas = np.zeros((300, 300, 3), dtype=np.uint8)
+    cv2.rectangle(canvas, (90, 90), (210, 210), (255, 255, 255), -1)
+    detected, _, rejected_count = DiceDetector().detect(canvas)
+    assert detected == []
+    assert rejected_count == 1
 
 
 def test_motion_score_and_roi_validation() -> None:
@@ -164,6 +176,44 @@ def test_recognition_timeout_allows_manual_recovery() -> None:
     assert manual.source is ConfirmationSource.MANUAL
 
 
+def test_unreadable_die_times_out_instead_of_returning_to_waiting() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        removal_frames=2,
+        recognition_timeout_seconds=3,
+    ))
+    session.observe(frame(0, 0.2, rejected_count=1))
+    session.observe(frame(1, 0.0, rejected_count=1))
+    session.observe(frame(2, 0.0, rejected_count=1))
+    session.observe(frame(2.5, 0.0, rejected_count=1))
+    result = session.observe(frame(3, 0.0, rejected_count=1))
+    assert result.state is RecognitionState.RECOGNITION_ERROR
+    assert result.error_code == "recognition_timeout"
+
+
+def test_empty_stationary_area_returns_to_waiting() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        removal_frames=2,
+    ))
+    session.observe(frame(0, 0.2))
+    session.observe(frame(1, 0.0))
+    session.observe(frame(2, 0.0))
+    assert session.state is RecognitionState.STATIONARY
+    session.observe(frame(3, 0.0))
+    result = session.observe(frame(4, 0.0))
+    assert result.state is RecognitionState.WAITING
+
+
+def test_below_threshold_candidate_is_exposed_as_discarded() -> None:
+    session = ready_session(detector_confidence=0.0)
+    result = session.observe(frame(5, 0.0, value=4, confidence=0.0))
+    assert result.state is RecognitionState.STATIONARY
+    assert result.discarded_candidate is not None
+    assert result.discarded_candidate.value == 4
+    assert result.discarded_candidate.confidence.total < 0.60
+
+
 def test_observation_time_must_be_monotonic() -> None:
     session = DiceRecognitionSession()
     session.observe(frame(2, 0.0))
@@ -238,8 +288,10 @@ def test_pipeline_connects_frame_motion_detection_and_confirmation() -> None:
     )
 
     class FixedDetector:
-        def detect(self, image: np.ndarray) -> tuple[list[DieDetection], np.ndarray]:
-            return [detection], np.zeros(image.shape[:2], dtype=np.uint8)
+        def detect(
+            self, image: np.ndarray
+        ) -> tuple[list[DieDetection], np.ndarray, int]:
+            return [detection], np.zeros(image.shape[:2], dtype=np.uint8), 0
 
     pipeline = DiceRecognitionPipeline(detector=FixedDetector())
     dark = np.zeros((10, 10, 3), dtype=np.uint8)
