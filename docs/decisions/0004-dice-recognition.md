@@ -17,17 +17,17 @@
 
 1. `waiting`: 次の投擲を待つ。ROI内の動きを検出すると `moving`。
 2. `moving`: サイコロが動いている。動き量が静止しきい値以下で所定フレーム続くと `stationary`。
-3. `stationary`: 単フレーム検出を収集する。同じ値が所定回続くと `candidate`。
-4. `candidate`: 時間方向を含む総合信頼度を計算する。
+3. `stationary`: 単フレーム検出を収集する。同じ値が所定回続いたフレーム内で `candidate` として総合信頼度を計算する。検出なしが除去判定回数続いた場合は、投げられていないか取り除かれたものとして `waiting` に戻る。
+4. `candidate`: 時間方向を含む総合信頼度を計算する内部的な遷移状態。次のフレームを待たずに、同じ `observe` 呼び出し内で次へ進む。
    - 自動確定しきい値以上なら `confirmed`。
    - 確認しきい値以上、自動確定未満なら `needs_confirmation`。
    - 確認しきい値未満なら観測を破棄して `stationary` に戻る。
 5. `confirmed`: 確定値を呼び出し側へ一度だけ通知する。ゲームへの登録完了通知後に `removal_wait`。
-6. `needs_confirmation`: 管理者が候補を承認、1〜6へ修正、または却下する。承認・修正は `confirmed`、却下は `stationary`。
+6. `needs_confirmation`: 管理者が候補を承認、1〜6へ修正、または却下する。承認・修正は `confirmed`。却下後は `candidate_rejected` として再移動または手動入力を待ち、同じ静止状態で確認を繰り返さない。
 7. `removal_wait`: 同じサイコロを再確定しない。サイコロが所定フレーム見えなくなると `waiting`。十分な再移動を検出した場合は新しい投擲として `moving`。
 8. `camera_error`: 切断またはフレーム取得失敗。再接続後は安全のため `waiting` から再開する。
 
-`confirmed` の通知にはセッション内で単調増加する `confirmationId` を付ける。同じIDを二度ゲームへ登録してはならない。
+`confirmed` の通知には、プロセス内で生成するセッションUUID v4とセッション内の単調増加連番を組み合わせた `confirmationId` を付ける。同じIDを二度ゲームへ登録してはならない。ゲームへの登録に失敗した場合は `discard_confirmation` で確定を取り消し、元候補を保持した `needs_confirmation` に戻して承認または修正を可能にする。
 
 ### 動きと静止
 

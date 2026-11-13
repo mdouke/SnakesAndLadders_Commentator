@@ -57,9 +57,9 @@ def ready_session(*, detector_confidence: float = 0.98) -> DiceRecognitionSessio
     session.observe(frame(1, 0.01))
     session.observe(frame(2, 0.01))
     assert session.state is RecognitionState.STATIONARY
-    for timestamp in (3, 4, 5):
+    for timestamp in (3, 4):
         session.observe(frame(timestamp, 0.0, value=4, confidence=detector_confidence))
-    assert session.snapshot().state is RecognitionState.CANDIDATE
+    assert session.snapshot().state is RecognitionState.STATIONARY
     return session
 
 
@@ -99,7 +99,7 @@ def test_motion_score_and_roi_validation() -> None:
 
 def test_automatic_confirmation_is_locked_until_removal() -> None:
     session = ready_session()
-    result = session.observe(frame(6, 0.0, value=4))
+    result = session.observe(frame(5, 0.0, value=4))
     assert result.state is RecognitionState.CONFIRMED
     assert result.confirmation is not None
     assert result.confirmation.value == 4
@@ -108,22 +108,22 @@ def test_automatic_confirmation_is_locked_until_removal() -> None:
 
     confirmation_id = result.confirmation.id
     session.acknowledge_committed(confirmation_id)
-    for timestamp in (7, 8, 9):
+    for timestamp in (6, 7, 8):
         assert session.observe(frame(timestamp, 0.0, value=4)).confirmation is not None
         assert session.state is RecognitionState.REMOVAL_WAIT
+    session.observe(frame(9, 0.0))
     session.observe(frame(10, 0.0))
-    session.observe(frame(11, 0.0))
     assert session.state is RecognitionState.WAITING
 
 
 def test_low_confidence_candidate_can_be_corrected_by_operator() -> None:
     session = ready_session(detector_confidence=0.20)
-    result = session.observe(frame(6, 0.0, value=4, confidence=0.20))
+    result = session.observe(frame(5, 0.0, value=4, confidence=0.20))
     assert result.state is RecognitionState.NEEDS_CONFIRMATION
     assert result.confidence is not None
     assert 0.60 <= result.confidence.total < 0.85
 
-    confirmation = session.confirm_candidate(value=5, monotonic_time=7)
+    confirmation = session.confirm_candidate(value=5, monotonic_time=6)
     assert confirmation.value == 5
     assert confirmation.original_candidate == 4
     assert confirmation.source is ConfirmationSource.CORRECTED
@@ -131,10 +131,10 @@ def test_low_confidence_candidate_can_be_corrected_by_operator() -> None:
 
 def test_motion_unlocks_confirmed_die_as_a_new_roll() -> None:
     session = ready_session()
-    confirmed = session.observe(frame(6, 0.0, value=4)).confirmation
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
     assert confirmed is not None
     session.acknowledge_committed(confirmed.id)
-    session.observe(frame(7, 0.2, value=4))
+    session.observe(frame(6, 0.2, value=4))
     assert session.state is RecognitionState.MOVING
 
 
@@ -152,9 +152,13 @@ def test_recognition_timeout_allows_manual_recovery() -> None:
         recognition_timeout_seconds=2,
     ))
     session.observe(frame(0, 0.2))
-    timed_out = session.observe(frame(2, 0.1))
+    session.observe(frame(1, 0.1, value=6))
+    timed_out = session.observe(frame(2, 0.1, value=6))
     assert timed_out.state is RecognitionState.RECOGNITION_ERROR
     assert timed_out.error_code == "recognition_timeout"
+    restarted = session.observe(frame(2.05, 0.2, value=6))
+    assert restarted.state is RecognitionState.MOVING
+    assert restarted.error_code is None
     manual = session.enter_manual(6, monotonic_time=2.1)
     assert manual.value == 6
     assert manual.source is ConfirmationSource.MANUAL
@@ -165,6 +169,63 @@ def test_observation_time_must_be_monotonic() -> None:
     session.observe(frame(2, 0.0))
     with pytest.raises(ValueError, match="単調増加"):
         session.observe(frame(1, 0.0))
+
+
+def test_removing_die_with_motion_returns_to_waiting_without_timeout() -> None:
+    session = ready_session()
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert confirmed is not None
+    session.acknowledge_committed(confirmed.id)
+    session.observe(frame(6, 0.15))
+    assert session.state is RecognitionState.MOVING
+    session.observe(frame(7, 0.0))
+    stationary = session.observe(frame(8, 0.0))
+    assert stationary.state is RecognitionState.STATIONARY
+    session.observe(frame(9, 0.0))
+    waiting = session.observe(frame(10, 0.0))
+    assert waiting.state is RecognitionState.WAITING
+    for timestamp in range(11, 25):
+        result = session.observe(frame(float(timestamp), 0.0))
+        assert result.state is RecognitionState.WAITING
+        assert result.error_code is None
+
+
+def test_candidate_is_evaluated_on_the_frame_that_completes_the_sequence() -> None:
+    session = ready_session()
+    result = session.observe(frame(5, 0.0, value=4))
+    assert result.state is RecognitionState.CONFIRMED
+    interrupted = session.observe(frame(6, 0.5))
+    assert interrupted.state is RecognitionState.CONFIRMED
+    assert interrupted.confirmation is not None
+    assert interrupted.confirmation.value == 4
+
+
+def test_rejected_candidate_waits_for_movement_or_manual_input() -> None:
+    session = ready_session(detector_confidence=0.20)
+    assert session.observe(
+        frame(5, 0.0, value=4, confidence=0.20)
+    ).state is RecognitionState.NEEDS_CONFIRMATION
+    session.reject_candidate()
+    for timestamp in (6, 7, 8, 9, 10):
+        result = session.observe(
+            frame(timestamp, 0.0, value=4, confidence=0.20)
+        )
+        assert result.state is RecognitionState.RECOGNITION_ERROR
+        assert result.error_code == "candidate_rejected"
+    restarted = session.observe(frame(11, 0.2, value=4, confidence=0.20))
+    assert restarted.state is RecognitionState.MOVING
+    assert restarted.error_code is None
+
+
+def test_failed_game_registration_can_discard_and_correct_confirmation() -> None:
+    session = ready_session()
+    automatic = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert automatic is not None
+    session.discard_confirmation(automatic.id)
+    assert session.state is RecognitionState.NEEDS_CONFIRMATION
+    corrected = session.confirm_candidate(value=5, monotonic_time=6)
+    assert corrected.value == 5
+    assert corrected.source is ConfirmationSource.CORRECTED
 
 
 def test_pipeline_connects_frame_motion_detection_and_confirmation() -> None:
@@ -206,8 +267,17 @@ def test_manual_input_validates_value_and_confirmation_id() -> None:
     confirmation = session.enter_manual(3, monotonic_time=2)
     assert confirmation.source is ConfirmationSource.MANUAL
     with pytest.raises(ValueError, match="一致"):
-        session.acknowledge_committed(confirmation.id + 1)
+        session.acknowledge_committed(confirmation.id + "-wrong")
     session.acknowledge_committed(confirmation.id)
+
+
+def test_confirmation_id_contains_session_uuid_and_sequence() -> None:
+    first = DiceRecognitionSession().enter_manual(2, monotonic_time=1)
+    second = DiceRecognitionSession().enter_manual(2, monotonic_time=1)
+    assert first.id == f"{first.session_id}:{first.sequence}"
+    assert first.sequence == 1
+    assert first.session_id != second.session_id
+    assert first.id != second.id
 
 
 def _draw_die(
