@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 import cv2
 
@@ -55,6 +55,34 @@ class OpenCVCameraStream:
         if not success or frame is None or frame.size == 0:
             raise CameraDisconnectedError("カメラからフレームを取得できません")
         return frame
+
+    def configure(
+        self,
+        *,
+        width: int,
+        height: int,
+        exposure: float | None = None,
+    ) -> dict[str, float | bool]:
+        """Apply best-effort camera controls and return their reported values."""
+        capture = cast(Any, self._capture)
+        width_set = bool(capture.set(cv2.CAP_PROP_FRAME_WIDTH, float(width)))
+        height_set = bool(capture.set(cv2.CAP_PROP_FRAME_HEIGHT, float(height)))
+        auto_exposure_set = bool(capture.set(
+            cv2.CAP_PROP_AUTO_EXPOSURE,
+            0.75 if exposure is None else 0.25,
+        ))
+        exposure_set = True
+        if exposure is not None:
+            exposure_set = bool(capture.set(cv2.CAP_PROP_EXPOSURE, exposure))
+        return {
+            "widthSet": width_set,
+            "heightSet": height_set,
+            "autoExposureSet": auto_exposure_set,
+            "exposureSet": exposure_set,
+            "width": float(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            "height": float(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            "exposure": float(capture.get(cv2.CAP_PROP_EXPOSURE)),
+        }
 
     def close(self) -> None:
         if not self._closed:

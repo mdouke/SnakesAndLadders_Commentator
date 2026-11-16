@@ -189,9 +189,11 @@ class DiceRecognitionSession:
             self._recognition_error_code = "recognition_timeout"
             return self.snapshot(error_code="recognition_timeout")
         if self.state is RecognitionState.WAITING:
-            if frame.motion_score >= self.config.movement_threshold:
+            die_visible = bool(frame.detections or frame.rejected_count)
+            if frame.motion_score >= self.config.movement_threshold or die_visible:
                 self._reset_cycle(RecognitionState.MOVING)
                 self._cycle_started_time = frame.monotonic_time
+                self._die_seen_in_cycle = die_visible
             return self.snapshot()
         if self.state is RecognitionState.RECOGNITION_ERROR:
             if frame.motion_score >= self.config.movement_threshold:

@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from math import hypot
 from typing import Protocol
 
-from .detector import DiceDetector, DieDetection
+from .detector import (
+    DiceDetector,
+    DieDetection,
+    PipDetectionDebug,
+    RejectedDieDetection,
+)
 from .motion import Frame, frame_motion_score
 from .recognition import (
     DiceRecognitionSession,
@@ -27,6 +32,9 @@ class RecognitionFrameResult:
     motion_score: float
     detections: tuple[DieDetection, ...]
     rejected_count: int
+    white_mask: Frame
+    rejected_detections: tuple[RejectedDieDetection, ...] = ()
+    pip_debug: tuple[PipDetectionDebug, ...] = ()
 
 
 class DiceRecognitionPipeline:
@@ -49,7 +57,7 @@ class DiceRecognitionPipeline:
             if self._previous_frame is not None
             else 0.0
         )
-        detections, _, rejected_count = self.detector.detect(cropped)
+        detections, white_mask, rejected_count = self.detector.detect(cropped)
         diagonal = hypot(cropped.shape[1], cropped.shape[0])
         observations = tuple(
             DieObservation(
@@ -67,8 +75,18 @@ class DiceRecognitionPipeline:
             roi_diagonal=diagonal,
         ))
         self._previous_frame = cropped.copy()
+        rejected = tuple(
+            getattr(self.detector, "last_rejected_detections", ())
+        )
+        pip_debug = tuple(getattr(self.detector, "last_pip_debug", ()))
         return RecognitionFrameResult(
-            snapshot, motion_score, tuple(detections), rejected_count
+            snapshot,
+            motion_score,
+            tuple(detections),
+            rejected_count,
+            white_mask,
+            rejected,
+            pip_debug,
         )
 
     def camera_disconnected(self, *, monotonic_time: float) -> RecognitionSnapshot:

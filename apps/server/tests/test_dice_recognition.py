@@ -91,6 +91,104 @@ def test_detector_handles_all_values_and_rotations() -> None:
     assert rejected_count == 0
 
 
+def test_detector_counts_corner_pips_close_to_warped_face_edge() -> None:
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    for point in ((18, 18), (90, 90), (162, 162)):
+        cv2.circle(warped, point, 9, 0, -1)
+
+    pips = DiceDetector()._find_pips(warped)
+
+    assert len(pips) == 3
+
+
+def test_detector_counts_pip_notched_by_specular_highlight() -> None:
+    # A highlight on a recessed pip cuts a bright notch into its edge. The raw
+    # contour becomes a crescent, but it is still a pip.
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    for point in ((50, 50), (90, 90), (130, 130)):
+        cv2.circle(warped, point, 13, 0, -1)
+    cv2.circle(warped, (136, 124), 12, 255, -1)
+
+    pips = DiceDetector()._find_pips(warped)
+
+    assert len(pips) == 3
+
+    analysis = DiceDetector()._analyze_pips(warped, collect_debug=True)
+    assert sum(item.accepted for item in analysis.contours) == 3
+    assert all(item.rejection_reason is None for item in analysis.contours)
+    assert analysis.threshold_value > 0
+    assert analysis.threshold_is_automatic
+
+
+def test_detector_ignores_thin_dark_arc() -> None:
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    cv2.circle(warped, (60, 60), 14, 0, -1)
+    cv2.ellipse(warped, (120, 120), (16, 16), 0, 200, 340, 0, 3)
+
+    pips = DiceDetector()._find_pips(warped)
+
+    assert len(pips) == 1
+
+    analysis = DiceDetector()._analyze_pips(warped, collect_debug=True)
+    accepted = [item for item in analysis.contours if item.accepted]
+    rejected = [item for item in analysis.contours if not item.accepted]
+    assert len(accepted) == 1
+    assert rejected
+    assert all(item.rejection_reason in {
+        "area_small",
+        "area_large",
+        "circularity",
+        "solidity",
+        "aspect",
+    } for item in rejected)
+    assert all(item.circularity >= 0 and item.solidity >= 0 for item in rejected)
+
+
+def test_pip_debug_flag_does_not_change_detection_result() -> None:
+    image = cv2.imread(str(FIXTURES / "demo_dice.png"))
+    assert image is not None
+    normal = DiceDetector(debug_pips=False)
+    debug = DiceDetector(debug_pips=True)
+
+    normal_detections, normal_mask, normal_rejected = normal.detect(image)
+    debug_detections, debug_mask, debug_rejected = debug.detect(image)
+
+    assert [item.value for item in normal_detections] == [
+        item.value for item in debug_detections
+    ]
+    assert normal_rejected == debug_rejected
+    assert np.array_equal(normal_mask, debug_mask)
+    assert normal.last_pip_debug == ()
+    assert len(debug.last_pip_debug) == len(debug_detections) + debug_rejected
+    assert [item.candidate_index for item in debug.last_pip_debug] == list(
+        range(1, len(debug.last_pip_debug) + 1)
+    )
+    assert all(
+        sum(contour.accepted for contour in item.contours) == item.counted_pips
+        for item in debug.last_pip_debug
+    )
+
+
+def test_fixed_pip_threshold_controls_dark_pip_extraction() -> None:
+    warped = np.full((180, 180), 230, dtype=np.uint8)
+    for point in ((50, 50), (90, 90), (130, 130)):
+        cv2.circle(warped, point, 11, 80, -1)
+
+    too_dark = DiceDetector(pip_threshold=50)._analyze_pips(
+        warped, collect_debug=True
+    )
+    selected = DiceDetector(pip_threshold=120)._analyze_pips(
+        warped, collect_debug=True
+    )
+
+    assert too_dark.threshold_value == 50
+    assert not too_dark.threshold_is_automatic
+    assert len(too_dark.centers) == 0
+    assert selected.threshold_value == 120
+    assert not selected.threshold_is_automatic
+    assert len(selected.centers) == 3
+
+
 def test_detector_reports_die_shape_with_invalid_pip_count() -> None:
     canvas = np.zeros((300, 300, 3), dtype=np.uint8)
     cv2.rectangle(canvas, (90, 90), (210, 210), (255, 255, 255), -1)
@@ -220,6 +318,26 @@ def test_default_stationary_window_handles_low_frame_rate_camera() -> None:
     assert confirmed.confirmation.value == 3
 
 
+def test_visible_die_starts_cycle_when_initial_motion_was_missed() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        consecutive_value_frames=3,
+        removal_frames=2,
+    ))
+
+    started = session.observe(frame(0, 0.006, value=3))
+    assert started.state is RecognitionState.MOVING
+    session.observe(frame(1, 0.0, value=3))
+    assert session.observe(frame(2, 0.0, value=3)).state is RecognitionState.STATIONARY
+    session.observe(frame(3, 0.0, value=3))
+    session.observe(frame(4, 0.0, value=3))
+    confirmed = session.observe(frame(5, 0.0, value=3))
+
+    assert confirmed.state is RecognitionState.CONFIRMED
+    assert confirmed.confirmation is not None
+    assert confirmed.confirmation.value == 3
+
+
 def test_below_threshold_candidate_is_exposed_as_discarded() -> None:
     session = ready_session(detector_confidence=0.0)
     result = session.observe(frame(5, 0.0, value=4, confidence=0.0))
@@ -306,7 +424,8 @@ def test_pipeline_connects_frame_motion_detection_and_confirmation() -> None:
         def detect(
             self, image: np.ndarray
         ) -> tuple[list[DieDetection], np.ndarray, int]:
-            return [detection], np.zeros(image.shape[:2], dtype=np.uint8), 0
+            detections = [detection] if image.any() else []
+            return detections, np.zeros(image.shape[:2], dtype=np.uint8), 0
 
     pipeline = DiceRecognitionPipeline(
         detector=FixedDetector(),

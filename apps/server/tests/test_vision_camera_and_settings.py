@@ -70,7 +70,15 @@ def test_roi_crop_and_settings_round_trip(tmp_path: Path) -> None:
 
     store = VisionSettingsStore(tmp_path / "vision.json")
     assert store.load() == VisionSettings()
-    settings = VisionSettings(camera_id=2, roi=roi, white_threshold=200)
+    settings = VisionSettings(
+        camera_id=2,
+        roi=roi,
+        white_threshold=200,
+        pip_threshold=105,
+        camera_width=1920,
+        camera_height=1080,
+        exposure=-6.0,
+    )
     store.save(settings)
     assert store.load() == settings
 
@@ -88,3 +96,21 @@ def test_invalid_settings_are_rejected(tmp_path: Path) -> None:
     path.write_text('{"cameraId": -1}', encoding="utf-8")
     with pytest.raises(ValueError, match="値が不正"):
         VisionSettingsStore(path).load()
+
+
+def test_missing_thresholds_use_tuned_defaults_but_null_keeps_auto(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "vision.json"
+    path.write_text('{"cameraId": 0}', encoding="utf-8")
+    migrated = VisionSettingsStore(path).load()
+    assert migrated.white_threshold == 230
+    assert migrated.pip_threshold == 230
+
+    path.write_text(
+        '{"whiteThreshold": null, "pipThreshold": null}',
+        encoding="utf-8",
+    )
+    automatic = VisionSettingsStore(path).load()
+    assert automatic.white_threshold is None
+    assert automatic.pip_threshold is None

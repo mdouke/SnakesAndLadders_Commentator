@@ -45,6 +45,9 @@ npm install
 
 # ターミナル2: Web UI
 npm run dev:web
+
+# 実機調整用ライブプレビュー（API・Web UIとは独立して起動可能）
+.venv/bin/python -m commentator.tools.vision_bench
 ```
 
 - 管理者画面: `http://127.0.0.1:5173/`

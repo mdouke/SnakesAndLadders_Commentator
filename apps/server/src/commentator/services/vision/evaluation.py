@@ -434,7 +434,10 @@ def main() -> None:
     )
     roi = vision_settings.roi if vision_settings is not None else None
     detector = (
-        DiceDetector(white_threshold=vision_settings.white_threshold)
+        DiceDetector(
+            white_threshold=vision_settings.white_threshold,
+            pip_threshold=vision_settings.pip_threshold,
+        )
         if vision_settings is not None else None
     )
     config = (
