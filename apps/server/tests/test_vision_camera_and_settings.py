@@ -85,6 +85,7 @@ def test_roi_crop_and_settings_round_trip(tmp_path: Path) -> None:
         min_pip_size_consistency=0.55,
         max_single_pip_center_offset=0.24,
         max_pip_layout_error=0.2,
+        min_detector_confidence=0.8,
     )
     store.save(settings)
     assert store.load() == settings
@@ -120,6 +121,7 @@ def test_missing_thresholds_use_tuned_defaults_but_null_keeps_auto(
     assert migrated.min_pip_size_consistency == 0.50
     assert migrated.max_single_pip_center_offset == 0.22
     assert migrated.max_pip_layout_error == 0.15
+    assert migrated.min_detector_confidence == 0.78
 
     path.write_text(
         '{"whiteThreshold": null, "pipThreshold": null}',
@@ -150,6 +152,7 @@ def test_valid_recognition_settings_are_accepted(settings: VisionSettings) -> No
         '{"minPipSizeConsistency": 1.1}',
         '{"maxSinglePipCenterOffset": -0.1}',
         '{"maxPipLayoutError": 1.5}',
+        '{"minDetectorConfidence": -0.1}',
     ],
 )
 def test_invalid_recognition_settings_are_rejected(

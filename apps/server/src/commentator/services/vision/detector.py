@@ -81,7 +81,10 @@ class _PipAnalysis:
 # count with these lower thresholds. A high threshold keeps washed-out pips
 # visible but also darkens the gap between closely spaced pips, so two or three
 # neighbouring pips on a tilted 6 can fuse into one blob that is then dropped.
-PIP_RECOUNT_THRESHOLD_STEPS = (10, 15, 20)
+# Strongly fused rows on a 6 need about 30-45 lower (recording 180356 roll-016
+# separated only at 205 or below), so the ladder goes down to 50 and finally
+# tries Otsu's automatic threshold for the face.
+PIP_RECOUNT_THRESHOLD_STEPS = (10, 15, 20, 30, 40, 50)
 # Single pips measure about 0.016-0.035 of the inner face in recordings; two
 # fused pips measure about 0.05-0.06.
 FUSED_PIP_MIN_AREA_RATIO = 0.04
@@ -252,11 +255,16 @@ class DiceDetector:
             merge_suspected = analysis.merged_pip_blob
             recounted = False
             if merge_suspected and self.pip_threshold is not None:
-                for step in PIP_RECOUNT_THRESHOLD_STEPS:
+                retry_thresholds: list[int | None] = [
+                    self.pip_threshold - step for step in PIP_RECOUNT_THRESHOLD_STEPS
+                ]
+                retry_thresholds.append(None)  # Otsu on this face
+                for retry_threshold in retry_thresholds:
                     retry = self._analyze_pips(
                         warped,
                         collect_debug=self.debug_pips,
-                        threshold=self.pip_threshold - step,
+                        threshold=retry_threshold,
+                        automatic=retry_threshold is None,
                     )
                     if not retry.merged_pip_blob and 1 <= len(retry.centers) <= 6:
                         analysis = retry
@@ -371,6 +379,7 @@ class DiceDetector:
         *,
         collect_debug: bool,
         threshold: int | None = None,
+        automatic: bool = False,
     ) -> _PipAnalysis:
         size = warped.shape[0]
         # The perspective warp already maps the die outline to the image border.
@@ -379,7 +388,11 @@ class DiceDetector:
         margin = int(size * 0.07)
         inner = warped[margin : size - margin, margin : size - margin]
         inner = cv2.GaussianBlur(inner, (5, 5), 0)
-        fixed_threshold = threshold if threshold is not None else self.pip_threshold
+        fixed_threshold = (
+            None if automatic
+            else threshold if threshold is not None
+            else self.pip_threshold
+        )
         if fixed_threshold is None:
             threshold_value, dark = cv2.threshold(
                 inner, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU

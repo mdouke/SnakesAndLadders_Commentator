@@ -381,6 +381,21 @@ def test_detector_recounts_fused_pips_with_lower_threshold() -> None:
     assert detector.last_pip_debug[0].threshold_value < 235
 
 
+def test_detector_recounts_strongly_fused_pips_down_the_ladder() -> None:
+    canvas = np.zeros((300, 300, 3), dtype=np.uint8)
+    # A bridge at 200 survives the first steps (225, 220, 215) and splits only
+    # once the threshold drops below it.
+    face = cv2.resize(_six_face_with_fused_column(bridge=200), (120, 120))
+    canvas[90:210, 90:210] = cv2.cvtColor(face, cv2.COLOR_GRAY2BGR)
+
+    detector = DiceDetector(white_threshold=150, pip_threshold=235, debug_pips=True)
+    detected, _, _ = detector.detect(canvas)
+
+    assert [item.value for item in detected] == [6]
+    assert detected[0].pip_recounted
+    assert detector.last_pip_debug[0].threshold_value < 200
+
+
 def test_detector_keeps_merge_flag_when_recount_fails() -> None:
     canvas = np.zeros((300, 300, 3), dtype=np.uint8)
     # A bridge as dark as the pips cannot be split by lowering the threshold.
@@ -637,6 +652,41 @@ def test_persistent_layout_error_requires_confirmation() -> None:
     assert result.state is RecognitionState.NEEDS_CONFIRMATION
     assert result.confidence is not None
     assert result.confidence.pip_layout_error == pytest.approx(0.17)
+
+
+def test_oblique_die_with_low_shape_confidence_requires_confirmation() -> None:
+    # roll-021 (180356): a 4 with its side face visible was read as 6 with a
+    # total of 0.84 but a shape confidence of 0.77.
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        consecutive_value_frames=3,
+        automatic_threshold=0.70,
+    ))
+    session.observe(frame(0, 0.2))
+    session.observe(frame(1, 0.0))
+    session.observe(frame(2, 0.0))
+    for timestamp in (3, 4, 5):
+        result = session.observe(frame(timestamp, 0.0, value=6, confidence=0.77))
+
+    assert result.state is RecognitionState.NEEDS_CONFIRMATION
+    assert result.confidence is not None
+    assert result.confidence.total >= 0.70
+    assert result.confidence.detector == pytest.approx(0.77)
+
+
+def test_die_just_above_shape_confidence_limit_still_confirms() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        consecutive_value_frames=3,
+        automatic_threshold=0.70,
+    ))
+    session.observe(frame(0, 0.2))
+    session.observe(frame(1, 0.0))
+    session.observe(frame(2, 0.0))
+    for timestamp in (3, 4, 5):
+        result = session.observe(frame(timestamp, 0.0, value=6, confidence=0.79))
+
+    assert result.state is RecognitionState.CONFIRMED
 
 
 def test_pip_layout_error_within_limit_still_confirms() -> None:

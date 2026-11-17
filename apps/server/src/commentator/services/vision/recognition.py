@@ -43,6 +43,7 @@ class RecognitionConfig:
     min_pip_size_consistency: float = 0.50
     max_single_pip_center_offset: float = 0.22
     max_pip_layout_error: float = 0.15
+    min_detector_confidence: float = 0.78
 
     def __post_init__(self) -> None:
         if not 0 <= self.stationary_threshold < self.movement_threshold <= 1:
@@ -66,6 +67,8 @@ class RecognitionConfig:
             raise ValueError("1の目の中心距離上限は0〜1で指定してください")
         if not 0 <= self.max_pip_layout_error <= 1:
             raise ValueError("目の配置ずれ上限は0〜1で指定してください")
+        if not 0 <= self.min_detector_confidence <= 1:
+            raise ValueError("外形信頼度の下限は0〜1で指定してください")
 
 
 @dataclass(frozen=True, slots=True)
@@ -425,6 +428,10 @@ class DiceRecognitionSession:
             # may auto-confirm; the layout check below still applies to it.
             and not (pip_merge_suspected and not pip_recounted)
             and pip_layout_error <= self.config.max_pip_layout_error
+            # A die seen obliquely shows a side face; its outline is no longer
+            # square and side-face pips can be counted as top-face pips
+            # (4 read as 6, 3 read as 5 at shape confidence 0.72-0.77).
+            and detector >= self.config.min_detector_confidence
             and (
                 candidate != 1
                 or single_pip_center_offset

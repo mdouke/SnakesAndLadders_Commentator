@@ -107,7 +107,8 @@ def test_recognition_config_file_supports_partial_overrides(tmp_path: Path) -> N
             '{"automaticThreshold": 0.9, "stationaryFrames": 4, '
             '"minPipSizeConsistency": 0.55, '
             '"maxSinglePipCenterOffset": 0.24, '
-            '"maxPipLayoutError": 0.2}'
+            '"maxPipLayoutError": 0.2, '
+            '"minDetectorConfidence": 0.8}'
         ),
         encoding="utf-8",
     )
@@ -118,6 +119,7 @@ def test_recognition_config_file_supports_partial_overrides(tmp_path: Path) -> N
     assert config.min_pip_size_consistency == 0.55
     assert config.max_single_pip_center_offset == 0.24
     assert config.max_pip_layout_error == 0.2
+    assert config.min_detector_confidence == 0.8
 
 
 def test_settings_supply_recognition_config_but_explicit_config_wins(

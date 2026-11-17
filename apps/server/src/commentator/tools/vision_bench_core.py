@@ -72,6 +72,7 @@ def _settings_payload(settings: VisionSettings) -> dict[str, Any]:
         "minPipSizeConsistency": settings.min_pip_size_consistency,
         "maxSinglePipCenterOffset": settings.max_single_pip_center_offset,
         "maxPipLayoutError": settings.max_pip_layout_error,
+        "minDetectorConfidence": settings.min_detector_confidence,
     }
 
 

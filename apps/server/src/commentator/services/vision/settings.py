@@ -55,6 +55,7 @@ class VisionSettings:
     min_pip_size_consistency: float = 0.50
     max_single_pip_center_offset: float = 0.22
     max_pip_layout_error: float = 0.15
+    min_detector_confidence: float = 0.78
 
     def __post_init__(self) -> None:
         if self.camera_id is not None and self.camera_id < 0:
@@ -81,6 +82,7 @@ class VisionSettings:
             min_pip_size_consistency=self.min_pip_size_consistency,
             max_single_pip_center_offset=self.max_single_pip_center_offset,
             max_pip_layout_error=self.max_pip_layout_error,
+            min_detector_confidence=self.min_detector_confidence,
         )
 
 
@@ -134,6 +136,9 @@ class VisionSettingsStore:
                 max_pip_layout_error=float(
                     value.get("maxPipLayoutError", 0.15)
                 ),
+                min_detector_confidence=float(
+                    value.get("minDetectorConfidence", 0.78)
+                ),
             )
         except (TypeError, ValueError) as error:
             raise ValueError("サイコロ認識設定の値が不正です") from error
@@ -159,6 +164,7 @@ class VisionSettingsStore:
             "minPipSizeConsistency": settings.min_pip_size_consistency,
             "maxSinglePipCenterOffset": settings.max_single_pip_center_offset,
             "maxPipLayoutError": settings.max_pip_layout_error,
+            "minDetectorConfidence": settings.min_detector_confidence,
         }
         temporary.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",

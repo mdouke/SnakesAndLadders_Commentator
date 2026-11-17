@@ -393,6 +393,7 @@ def _config_dict(value: RecognitionConfig) -> dict[str, float | int]:
         "minPipSizeConsistency": raw["min_pip_size_consistency"],
         "maxSinglePipCenterOffset": raw["max_single_pip_center_offset"],
         "maxPipLayoutError": raw["max_pip_layout_error"],
+        "minDetectorConfidence": raw["min_detector_confidence"],
     }
 
 
@@ -422,6 +423,7 @@ def load_recognition_config(path: Path) -> RecognitionConfig:
                 selected["maxSinglePipCenterOffset"]
             ),
             max_pip_layout_error=float(selected["maxPipLayoutError"]),
+            min_detector_confidence=float(selected["minDetectorConfidence"]),
         )
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
         raise ValueError("認識設定を読み込めません") from error

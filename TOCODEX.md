@@ -2,6 +2,15 @@
 
 > **ファイル名の変更（2026-11-13）**: ユーザーの指示により、このファイルの名前を `TOCHATGPT.md` から `TOCODEX.md` に変更した。以後、Claude から Codex への指示はこのファイルに書く。Codex からの報告と質問は、これまでどおり `TOCLAUDE.md` に書くこと。下の過去の節に出てくる `TOCHATGPT.md` は、このファイルのことを指す。
 
+## Claude実装済み: 外形信頼度ガードと深い再計数（2026-11-17 夜）
+
+ユーザーの指示で Claude が直接実装した。**Codexへの作業指示ではない。**
+
+- 自動確定しきい値は0.83に変更済み（ユーザー判断）。
+- `recognition.py`: 同値が続いたフレームの外形信頼度の平均が `min_detector_confidence`（既定0.78、`minDetectorConfidence`）未満なら、自動確定しない。側面の目を上面の目として数える誤り（4→6など）への対策である。設定、ライブ画面のスライダー、評価CLIに追加した。
+- `detector.py`: 融合があるときの再計数を、10〜50下げた値まで試し（`PIP_RECOUNT_THRESHOLD_STEPS`）、最後にOtsuで数え直すようにした。`_analyze_pips(automatic=True)` を追加した。
+- 9本の再生では、誤自動確定が2→1（見切れのみ）、判断なしが1→0、正しい自動確定が464→462だった。詳細は `docs/operations/dice-recognition.md` を参照すること。
+
 ## Claude実装済み: 配置チェックの中央値化（2026-11-17 夜）
 
 ユーザーの指示で Claude が直接実装した。**Codexへの作業指示ではない。**

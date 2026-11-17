@@ -100,6 +100,9 @@ class VisionBenchApp:
         self.max_pip_layout_error_var = tk.DoubleVar(
             value=settings.max_pip_layout_error
         )
+        self.min_detector_confidence_var = tk.DoubleVar(
+            value=settings.min_detector_confidence
+        )
         self.recognition_apply_var = tk.StringVar(value="認識設定: 反映済み")
         self.mask_visible_var = tk.BooleanVar(value=True)
         self.connection_var = tk.StringVar(value="未接続")
@@ -388,6 +391,24 @@ class VisionBenchApp:
             text="4〜6の目の標準配置からのずれ・目の間隔比（設定値超過は確認依頼）",
         ).pack(side=tk.LEFT)
 
+        shape_controls = ttk.Frame(controls)
+        shape_controls.pack(fill=tk.X, pady=(8, 0))
+        ttk.Label(shape_controls, text="外形信頼度の下限").pack(side=tk.LEFT)
+        ttk.Scale(
+            shape_controls,
+            from_=0.0,
+            to=1.0,
+            variable=self.min_detector_confidence_var,
+            orient=tk.HORIZONTAL,
+            length=180,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.min_detector_confidence_label = ttk.Label(shape_controls, width=5)
+        self.min_detector_confidence_label.pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Label(
+            shape_controls,
+            text="斜めで側面が見えるサイコロ（設定値未満は確認依頼）",
+        ).pack(side=tk.LEFT)
+
         timing_controls = ttk.Frame(controls)
         timing_controls.pack(fill=tk.X, pady=(8, 0))
         ttk.Label(timing_controls, text="静止判定フレーム数").pack(side=tk.LEFT)
@@ -449,6 +470,7 @@ class VisionBenchApp:
             self.min_pip_size_consistency_var,
             self.max_single_pip_center_offset_var,
             self.max_pip_layout_error_var,
+            self.min_detector_confidence_var,
         )
         for variable in variables:
             variable.trace_add("write", self._schedule_settings_update)
@@ -484,6 +506,9 @@ class VisionBenchApp:
             self.max_single_pip_center_offset_var.set(pip_center_offset)
             self.max_pip_layout_error_var.set(
                 round(min(0.5, max(0.0, self.max_pip_layout_error_var.get())), 2)
+            )
+            self.min_detector_confidence_var.set(
+                round(min(1.0, max(0.0, self.min_detector_confidence_var.get())), 2)
             )
         finally:
             self._normalizing_settings = False
@@ -545,6 +570,9 @@ class VisionBenchApp:
                 self.max_single_pip_center_offset_var.get(), 2
             ),
             max_pip_layout_error=round(self.max_pip_layout_error_var.get(), 2),
+            min_detector_confidence=round(
+                self.min_detector_confidence_var.get(), 2
+            ),
         )
 
     def _apply_settings(self) -> bool:
@@ -721,7 +749,8 @@ class VisionBenchApp:
                 "信頼度: — "
                 f"(自動 ≥ {config.automatic_threshold:.2f} / "
                 f"確認 ≥ {config.confirmation_threshold:.2f})\n"
-                "  detector — / value —\n  still — / position —\n"
+                f"  detector — (確認 < {config.min_detector_confidence:.2f}) / value —\n"
+                "  still — / position —\n"
                 f"  pip size — (確認 < {config.min_pip_size_consistency:.2f})\n"
                 f"  pip center — (確認 > {config.max_single_pip_center_offset:.2f})\n"
                 f"  pip layout — (確認 > {config.max_pip_layout_error:.2f})\n"
@@ -732,7 +761,9 @@ class VisionBenchApp:
                 f"信頼度: {confidence.total:.3f} "
                 f"(自動 ≥ {config.automatic_threshold:.2f} / "
                 f"確認 ≥ {config.confirmation_threshold:.2f})\n"
-                f"  detector {confidence.detector:.3f} / value {confidence.value_stability:.3f}\n"
+                f"  detector {confidence.detector:.3f} "
+                f"(確認 < {config.min_detector_confidence:.2f}) / "
+                f"value {confidence.value_stability:.3f}\n"
                 f"  still {confidence.stillness:.3f} / "
                 f"position {confidence.position_stability:.3f}\n"
                 f"  pip size {confidence.pip_size_consistency:.3f} "
@@ -766,6 +797,9 @@ class VisionBenchApp:
         )
         self.max_pip_layout_error_label.configure(
             text=f"{self.max_pip_layout_error_var.get():.2f}"
+        )
+        self.min_detector_confidence_label.configure(
+            text=f"{self.min_detector_confidence_var.get():.2f}"
         )
         self.stationary_frames_label.configure(
             text=self._frame_duration_label(stationary, fps)
