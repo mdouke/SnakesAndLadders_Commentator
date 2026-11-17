@@ -45,6 +45,7 @@ class VisionBenchApp:
         self.root.minsize(1100, 760)
         self._photo_images: dict[str, ImageTk.PhotoImage] = {}
         self._settings_job: str | None = None
+        self._normalizing_settings = False
 
         settings = engine.settings
         self.camera_var = tk.StringVar(value=str(settings.camera_id or 0))
@@ -63,12 +64,25 @@ class VisionBenchApp:
         )
         self.auto_pip_threshold_var = tk.BooleanVar(value=settings.pip_threshold is None)
         self.pip_threshold_var = tk.DoubleVar(
-            value=float(230 if settings.pip_threshold is None else settings.pip_threshold)
+            value=float(235 if settings.pip_threshold is None else settings.pip_threshold)
         )
         self.roi_x_var = tk.DoubleVar(value=settings.roi.x)
         self.roi_y_var = tk.DoubleVar(value=settings.roi.y)
         self.roi_width_var = tk.DoubleVar(value=settings.roi.width)
         self.roi_height_var = tk.DoubleVar(value=settings.roi.height)
+        self.automatic_threshold_var = tk.DoubleVar(
+            value=settings.automatic_threshold
+        )
+        self.confirmation_threshold_var = tk.DoubleVar(
+            value=settings.confirmation_threshold
+        )
+        self.stationary_frames_var = tk.DoubleVar(
+            value=float(settings.stationary_frames)
+        )
+        self.consecutive_value_frames_var = tk.DoubleVar(
+            value=float(settings.consecutive_value_frames)
+        )
+        self.recognition_apply_var = tk.StringVar(value="認識設定: 反映済み")
         self.mask_visible_var = tk.BooleanVar(value=True)
         self.connection_var = tk.StringVar(value="未接続")
         self.message_var = tk.StringVar(value="カメラを選び、接続してください")
@@ -261,6 +275,68 @@ class VisionBenchApp:
                 length=170,
             ).pack(side=tk.LEFT, padx=(3, 10))
 
+        recognition_controls = ttk.Frame(controls)
+        recognition_controls.pack(fill=tk.X, pady=(8, 0))
+        ttk.Label(recognition_controls, text="自動確定しきい値").pack(side=tk.LEFT)
+        ttk.Scale(
+            recognition_controls,
+            from_=0.50,
+            to=1.00,
+            variable=self.automatic_threshold_var,
+            orient=tk.HORIZONTAL,
+            length=130,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.automatic_threshold_label = ttk.Label(
+            recognition_controls, width=5
+        )
+        self.automatic_threshold_label.pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Label(recognition_controls, text="確認依頼しきい値").pack(side=tk.LEFT)
+        ttk.Scale(
+            recognition_controls,
+            from_=0.50,
+            to=1.00,
+            variable=self.confirmation_threshold_var,
+            orient=tk.HORIZONTAL,
+            length=130,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.confirmation_threshold_label = ttk.Label(
+            recognition_controls, width=5
+        )
+        self.confirmation_threshold_label.pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Label(
+            recognition_controls,
+            textvariable=self.recognition_apply_var,
+            foreground="#075985",
+        ).pack(side=tk.LEFT)
+
+        timing_controls = ttk.Frame(controls)
+        timing_controls.pack(fill=tk.X, pady=(8, 0))
+        ttk.Label(timing_controls, text="静止判定フレーム数").pack(side=tk.LEFT)
+        ttk.Scale(
+            timing_controls,
+            from_=1,
+            to=15,
+            variable=self.stationary_frames_var,
+            orient=tk.HORIZONTAL,
+            length=180,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.stationary_frames_label = ttk.Label(timing_controls, width=22)
+        self.stationary_frames_label.pack(side=tk.LEFT, padx=(0, 16))
+        ttk.Label(timing_controls, text="同値連続フレーム数").pack(side=tk.LEFT)
+        ttk.Scale(
+            timing_controls,
+            from_=1,
+            to=5,
+            variable=self.consecutive_value_frames_var,
+            orient=tk.HORIZONTAL,
+            length=150,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.consecutive_value_frames_label = ttk.Label(
+            timing_controls, width=22
+        )
+        self.consecutive_value_frames_label.pack(side=tk.LEFT)
+        self._update_recognition_labels(0.0)
+
         labels = ttk.Frame(self.root, padding=(8, 0, 8, 8))
         labels.pack(fill=tk.X)
         ttk.Label(labels, text="投擲の正解（キー1〜6）:").pack(side=tk.LEFT)
@@ -287,11 +363,36 @@ class VisionBenchApp:
             self.roi_y_var,
             self.roi_width_var,
             self.roi_height_var,
+            self.automatic_threshold_var,
+            self.confirmation_threshold_var,
+            self.stationary_frames_var,
+            self.consecutive_value_frames_var,
         )
         for variable in variables:
             variable.trace_add("write", self._schedule_settings_update)
 
     def _schedule_settings_update(self, *_: object) -> None:
+        if self._normalizing_settings:
+            return
+        self._normalizing_settings = True
+        try:
+            automatic = round(
+                min(1.0, max(0.50, self.automatic_threshold_var.get())), 2
+            )
+            confirmation = round(
+                min(automatic, max(0.50, self.confirmation_threshold_var.get())),
+                2,
+            )
+            stationary = min(15, max(1, round(self.stationary_frames_var.get())))
+            consecutive = min(
+                5, max(1, round(self.consecutive_value_frames_var.get()))
+            )
+            self.automatic_threshold_var.set(automatic)
+            self.confirmation_threshold_var.set(confirmation)
+            self.stationary_frames_var.set(stationary)
+            self.consecutive_value_frames_var.set(consecutive)
+        finally:
+            self._normalizing_settings = False
         self.threshold_label.configure(text=f"設定 {round(self.threshold_var.get())}")
         self.threshold_scale.configure(
             state=tk.DISABLED if self.auto_threshold_var.get() else tk.NORMAL
@@ -308,6 +409,8 @@ class VisionBenchApp:
         self.exposure_scale.configure(
             state=tk.DISABLED if self.auto_exposure_var.get() else tk.NORMAL
         )
+        fps = self.engine.last_frame.fps if self.engine.last_frame is not None else 0.0
+        self._update_recognition_labels(fps)
         if self._settings_job is not None:
             self.root.after_cancel(self._settings_job)
         self._settings_job = self.root.after(120, self._apply_settings)
@@ -335,6 +438,12 @@ class VisionBenchApp:
             camera_width=int(width_text),
             camera_height=int(height_text),
             exposure=None if self.auto_exposure_var.get() else self.exposure_var.get(),
+            automatic_threshold=round(self.automatic_threshold_var.get(), 2),
+            confirmation_threshold=round(self.confirmation_threshold_var.get(), 2),
+            stationary_frames=round(self.stationary_frames_var.get()),
+            consecutive_value_frames=round(
+                self.consecutive_value_frames_var.get()
+            ),
         )
 
     def _apply_settings(self) -> bool:
@@ -344,7 +453,12 @@ class VisionBenchApp:
         except (ValueError, tk.TclError) as error:
             self.message_var.set(f"設定値を確認してください: {error}")
             return False
-        self.message_var.set("設定をライブ映像へ反映しました（未保存）")
+        if self.engine.recognition_settings_pending:
+            self.message_var.set(
+                "認識中のため、しきい値と待ち時間は次の待機または除去待ちで反映します（未保存）"
+            )
+        else:
+            self.message_var.set("設定をライブ映像へ反映しました（未保存）")
         return True
 
     def _refresh_cameras(self) -> None:
@@ -451,6 +565,12 @@ class VisionBenchApp:
         snapshot = frame.result.snapshot
         self.state_var.set(f"状態: {STATE_LABELS.get(snapshot.state.value, snapshot.state.value)}")
         self.metrics_var.set(self._metrics(snapshot, frame))
+        self.recognition_apply_var.set(
+            "認識設定: 次の待機／除去待ちで反映"
+            if self.engine.recognition_settings_pending
+            else "認識設定: 反映済み"
+        )
+        self._update_recognition_labels(frame.fps)
         applied_threshold = round(self.engine.detector.last_white_threshold)
         if self.auto_threshold_var.get():
             self.threshold_label.configure(text=f"自動 / 適用 {applied_threshold}")
@@ -494,11 +614,19 @@ class VisionBenchApp:
 
     def _metrics(self, snapshot: RecognitionSnapshot, frame: BenchFrame) -> str:
         confidence = snapshot.confidence
+        config = self.engine.active_recognition_config
         if confidence is None:
-            breakdown = "信頼度: —\n  detector — / value —\n  still — / position —"
+            breakdown = (
+                "信頼度: — "
+                f"(自動 ≥ {config.automatic_threshold:.2f} / "
+                f"確認 ≥ {config.confirmation_threshold:.2f})\n"
+                "  detector — / value —\n  still — / position —"
+            )
         else:
             breakdown = (
-                f"信頼度: {confidence.total:.3f}\n"
+                f"信頼度: {confidence.total:.3f} "
+                f"(自動 ≥ {config.automatic_threshold:.2f} / "
+                f"確認 ≥ {config.confirmation_threshold:.2f})\n"
                 f"  detector {confidence.detector:.3f} / value {confidence.value_stability:.3f}\n"
                 f"  still {confidence.stillness:.3f} / position {confidence.position_stability:.3f}"
             )
@@ -509,6 +637,25 @@ class VisionBenchApp:
             f"FPS: {frame.fps:.1f}\n"
             f"却下候補: {frame.result.rejected_count}"
         )
+
+    def _update_recognition_labels(self, fps: float) -> None:
+        automatic = round(self.automatic_threshold_var.get(), 2)
+        confirmation = round(self.confirmation_threshold_var.get(), 2)
+        stationary = round(self.stationary_frames_var.get())
+        consecutive = round(self.consecutive_value_frames_var.get())
+        self.automatic_threshold_label.configure(text=f"{automatic:.2f}")
+        self.confirmation_threshold_label.configure(text=f"{confirmation:.2f}")
+        self.stationary_frames_label.configure(
+            text=self._frame_duration_label(stationary, fps)
+        )
+        self.consecutive_value_frames_label.configure(
+            text=self._frame_duration_label(consecutive, fps)
+        )
+
+    @staticmethod
+    def _frame_duration_label(frames: int, fps: float) -> str:
+        duration = f"{frames / fps:.2f}秒" if fps > 0 else "—"
+        return f"{frames}フレーム ≈ {duration}"
 
     def _update_history(self) -> None:
         self.history_var.set("\n".join(self.engine.history) or "まだ判断はありません")

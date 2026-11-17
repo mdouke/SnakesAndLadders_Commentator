@@ -11,12 +11,16 @@ from commentator.services.vision.evaluation import (
     GroundTruthRoll,
     SavedVideoEvaluator,
     VideoEvaluation,
+    load_frame_times,
     load_recognition_config,
+    resolve_evaluation_roi,
+    resolve_recognition_config,
 )
 from commentator.services.vision.recognition import (
     ConfidenceBreakdown,
     RecognitionConfig,
 )
+from commentator.services.vision.settings import NormalizedRoi, VisionSettings
 
 
 def confidence(total: float = 0.9) -> ConfidenceBreakdown:
@@ -101,6 +105,28 @@ def test_recognition_config_file_supports_partial_overrides(tmp_path: Path) -> N
     assert config.automatic_threshold == 0.9
     assert config.stationary_frames == 4
     assert config.confirmation_threshold == RecognitionConfig().confirmation_threshold
+
+
+def test_settings_supply_recognition_config_but_explicit_config_wins(
+    tmp_path: Path,
+) -> None:
+    settings = VisionSettings(
+        automatic_threshold=0.91,
+        confirmation_threshold=0.72,
+        stationary_frames=4,
+        consecutive_value_frames=2,
+    )
+    from_settings = resolve_recognition_config(settings, None)
+    assert from_settings is not None
+    assert from_settings.stationary_frames == 4
+    assert from_settings.automatic_threshold == 0.91
+
+    config_path = tmp_path / "recognition.json"
+    config_path.write_text('{"stationaryFrames": 7}', encoding="utf-8")
+    explicit = resolve_recognition_config(settings, config_path)
+    assert explicit is not None
+    assert explicit.stationary_frames == 7
+    assert explicit.automatic_threshold == RecognitionConfig().automatic_threshold
 
 
 def test_saved_video_runs_without_camera_hardware(tmp_path: Path) -> None:
@@ -195,3 +221,66 @@ def test_video_prefers_position_milliseconds_for_variable_frame_rate(
     ).report()
     assert report["videoMetadata"]["totalFrames"] == 3
     assert report["videoMetadata"]["durationSeconds"] == pytest.approx(0.45)
+
+
+def test_recorder_frame_times_override_video_timestamps(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    frames = [np.zeros((8, 8, 3), dtype=np.uint8) for _ in range(3)]
+
+    class FixedRateCapture:
+        def __init__(self) -> None:
+            self.index = 0
+
+        def isOpened(self) -> bool:
+            return True
+
+        def get(self, key: int) -> float:
+            return 10.0 if key == cv2.CAP_PROP_FPS else 0.0
+
+        def read(self) -> tuple[bool, np.ndarray | None]:
+            if self.index >= len(frames):
+                return False, None
+            frame = frames[self.index]
+            self.index += 1
+            return True, frame
+
+        def release(self) -> None:
+            pass
+
+    class EmptyDetector:
+        def detect(
+            self, frame: np.ndarray
+        ) -> tuple[list[DieDetection], np.ndarray, int]:
+            return [], np.zeros(frame.shape[:2], dtype=np.uint8), 0
+
+    sidecar = tmp_path / "recording.frames.jsonl"
+    sidecar.write_text(
+        "\n".join((
+            '{"frameIndex":0,"seconds":0.2}',
+            '{"frameIndex":1,"seconds":0.7}',
+            '{"frameIndex":2,"seconds":1.4}',
+        )),
+        encoding="utf-8",
+    )
+    frame_times = load_frame_times(sidecar)
+    monkeypatch.setattr(cv2, "VideoCapture", lambda _: FixedRateCapture())
+
+    report = SavedVideoEvaluator(detector=EmptyDetector()).evaluate(
+        Path("recording.avi"),
+        EvaluationLabels(()),
+        frame_times=frame_times,
+    ).report()
+
+    assert frame_times == (0.2, 0.7, 1.4)
+    assert report["videoMetadata"]["durationSeconds"] == pytest.approx(1.5)
+
+
+def test_roi_cropped_video_uses_full_frame_instead_of_saved_camera_roi() -> None:
+    settings = VisionSettings(
+        roi=NormalizedRoi(x=0.25, y=0.25, width=0.5, height=0.5)
+    )
+
+    assert resolve_evaluation_roi(settings, roi_cropped=False) == settings.roi
+    assert resolve_evaluation_roi(settings, roi_cropped=True) == NormalizedRoi()

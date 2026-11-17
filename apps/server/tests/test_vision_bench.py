@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -109,6 +110,10 @@ def test_recorder_writes_video_sidecars_events_and_evaluation_labels(tmp_path: P
     assert settings["whiteThreshold"] == 220
     assert settings["pipThreshold"] == 110
     assert settings["cameraResolution"] == {"width": 1280, "height": 720}
+    assert settings["automaticThreshold"] == 0.85
+    assert settings["confirmationThreshold"] == 0.60
+    assert settings["stationaryFrames"] == 10
+    assert settings["consecutiveValueFrames"] == 3
     assert recorder.automatic_confirmations == 1
     assert recorder.review_candidates == 0
     assert recorder.labeled_rolls == 1
@@ -147,6 +152,40 @@ def test_live_settings_rebuild_detector_with_selected_white_threshold(
     assert engine.detector.white_threshold == 173
     assert engine.detector.pip_threshold == 91
     assert engine.pipeline.detector is engine.detector
+
+
+def test_recognition_settings_wait_for_safe_state_without_resetting_session(
+    tmp_path: Path,
+) -> None:
+    engine = VisionBenchEngine(
+        VisionSettingsStore(tmp_path / "vision-settings.json"),
+        tmp_path / "recordings",
+    )
+    session = engine.session
+    session.state = RecognitionState.MOVING
+    updated = replace(
+        engine.settings,
+        automatic_threshold=0.92,
+        confirmation_threshold=0.75,
+        stationary_frames=4,
+        consecutive_value_frames=2,
+    )
+
+    engine.update_settings(updated)
+
+    assert engine.session is session
+    assert engine.recognition_settings_pending
+    assert engine.active_recognition_config.stationary_frames == 10
+
+    session.state = RecognitionState.REMOVAL_WAIT
+    engine.process_frame(np.zeros((20, 30, 3), dtype=np.uint8), monotonic_time=1.0)
+
+    assert engine.session is session
+    assert not engine.recognition_settings_pending
+    assert engine.active_recognition_config.stationary_frames == 4
+    assert engine.active_recognition_config.consecutive_value_frames == 2
+    assert engine.active_recognition_config.automatic_threshold == 0.92
+    assert engine.active_recognition_config.confirmation_threshold == 0.75
 
 
 def test_engine_renders_pip_count_debug_panel(tmp_path: Path) -> None:

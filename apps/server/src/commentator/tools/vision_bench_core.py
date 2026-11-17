@@ -30,6 +30,7 @@ from commentator.services.vision.pipeline import (
 )
 from commentator.services.vision.recognition import (
     DiceRecognitionSession,
+    RecognitionConfig,
     RecognitionSnapshot,
     RecognitionState,
 )
@@ -64,6 +65,10 @@ def _settings_payload(settings: VisionSettings) -> dict[str, Any]:
             "height": settings.camera_height,
         },
         "exposure": settings.exposure,
+        "automaticThreshold": settings.automatic_threshold,
+        "confirmationThreshold": settings.confirmation_threshold,
+        "stationaryFrames": settings.stationary_frames,
+        "consecutiveValueFrames": settings.consecutive_value_frames,
     }
 
 
@@ -413,11 +418,20 @@ class VisionBenchEngine:
         self.history: deque[str] = deque(maxlen=12)
         self.last_frame: BenchFrame | None = None
         self._frame_times: deque[float] = deque(maxlen=30)
+        self._pending_recognition_config: RecognitionConfig | None = None
         self._build_pipeline()
 
     @property
     def connected(self) -> bool:
         return self.stream is not None
+
+    @property
+    def recognition_settings_pending(self) -> bool:
+        return self._pending_recognition_config is not None
+
+    @property
+    def active_recognition_config(self) -> RecognitionConfig:
+        return self.session.config
 
     def connect(self) -> dict[str, float | bool]:
         self.disconnect()
@@ -440,8 +454,17 @@ class VisionBenchEngine:
         self.pipeline.reset_frames()
 
     def update_settings(self, settings: VisionSettings) -> None:
+        previous = self.settings
         self.settings = settings
-        self._build_pipeline()
+        visual_changed = self._visual_settings(previous) != self._visual_settings(settings)
+        recognition_changed = (
+            previous.recognition_config() != settings.recognition_config()
+        )
+        if visual_changed:
+            self._pending_recognition_config = None
+            self._build_pipeline()
+        elif recognition_changed:
+            self._schedule_recognition_config(settings.recognition_config())
         if self.stream is not None:
             configure = getattr(self.stream, "configure", None)
             if callable(configure):
@@ -501,6 +524,7 @@ class VisionBenchEngine:
             result=result,
         )
         self._advance_decision(result, monotonic_time)
+        self._apply_pending_recognition_config_if_safe()
         bench_frame = BenchFrame(
             full_preview,
             roi_preview,
@@ -540,7 +564,7 @@ class VisionBenchEngine:
             pip_threshold=self.settings.pip_threshold,
             debug_pips=True,
         )
-        self.session = DiceRecognitionSession()
+        self.session = DiceRecognitionSession(self.settings.recognition_config())
         self.pipeline = DiceRecognitionPipeline(
             detector=self.detector,
             session=self.session,
@@ -548,6 +572,37 @@ class VisionBenchEngine:
         )
         if hasattr(self, "_frame_times"):
             self._frame_times.clear()
+
+    def _schedule_recognition_config(self, config: RecognitionConfig) -> None:
+        if self.session.state in {
+            RecognitionState.WAITING,
+            RecognitionState.REMOVAL_WAIT,
+        }:
+            self.session.config = config
+            self._pending_recognition_config = None
+        else:
+            self._pending_recognition_config = config
+
+    def _apply_pending_recognition_config_if_safe(self) -> None:
+        pending = self._pending_recognition_config
+        if pending is not None and self.session.state in {
+            RecognitionState.WAITING,
+            RecognitionState.REMOVAL_WAIT,
+        }:
+            self.session.config = pending
+            self._pending_recognition_config = None
+
+    @staticmethod
+    def _visual_settings(settings: VisionSettings) -> tuple[object, ...]:
+        return (
+            settings.camera_id,
+            settings.roi,
+            settings.white_threshold,
+            settings.pip_threshold,
+            settings.camera_width,
+            settings.camera_height,
+            settings.exposure,
+        )
 
     def _advance_decision(
         self, result: RecognitionFrameResult, monotonic_time: float

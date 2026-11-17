@@ -63,15 +63,22 @@ class _PipAnalysis:
 
 
 def _order_points(points: np.ndarray) -> np.ndarray:
-    points = points.astype(np.float32)
-    ordered = np.zeros((4, 2), dtype=np.float32)
-    sums = points.sum(axis=1)
-    diffs = np.diff(points, axis=1).ravel()
-    ordered[0] = points[np.argmin(sums)]      # top-left
-    ordered[2] = points[np.argmax(sums)]      # bottom-right
-    ordered[1] = points[np.argmin(diffs)]     # top-right
-    ordered[3] = points[np.argmax(diffs)]     # bottom-left
-    return ordered
+    """Return four distinct corners clockwise from a deterministic top-left."""
+    selected = points.astype(np.float32).reshape(4, 2)
+    center = selected.mean(axis=0)
+    # Image y coordinates grow downward, so increasing atan2 angles walk the
+    # corners clockwise: top -> right -> bottom -> left.
+    angles = np.arctan2(selected[:, 1] - center[1], selected[:, 0] - center[0])
+    clockwise = selected[np.argsort(angles)]
+    start = min(
+        range(4),
+        key=lambda index: (
+            float(clockwise[index].sum()),
+            float(clockwise[index, 1]),
+            float(clockwise[index, 0]),
+        ),
+    )
+    return np.roll(clockwise, -start, axis=0).astype(np.float32)
 
 
 class DiceDetector:

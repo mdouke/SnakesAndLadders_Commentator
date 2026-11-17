@@ -23,7 +23,7 @@ from .recognition import (
     RecognitionConfig,
     RecognitionState,
 )
-from .settings import NormalizedRoi, VisionSettingsStore
+from .settings import NormalizedRoi, VisionSettings, VisionSettingsStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,7 +245,13 @@ class SavedVideoEvaluator:
         self.config = config or RecognitionConfig()
         self.roi = roi or NormalizedRoi()
 
-    def evaluate(self, video_path: Path, labels: EvaluationLabels) -> VideoEvaluation:
+    def evaluate(
+        self,
+        video_path: Path,
+        labels: EvaluationLabels,
+        *,
+        frame_times: tuple[float, ...] | None = None,
+    ) -> VideoEvaluation:
         capture = cv2.VideoCapture(str(video_path))
         if not capture.isOpened():
             capture.release()
@@ -269,17 +275,22 @@ class SavedVideoEvaluator:
                 success, frame = capture.read()
                 if not success or frame is None:
                     break
-                fallback_seconds = frame_index / fps
-                position_milliseconds = float(capture.get(cv2.CAP_PROP_POS_MSEC))
-                position_seconds = position_milliseconds / 1000.0
-                if (
-                    isfinite(position_seconds)
-                    and position_seconds >= 0
-                    and (frame_index == 0 or position_seconds > previous_seconds)
-                ):
-                    seconds = position_seconds
+                if frame_times is not None:
+                    if frame_index >= len(frame_times):
+                        raise ValueError("フレーム時刻が映像より短いです")
+                    seconds = frame_times[frame_index]
                 else:
-                    seconds = max(fallback_seconds, previous_seconds)
+                    fallback_seconds = frame_index / fps
+                    position_milliseconds = float(capture.get(cv2.CAP_PROP_POS_MSEC))
+                    position_seconds = position_milliseconds / 1000.0
+                    if (
+                        isfinite(position_seconds)
+                        and position_seconds >= 0
+                        and (frame_index == 0 or position_seconds > previous_seconds)
+                    ):
+                        seconds = position_seconds
+                    else:
+                        seconds = max(fallback_seconds, previous_seconds)
                 result = pipeline.process(cast(Frame, frame), monotonic_time=seconds)
                 snapshot = result.snapshot
                 if (
@@ -318,6 +329,8 @@ class SavedVideoEvaluator:
                 frame_index += 1
         finally:
             capture.release()
+        if frame_times is not None and frame_index != len(frame_times):
+            raise ValueError("フレーム時刻が映像より長いです")
         duration_seconds = last_seconds + (1 / fps if frame_index else 0.0)
         return VideoEvaluation(
             video_path=video_path,
@@ -401,6 +414,47 @@ def load_recognition_config(path: Path) -> RecognitionConfig:
         raise ValueError("認識設定を読み込めません") from error
 
 
+def load_frame_times(path: Path) -> tuple[float, ...]:
+    """Load recorder JSONL timestamps and verify their frame alignment."""
+    try:
+        values: list[float] = []
+        for expected_index, line in enumerate(path.read_text(encoding="utf-8").splitlines()):
+            item = json.loads(line)
+            if not isinstance(item, dict) or int(item["frameIndex"]) != expected_index:
+                raise ValueError
+            seconds = float(item["seconds"])
+            if not isfinite(seconds) or seconds < 0:
+                raise ValueError
+            if values and seconds < values[-1]:
+                raise ValueError
+            values.append(seconds)
+        if not values:
+            raise ValueError
+        return tuple(values)
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        raise ValueError("フレーム時刻を読み込めません") from error
+
+
+def resolve_evaluation_roi(
+    settings: VisionSettings | None,
+    *,
+    roi_cropped: bool,
+) -> NormalizedRoi:
+    if roi_cropped or settings is None:
+        return NormalizedRoi()
+    return settings.roi
+
+
+def resolve_recognition_config(
+    settings: VisionSettings | None,
+    config_path: Path | None,
+) -> RecognitionConfig | None:
+    """Prefer an explicit config file, otherwise use the live-tool settings."""
+    if config_path is not None:
+        return load_recognition_config(config_path)
+    return settings.recognition_config() if settings is not None else None
+
+
 def _latency_summary(values: list[float]) -> dict[str, float | int | None]:
     return {
         "count": len(values),
@@ -425,6 +479,12 @@ def main() -> None:
     parser.add_argument("labels", type=Path)
     parser.add_argument("--settings", type=Path)
     parser.add_argument("--config", type=Path)
+    parser.add_argument("--frame-times", type=Path)
+    parser.add_argument(
+        "--roi-cropped",
+        action="store_true",
+        help="入力映像がすでにROIで切り出されている場合に指定します",
+    )
     parser.add_argument("--output", type=Path)
     arguments = parser.parse_args()
     labels = EvaluationLabels.load(arguments.labels)
@@ -432,7 +492,10 @@ def main() -> None:
         VisionSettingsStore(arguments.settings).load()
         if arguments.settings is not None else None
     )
-    roi = vision_settings.roi if vision_settings is not None else None
+    roi = resolve_evaluation_roi(
+        vision_settings,
+        roi_cropped=arguments.roi_cropped,
+    )
     detector = (
         DiceDetector(
             white_threshold=vision_settings.white_threshold,
@@ -440,14 +503,16 @@ def main() -> None:
         )
         if vision_settings is not None else None
     )
-    config = (
-        load_recognition_config(arguments.config)
-        if arguments.config is not None else None
-    )
+    config = resolve_recognition_config(vision_settings, arguments.config)
     report = SavedVideoEvaluator(
         detector=detector, roi=roi, config=config
     ).evaluate(
-        arguments.video, labels
+        arguments.video,
+        labels,
+        frame_times=(
+            load_frame_times(arguments.frame_times)
+            if arguments.frame_times is not None else None
+        ),
     ).report()
     output = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
     if arguments.output is None:

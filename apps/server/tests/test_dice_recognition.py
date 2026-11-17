@@ -3,7 +3,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pytest
-from commentator.services.vision.detector import DiceDetector, DieDetection
+from commentator.services.vision.detector import (
+    DiceDetector,
+    DieDetection,
+    _order_points,
+)
 from commentator.services.vision.motion import Roi, frame_motion_score
 from commentator.services.vision.pipeline import DiceRecognitionPipeline
 from commentator.services.vision.recognition import (
@@ -88,6 +92,37 @@ def test_detector_handles_all_values_and_rotations() -> None:
         _draw_die(canvas, center, size, value, angle)
     detected, _, rejected_count = DiceDetector().detect(canvas)
     assert sorted(die.value for die in detected) == [1, 2, 3, 4, 5, 6]
+    assert rejected_count == 0
+
+
+@pytest.mark.parametrize(
+    "angle",
+    sorted(set(range(91)) | {round(value / 10, 1) for value in range(440, 461)}),
+)
+def test_rotated_square_warp_always_uses_four_distinct_corners(
+    angle: float,
+) -> None:
+    gray = np.zeros((300, 300), dtype=np.uint8)
+    points = cv2.boxPoints(((150.0, 150.0), (90.0, 90.0), angle))
+    cv2.fillConvexPoly(gray, np.rint(points).astype(np.int32), 255)
+
+    ordered = _order_points(points)
+    warped, _ = DiceDetector._warp_die(gray, ordered)
+
+    assert np.unique(ordered, axis=0).shape[0] == 4
+    assert float(warped.mean()) > 245
+
+
+def test_detector_counts_three_pips_on_exactly_45_degree_die() -> None:
+    canvas = np.zeros((400, 400, 3), dtype=np.uint8)
+    _draw_die(canvas, (200, 200), 120, 3, 45)
+
+    detected, _, rejected_count = DiceDetector(
+        white_threshold=230,
+        pip_threshold=235,
+    ).detect(canvas)
+
+    assert [die.value for die in detected] == [3]
     assert rejected_count == 0
 
 
@@ -224,6 +259,52 @@ def test_automatic_confirmation_is_locked_until_removal() -> None:
     session.observe(frame(9, 0.0))
     session.observe(frame(10, 0.0))
     assert session.state is RecognitionState.WAITING
+
+
+def test_rejected_outline_keeps_confirmed_die_in_removal_wait() -> None:
+    session = ready_session()
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert confirmed is not None
+    session.acknowledge_committed(confirmed.id)
+
+    for timestamp in (6, 7, 8, 9):
+        result = session.observe(frame(timestamp, 0.0, rejected_count=1))
+        assert result.state is RecognitionState.REMOVAL_WAIT
+
+    session.observe(frame(10, 0.0))
+    removed = session.observe(frame(11, 0.0))
+    assert removed.state is RecognitionState.WAITING
+
+
+def test_static_die_at_confirmed_position_cannot_start_duplicate_cycle() -> None:
+    session = ready_session()
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert confirmed is not None
+    session.acknowledge_committed(confirmed.id)
+    session.observe(frame(6, 0.0))
+    assert session.observe(frame(7, 0.0)).state is RecognitionState.WAITING
+
+    for timestamp in range(8, 20):
+        result = session.observe(frame(float(timestamp), 0.0, value=4))
+        assert result.state is RecognitionState.WAITING
+        assert result.confirmation is None
+
+    restarted = session.observe(frame(20.0, 0.2, value=4))
+    assert restarted.state is RecognitionState.MOVING
+
+
+def test_stationary_die_at_new_position_can_start_missed_motion_cycle() -> None:
+    session = ready_session()
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert confirmed is not None
+    session.acknowledge_committed(confirmed.id)
+    session.observe(frame(6, 0.0))
+    assert session.observe(frame(7, 0.0)).state is RecognitionState.WAITING
+
+    restarted = session.observe(
+        frame(8, 0.0, value=2, center=(80.0, 80.0))
+    )
+    assert restarted.state is RecognitionState.MOVING
 
 
 def test_low_confidence_candidate_can_be_corrected_by_operator() -> None:

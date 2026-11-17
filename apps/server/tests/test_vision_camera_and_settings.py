@@ -78,6 +78,10 @@ def test_roi_crop_and_settings_round_trip(tmp_path: Path) -> None:
         camera_width=1920,
         camera_height=1080,
         exposure=-6.0,
+        automatic_threshold=0.91,
+        confirmation_threshold=0.72,
+        stationary_frames=4,
+        consecutive_value_frames=2,
     )
     store.save(settings)
     assert store.load() == settings
@@ -105,7 +109,11 @@ def test_missing_thresholds_use_tuned_defaults_but_null_keeps_auto(
     path.write_text('{"cameraId": 0}', encoding="utf-8")
     migrated = VisionSettingsStore(path).load()
     assert migrated.white_threshold == 230
-    assert migrated.pip_threshold == 230
+    assert migrated.pip_threshold == 235
+    assert migrated.automatic_threshold == 0.85
+    assert migrated.confirmation_threshold == 0.60
+    assert migrated.stationary_frames == 10
+    assert migrated.consecutive_value_frames == 3
 
     path.write_text(
         '{"whiteThreshold": null, "pipThreshold": null}',
@@ -114,3 +122,32 @@ def test_missing_thresholds_use_tuned_defaults_but_null_keeps_auto(
     automatic = VisionSettingsStore(path).load()
     assert automatic.white_threshold is None
     assert automatic.pip_threshold is None
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        VisionSettings(automatic_threshold=0.61, confirmation_threshold=0.60),
+        VisionSettings(stationary_frames=1),
+    ],
+)
+def test_valid_recognition_settings_are_accepted(settings: VisionSettings) -> None:
+    assert settings.recognition_config().stationary_frames >= 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"automaticThreshold": 0.59, "confirmationThreshold": 0.60}',
+        '{"stationaryFrames": 0}',
+        '{"consecutiveValueFrames": 0}',
+    ],
+)
+def test_invalid_recognition_settings_are_rejected(
+    tmp_path: Path,
+    payload: str,
+) -> None:
+    path = tmp_path / "vision.json"
+    path.write_text(payload, encoding="utf-8")
+    with pytest.raises(ValueError, match="値が不正"):
+        VisionSettingsStore(path).load()

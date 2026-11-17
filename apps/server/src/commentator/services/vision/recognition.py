@@ -137,6 +137,8 @@ class _CandidateSample:
 class DiceRecognitionSession:
     """Convert frame observations into at-most-once dice confirmations."""
 
+    _DUPLICATE_POSITION_RATIO = 0.05
+
     def __init__(
         self,
         config: RecognitionConfig | None = None,
@@ -157,6 +159,8 @@ class DiceRecognitionSession:
         self._last_observation_time: float | None = None
         self._recognition_error_code: str | None = None
         self._die_seen_in_cycle = False
+        self._last_confirmed_center: tuple[float, float] | None = None
+        self._last_confirmed_roi_diagonal = 1.0
         self._samples: deque[_CandidateSample] = deque(
             maxlen=self.config.candidate_window_frames
         )
@@ -190,13 +194,17 @@ class DiceRecognitionSession:
             return self.snapshot(error_code="recognition_timeout")
         if self.state is RecognitionState.WAITING:
             die_visible = bool(frame.detections or frame.rejected_count)
-            if frame.motion_score >= self.config.movement_threshold or die_visible:
+            moved = frame.motion_score >= self.config.movement_threshold
+            new_position = die_visible and self._die_is_away_from_last_confirmation(frame)
+            if moved or new_position:
+                self._last_confirmed_center = None
                 self._reset_cycle(RecognitionState.MOVING)
                 self._cycle_started_time = frame.monotonic_time
                 self._die_seen_in_cycle = die_visible
             return self.snapshot()
         if self.state is RecognitionState.RECOGNITION_ERROR:
             if frame.motion_score >= self.config.movement_threshold:
+                self._last_confirmed_center = None
                 self._reset_cycle(RecognitionState.MOVING)
                 self._cycle_started_time = frame.monotonic_time
             return self.snapshot()
@@ -374,10 +382,11 @@ class DiceRecognitionSession:
 
     def _observe_removal(self, frame: FrameObservation) -> None:
         if frame.motion_score >= self.config.movement_threshold:
+            self._last_confirmed_center = None
             self._reset_cycle(RecognitionState.MOVING)
             self._cycle_started_time = frame.monotonic_time
             return
-        if frame.detections:
+        if frame.detections or frame.rejected_count:
             self._absence_count = 0
             return
         self._absence_count += 1
@@ -392,6 +401,12 @@ class DiceRecognitionSession:
         *,
         original_candidate: int | None,
     ) -> Confirmation:
+        if self._samples:
+            latest = self._samples[-1]
+            self._last_confirmed_center = latest.observation.center
+            self._last_confirmed_roi_diagonal = latest.roi_diagonal
+        else:
+            self._last_confirmed_center = None
         self._confirmation_counter += 1
         self._confirmation = Confirmation(
             id=f"{self.session_id}:{self._confirmation_counter}",
@@ -405,6 +420,21 @@ class DiceRecognitionSession:
         )
         self.state = RecognitionState.CONFIRMED
         return self._confirmation
+
+    def _die_is_away_from_last_confirmation(self, frame: FrameObservation) -> bool:
+        previous = self._last_confirmed_center
+        if previous is None:
+            return True
+        if not frame.detections:
+            # A rejected outline has no center in FrameObservation. Without
+            # motion, treating it as the confirmed die is the safe choice.
+            return False
+        diagonal = max(frame.roi_diagonal, self._last_confirmed_roi_diagonal)
+        minimum_distance = diagonal * self._DUPLICATE_POSITION_RATIO
+        return any(
+            dist(detection.center, previous) > minimum_distance
+            for detection in frame.detections
+        )
 
     def _reset_cycle(self, state: RecognitionState) -> None:
         self._reset_transient()

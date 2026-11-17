@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .motion import Frame, Roi
+from .recognition import RecognitionConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,10 +44,14 @@ class VisionSettings:
     camera_id: int | None = None
     roi: NormalizedRoi = NormalizedRoi()
     white_threshold: int | None = 230
-    pip_threshold: int | None = 230
+    pip_threshold: int | None = 235
     camera_width: int = 1280
     camera_height: int = 720
     exposure: float | None = None
+    automatic_threshold: float = 0.85
+    confirmation_threshold: float = 0.60
+    stationary_frames: int = 10
+    consecutive_value_frames: int = 3
 
     def __post_init__(self) -> None:
         if self.camera_id is not None and self.camera_id < 0:
@@ -61,6 +66,16 @@ class VisionSettings:
             (640, 480),
         }:
             raise ValueError("カメラ解像度が対応範囲外です")
+        # Keep persisted values subject to the same invariants as the state machine.
+        self.recognition_config()
+
+    def recognition_config(self) -> RecognitionConfig:
+        return RecognitionConfig(
+            automatic_threshold=self.automatic_threshold,
+            confirmation_threshold=self.confirmation_threshold,
+            stationary_frames=self.stationary_frames,
+            consecutive_value_frames=self.consecutive_value_frames,
+        )
 
 
 class VisionSettingsStore:
@@ -98,6 +113,12 @@ class VisionSettingsStore:
                     float(value["exposure"])
                     if value.get("exposure") is not None else None
                 ),
+                automatic_threshold=float(value.get("automaticThreshold", 0.85)),
+                confirmation_threshold=float(value.get("confirmationThreshold", 0.60)),
+                stationary_frames=int(value.get("stationaryFrames", 10)),
+                consecutive_value_frames=int(
+                    value.get("consecutiveValueFrames", 3)
+                ),
             )
         except (TypeError, ValueError) as error:
             raise ValueError("サイコロ認識設定の値が不正です") from error
@@ -116,6 +137,10 @@ class VisionSettingsStore:
                 "height": settings.camera_height,
             },
             "exposure": settings.exposure,
+            "automaticThreshold": settings.automatic_threshold,
+            "confirmationThreshold": settings.confirmation_threshold,
+            "stationaryFrames": settings.stationary_frames,
+            "consecutiveValueFrames": settings.consecutive_value_frames,
         }
         temporary.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -127,6 +152,6 @@ class VisionSettingsStore:
 def _optional_threshold(value: dict[str, Any], key: str) -> int | None:
     """Use the tuned fixed default for missing keys while preserving explicit auto."""
     if key not in value:
-        return 230
+        return 235 if key == "pipThreshold" else 230
     selected = value[key]
     return int(selected) if selected is not None else None
