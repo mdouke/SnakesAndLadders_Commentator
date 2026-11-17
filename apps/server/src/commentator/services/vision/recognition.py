@@ -71,6 +71,7 @@ class DieObservation:
     center: tuple[float, float]
     pip_size_consistency: float = 1.0
     single_pip_center_offset: float = 0.0
+    pip_merge_suspected: bool = False
 
     def __post_init__(self) -> None:
         if not 1 <= self.value <= 6:
@@ -110,6 +111,7 @@ class ConfidenceBreakdown:
     total: float
     pip_size_consistency: float = 1.0
     single_pip_center_offset: float = 0.0
+    pip_merge_suspected: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -376,6 +378,7 @@ class DiceRecognitionSession:
         single_pip_center_offset = (
             matching[-1].observation.single_pip_center_offset
         )
+        pip_merge_suspected = matching[-1].observation.pip_merge_suspected
         total = (
             0.45 * detector
             + 0.30 * value_stability
@@ -390,10 +393,14 @@ class DiceRecognitionSession:
             total=total,
             pip_size_consistency=pip_size_consistency,
             single_pip_center_offset=single_pip_center_offset,
+            pip_merge_suspected=pip_merge_suspected,
         )
         if (
             total >= self.config.automatic_threshold
             and pip_size_consistency >= self.config.min_pip_size_consistency
+            # Fused pips were seen on this face. Even a successful recount
+            # with a lower threshold is a re-read, so leave it to the operator.
+            and not pip_merge_suspected
             and (
                 candidate != 1
                 or single_pip_center_offset

@@ -357,6 +357,7 @@ def _confidence_dict(value: ConfidenceBreakdown) -> dict[str, float]:
         "positionStability": raw["position_stability"],
         "pipSizeConsistency": raw["pip_size_consistency"],
         "singlePipCenterOffset": raw["single_pip_center_offset"],
+        "pipMergeSuspected": raw["pip_merge_suspected"],
         "total": raw["total"],
     }
 

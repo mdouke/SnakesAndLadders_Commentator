@@ -85,6 +85,7 @@ def _confidence_payload(snapshot: RecognitionSnapshot) -> dict[str, float] | Non
         "positionStability": confidence.position_stability,
         "pipSizeConsistency": confidence.pip_size_consistency,
         "singlePipCenterOffset": confidence.single_pip_center_offset,
+        "pipMergeSuspected": confidence.pip_merge_suspected,
         "total": confidence.total,
     }
 
@@ -352,6 +353,12 @@ def _pip_rejection_label(contour: PipContourDebug) -> str:
     return "rejected"
 
 
+def _merge_label(item: PipDetectionDebug) -> str:
+    if item.pip_recounted:
+        return "recount"
+    return "yes" if item.pip_merge_suspected else "no"
+
+
 def render_pip_debug(items: tuple[PipDetectionDebug, ...]) -> Frame | None:
     """Render the exact pip-counting inputs and decisions for the live GUI."""
     rows: list[Frame] = []
@@ -390,6 +397,7 @@ def render_pip_debug(items: tuple[PipDetectionDebug, ...]) -> Frame | None:
                 f"{'auto' if item.threshold_is_automatic else 'fixed'}   "
                 f"PipSize={item.pip_size_consistency:.2f}   "
                 f"PipCenter={item.single_pip_center_offset:.2f}   "
+                f"Merge={_merge_label(item)}   "
                 "face / count mask"
             ),
             (5, 19),

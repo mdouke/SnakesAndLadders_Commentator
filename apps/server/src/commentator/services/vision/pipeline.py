@@ -66,6 +66,7 @@ class DiceRecognitionPipeline:
                 center=(float(detection.center[0]), float(detection.center[1])),
                 pip_size_consistency=detection.pip_size_consistency,
                 single_pip_center_offset=detection.single_pip_center_offset,
+                pip_merge_suspected=detection.pip_merge_suspected,
             )
             for detection in detections
         )

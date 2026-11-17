@@ -41,6 +41,7 @@ def frame(
     rejected_count: int = 0,
     pip_size_consistency: float = 1.0,
     single_pip_center_offset: float = 0.0,
+    pip_merge_suspected: bool = False,
 ) -> FrameObservation:
     detections = (
         (
@@ -50,6 +51,7 @@ def frame(
                 center,
                 pip_size_consistency,
                 single_pip_center_offset,
+                pip_merge_suspected,
             ),
         )
         if value is not None else ()
@@ -284,6 +286,109 @@ def test_single_pip_center_offset_distinguishes_center_from_corner() -> None:
     assert corner_analysis.single_pip_center_offset > 0.22
 
 
+def _six_face_with_fused_column(*, bridge: int) -> np.ndarray:
+    """A die face whose right pip column is joined by a light-gray bridge.
+
+    The bridge is darker than a high fixed pip threshold but lighter than a
+    lower one, like the halo between closely spaced pips on a tilted die.
+    """
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    for pip_x, pip_y in PIPS[6]:
+        cv2.circle(
+            warped, (round(90 + pip_x * 42), round(90 + pip_y * 42)), 10, 0, -1
+        )
+    cv2.rectangle(warped, (126, 48), (138, 132), bridge, -1)
+    for pip_y in (-1, 0, 1):
+        cv2.circle(warped, (132, round(90 + pip_y * 42)), 10, 0, -1)
+    return warped
+
+
+def test_fused_pips_inside_face_are_flagged() -> None:
+    warped = _six_face_with_fused_column(bridge=228)
+
+    analysis = DiceDetector(pip_threshold=235)._analyze_pips(
+        warped, collect_debug=False
+    )
+
+    assert analysis.merged_pip_blob
+    assert len(analysis.centers) == 3
+
+
+def test_fused_pair_below_large_area_limit_is_flagged() -> None:
+    # Two touching pips form a blob under the area_large limit that is
+    # rejected for its shape; it must still count as fused pips.
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    cv2.circle(warped, (79, 90), 14, 0, -1)
+    cv2.circle(warped, (101, 90), 14, 0, -1)
+
+    analysis = DiceDetector(pip_threshold=235)._analyze_pips(
+        warped, collect_debug=True
+    )
+
+    rejected = [item for item in analysis.contours if not item.accepted]
+    assert rejected and rejected[0].rejection_reason != "area_large"
+    assert analysis.merged_pip_blob
+
+
+def test_dark_region_touching_face_border_is_not_fused_pips() -> None:
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    for pip_x, pip_y in PIPS[3]:
+        cv2.circle(
+            warped, (round(90 + pip_x * 42), round(90 + pip_y * 42)), 10, 0, -1
+        )
+    # A visible side face or shadow enters from the border of the warped face.
+    cv2.rectangle(warped, (0, 150), (179, 179), 0, -1)
+
+    analysis = DiceDetector(pip_threshold=235)._analyze_pips(
+        warped, collect_debug=False
+    )
+
+    assert not analysis.merged_pip_blob
+
+
+@pytest.mark.parametrize("value", range(1, 7))
+def test_normal_faces_are_not_flagged_as_fused(value: int) -> None:
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    for pip_x, pip_y in PIPS[value]:
+        cv2.circle(
+            warped, (round(90 + pip_x * 42), round(90 + pip_y * 42)), 10, 0, -1
+        )
+
+    analysis = DiceDetector(pip_threshold=235)._analyze_pips(
+        warped, collect_debug=False
+    )
+
+    assert not analysis.merged_pip_blob
+
+
+def test_detector_recounts_fused_pips_with_lower_threshold() -> None:
+    canvas = np.zeros((300, 300, 3), dtype=np.uint8)
+    face = cv2.resize(_six_face_with_fused_column(bridge=228), (120, 120))
+    canvas[90:210, 90:210] = cv2.cvtColor(face, cv2.COLOR_GRAY2BGR)
+
+    detector = DiceDetector(white_threshold=200, pip_threshold=235, debug_pips=True)
+    detected, _, _ = detector.detect(canvas)
+
+    assert [item.value for item in detected] == [6]
+    assert detected[0].pip_merge_suspected
+    assert detected[0].pip_recounted
+    assert detector.last_pip_debug[0].pip_recounted
+    assert detector.last_pip_debug[0].threshold_value < 235
+
+
+def test_detector_keeps_merge_flag_when_recount_fails() -> None:
+    canvas = np.zeros((300, 300, 3), dtype=np.uint8)
+    # A bridge as dark as the pips cannot be split by lowering the threshold.
+    face = cv2.resize(_six_face_with_fused_column(bridge=0), (120, 120))
+    canvas[90:210, 90:210] = cv2.cvtColor(face, cv2.COLOR_GRAY2BGR)
+
+    detected, _, _ = DiceDetector(white_threshold=200, pip_threshold=235).detect(canvas)
+
+    assert [item.value for item in detected] == [3]
+    assert detected[0].pip_merge_suspected
+    assert not detected[0].pip_recounted
+
+
 def test_detector_reports_die_shape_with_invalid_pip_count() -> None:
     canvas = np.zeros((300, 300, 3), dtype=np.uint8)
     cv2.rectangle(canvas, (90, 90), (210, 210), (255, 255, 255), -1)
@@ -414,6 +519,19 @@ def test_off_center_single_pip_requires_confirmation() -> None:
     assert result.confidence is not None
     assert result.confidence.total >= 0.85
     assert result.confidence.single_pip_center_offset == pytest.approx(0.27)
+
+
+def test_fused_pip_face_requires_confirmation_even_with_high_confidence() -> None:
+    session = ready_session()
+
+    result = session.observe(
+        frame(5, 0.0, value=4, pip_merge_suspected=True)
+    )
+
+    assert result.state is RecognitionState.NEEDS_CONFIRMATION
+    assert result.confidence is not None
+    assert result.confidence.total >= 0.85
+    assert result.confidence.pip_merge_suspected
 
 
 def test_centered_single_pip_still_confirms_automatically() -> None:

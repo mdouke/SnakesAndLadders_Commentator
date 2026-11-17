@@ -54,8 +54,9 @@ def test_metrics_include_correct_false_extra_and_latency() -> None:
         "valueStability": 1.0,
         "stillness": 1.0,
         "positionStability": 1.0,
-            "pipSizeConsistency": 1.0,
-            "singlePipCenterOffset": 0.0,
+        "pipSizeConsistency": 1.0,
+        "singlePipCenterOffset": 0.0,
+        "pipMergeSuspected": False,
         "total": 0.7,
     }
 

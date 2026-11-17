@@ -18,6 +18,8 @@ class DieDetection:
     candidate_index: int = 0
     pip_size_consistency: float = 1.0
     single_pip_center_offset: float = 0.0
+    pip_merge_suspected: bool = False
+    pip_recounted: bool = False
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,8 @@ class PipDetectionDebug:
     counted_pips: int
     pip_size_consistency: float
     single_pip_center_offset: float
+    pip_merge_suspected: bool = False
+    pip_recounted: bool = False
 
 
 @dataclass(frozen=True)
@@ -66,6 +70,17 @@ class _PipAnalysis:
     contours: tuple[PipContourDebug, ...]
     pip_size_consistency: float
     single_pip_center_offset: float
+    merged_pip_blob: bool = False
+
+
+# When a fixed pip threshold leaves a merged blob inside the face, retry the
+# count with these lower thresholds. A high threshold keeps washed-out pips
+# visible but also darkens the gap between closely spaced pips, so two or three
+# neighbouring pips on a tilted 6 can fuse into one blob that is then dropped.
+PIP_RECOUNT_THRESHOLD_STEPS = (10, 15, 20)
+# Single pips measure about 0.016-0.035 of the inner face in recordings; two
+# fused pips measure about 0.05-0.06.
+FUSED_PIP_MIN_AREA_RATIO = 0.04
 
 
 def _order_points(points: np.ndarray) -> np.ndarray:
@@ -177,6 +192,19 @@ class DiceDetector:
             box = _order_points(cv2.boxPoints(rect))
             warped, matrix = self._warp_die(gray, box)
             analysis = self._analyze_pips(warped, collect_debug=self.debug_pips)
+            merge_suspected = analysis.merged_pip_blob
+            recounted = False
+            if merge_suspected and self.pip_threshold is not None:
+                for step in PIP_RECOUNT_THRESHOLD_STEPS:
+                    retry = self._analyze_pips(
+                        warped,
+                        collect_debug=self.debug_pips,
+                        threshold=self.pip_threshold - step,
+                    )
+                    if not retry.merged_pip_blob and 1 <= len(retry.centers) <= 6:
+                        analysis = retry
+                        recounted = True
+                        break
             pip_local = list(analysis.centers)
             value = len(pip_local)
             box_int = np.rint(box).astype(np.int32)
@@ -195,6 +223,8 @@ class DiceDetector:
                     counted_pips=value,
                     pip_size_consistency=analysis.pip_size_consistency,
                     single_pip_center_offset=analysis.single_pip_center_offset,
+                    pip_merge_suspected=merge_suspected,
+                    pip_recounted=recounted,
                 ))
             if not 1 <= value <= 6:
                 rejected_count += 1
@@ -232,6 +262,8 @@ class DiceDetector:
                     pip_centers,
                     pip_size_consistency=analysis.pip_size_consistency,
                     single_pip_center_offset=analysis.single_pip_center_offset,
+                    pip_merge_suspected=merge_suspected,
+                    pip_recounted=recounted,
                 )
             )
 
@@ -275,7 +307,11 @@ class DiceDetector:
         return list(self._analyze_pips(warped, collect_debug=False).centers)
 
     def _analyze_pips(
-        self, warped: np.ndarray, *, collect_debug: bool
+        self,
+        warped: np.ndarray,
+        *,
+        collect_debug: bool,
+        threshold: int | None = None,
     ) -> _PipAnalysis:
         size = warped.shape[0]
         # The perspective warp already maps the die outline to the image border.
@@ -284,19 +320,22 @@ class DiceDetector:
         margin = int(size * 0.07)
         inner = warped[margin : size - margin, margin : size - margin]
         inner = cv2.GaussianBlur(inner, (5, 5), 0)
-        if self.pip_threshold is None:
+        fixed_threshold = threshold if threshold is not None else self.pip_threshold
+        if fixed_threshold is None:
             threshold_value, dark = cv2.threshold(
                 inner, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
             )
         else:
             threshold_value, dark = cv2.threshold(
-                inner, self.pip_threshold, 255, cv2.THRESH_BINARY_INV
+                inner, fixed_threshold, 255, cv2.THRESH_BINARY_INV
             )
         dark = cv2.morphologyEx(
             dark, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         )
         contours, _ = cv2.findContours(dark, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         inner_area = float(inner.shape[0] * inner.shape[1])
+        inner_height, inner_width = inner.shape[:2]
+        merged_pip_blob = False
         pips: list[tuple[float, float]] = []
         pip_area_ratios: list[float] = []
         contour_debug: list[PipContourDebug] = []
@@ -330,6 +369,18 @@ class DiceDetector:
             elif aspect > 1.55:
                 reason = "aspect"
             accepted = reason is None
+            # A rejected blob of at least two pips' area that does not touch
+            # the face border is fused pips, not a side face or the outline
+            # bleeding in. A fused pair is often rejected for circularity
+            # (a peanut shape) rather than size, so judge by area, not reason.
+            if (
+                reason is not None
+                and reason != "area_small"
+                and area_ratio >= FUSED_PIP_MIN_AREA_RATIO
+                and x > 1 and y > 1
+                and x + w < inner_width - 2 and y + h < inner_height - 2
+            ):
+                merged_pip_blob = True
             if collect_debug:
                 debug_contour = contour.copy()
                 debug_contour[:, 0, 0] += margin
@@ -362,10 +413,11 @@ class DiceDetector:
             mask=dark,
             margin=margin,
             threshold_value=float(threshold_value),
-            threshold_is_automatic=self.pip_threshold is None,
+            threshold_is_automatic=fixed_threshold is None,
             contours=tuple(contour_debug),
             pip_size_consistency=float(pip_size_consistency),
             single_pip_center_offset=single_pip_center_offset,
+            merged_pip_blob=merged_pip_blob,
         )
 
     @staticmethod

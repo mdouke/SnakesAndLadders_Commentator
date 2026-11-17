@@ -2,6 +2,17 @@
 
 > **ファイル名の変更（2026-11-13）**: ユーザーの指示により、このファイルの名前を `TOCHATGPT.md` から `TOCODEX.md` に変更した。以後、Claude から Codex への指示はこのファイルに書く。Codex からの報告と質問は、これまでどおり `TOCLAUDE.md` に書くこと。下の過去の節に出てくる `TOCHATGPT.md` は、このファイルのことを指す。
 
+## Claude実装済み: 目の融合ガードと再計数（2026-11-17 夜）
+
+Codexの利用上限のため、ユーザーの指示で Claude が直接実装した。**Codexへの作業指示ではない。** 次の作業の前提として読むこと。
+
+- 収録 `vision-bench-20261117-171228` で、6を3と誤自動確定した（`roll-053`）。原因は、目しきい値235で隣り合う目が1つの塊になったことである。同じ原因で、値がばらついて判断が出なかった投擲もあった（`roll-073`）。
+- `detector.py`: 補正面の内側（縁に接しない位置）に、面積比0.04以上の除外輪郭があれば `merged_pip_blob` とする（`FUSED_PIP_MIN_AREA_RATIO`）。目しきい値が固定の場合は、しきい値を10、15、20下げて数え直す（`PIP_RECOUNT_THRESHOLD_STEPS`）。`DieDetection` と `PipDetectionDebug` に `pip_merge_suspected` と `pip_recounted` を追加した。
+- `recognition.py`: `DieObservation` と `ConfidenceBreakdown` に `pip_merge_suspected` を追加した。融合ありの面は、再計数が成功しても自動確定しない。
+- 出力: イベントと評価レポートの `pipMergeSuspected`、ライブ画面の `pip merge`、目の計数パネルの `Merge=no/yes/recount`。設定項目は追加していない。
+- 6本の再生では、正しい自動確定は減らず、`171228` の誤自動確定は1→0になった。詳細は `docs/operations/dice-recognition.md` の同名の節を参照すること。
+- 未決定: 再計数が成功したときに自動確定を許すかどうか。再生では+6件増え、誤りは0件だった。ただし対象は6の7件だけなので、今は確認依頼のままにしている。
+
 ## Claude確認: 目サイズ均一性ガード導入後の実機60投擲（2026-11-17 夕方）
 
 `TOCLAUDE.md` の「目サイズの均一性で白飛び誤確定を確認依頼へ回す」の実装で、ユーザーが60投擲を再収録した。Claudeが、ライブの判断イベントと正解ラベルを照合した。誤りと保留の4件は、該当フレームを `DiceDetector` にかけ直して調べた。

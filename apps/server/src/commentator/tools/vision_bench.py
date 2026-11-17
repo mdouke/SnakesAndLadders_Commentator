@@ -688,7 +688,8 @@ class VisionBenchApp:
                 f"確認 ≥ {config.confirmation_threshold:.2f})\n"
                 "  detector — / value —\n  still — / position —\n"
                 f"  pip size — (確認 < {config.min_pip_size_consistency:.2f})\n"
-                f"  pip center — (確認 > {config.max_single_pip_center_offset:.2f})"
+                f"  pip center — (確認 > {config.max_single_pip_center_offset:.2f})\n"
+                "  pip merge —"
             )
         else:
             breakdown = (
@@ -701,7 +702,8 @@ class VisionBenchApp:
                 f"  pip size {confidence.pip_size_consistency:.3f} "
                 f"(確認 < {config.min_pip_size_consistency:.2f})\n"
                 f"  pip center {confidence.single_pip_center_offset:.3f} "
-                f"(確認 > {config.max_single_pip_center_offset:.2f})"
+                f"(確認 > {config.max_single_pip_center_offset:.2f})\n"
+                f"  pip merge {'あり→確認' if confidence.pip_merge_suspected else 'なし'}"
             )
         candidate = snapshot.candidate_value if snapshot.candidate_value is not None else "—"
         return (
