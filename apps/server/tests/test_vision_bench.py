@@ -110,7 +110,7 @@ def test_recorder_writes_video_sidecars_events_and_evaluation_labels(tmp_path: P
     assert settings["whiteThreshold"] == 220
     assert settings["pipThreshold"] == 110
     assert settings["cameraResolution"] == {"width": 1280, "height": 720}
-    assert settings["automaticThreshold"] == 0.85
+    assert settings["automaticThreshold"] == 0.83
     assert settings["confirmationThreshold"] == 0.60
     assert settings["stationaryFrames"] == 10
     assert settings["consecutiveValueFrames"] == 3

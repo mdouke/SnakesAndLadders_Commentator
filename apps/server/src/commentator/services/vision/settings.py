@@ -48,7 +48,7 @@ class VisionSettings:
     camera_width: int = 1280
     camera_height: int = 720
     exposure: float | None = None
-    automatic_threshold: float = 0.85
+    automatic_threshold: float = 0.83
     confirmation_threshold: float = 0.60
     stationary_frames: int = 10
     consecutive_value_frames: int = 3
@@ -119,7 +119,7 @@ class VisionSettingsStore:
                     float(value["exposure"])
                     if value.get("exposure") is not None else None
                 ),
-                automatic_threshold=float(value.get("automaticThreshold", 0.85)),
+                automatic_threshold=float(value.get("automaticThreshold", 0.83)),
                 confirmation_threshold=float(value.get("confirmationThreshold", 0.60)),
                 stationary_frames=int(value.get("stationaryFrames", 10)),
                 consecutive_value_frames=int(

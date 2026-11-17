@@ -113,7 +113,7 @@ def test_missing_thresholds_use_tuned_defaults_but_null_keeps_auto(
     migrated = VisionSettingsStore(path).load()
     assert migrated.white_threshold == 230
     assert migrated.pip_threshold == 235
-    assert migrated.automatic_threshold == 0.85
+    assert migrated.automatic_threshold == 0.83
     assert migrated.confirmation_threshold == 0.60
     assert migrated.stationary_frames == 10
     assert migrated.consecutive_value_frames == 3

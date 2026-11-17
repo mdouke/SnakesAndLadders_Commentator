@@ -37,7 +37,7 @@ class RecognitionConfig:
     consecutive_value_frames: int = 3
     candidate_window_frames: int = 5
     removal_frames: int = 3
-    automatic_threshold: float = 0.85
+    automatic_threshold: float = 0.83
     confirmation_threshold: float = 0.60
     recognition_timeout_seconds: float = 10.0
     min_pip_size_consistency: float = 0.50
