@@ -6,6 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
 from math import dist
+from statistics import median
 from uuid import uuid4
 
 
@@ -389,7 +390,15 @@ class DiceRecognitionSession:
         )
         pip_merge_suspected = matching[-1].observation.pip_merge_suspected
         pip_recounted = matching[-1].observation.pip_recounted
-        pip_layout_error = matching[-1].observation.pip_layout_error
+        # Layout error is sensitive to a pip centre moving by a few pixels, and
+        # a single live frame can spike (0.15 on a correct 5 whose neighbouring
+        # frames read 0.10). Use the median over the stable-value run instead.
+        # Side-face pips counted as top-face pips misfit in every frame, so
+        # the median still catches them.
+        pip_layout_error = median(
+            sample.observation.pip_layout_error
+            for sample in matching[-self.config.consecutive_value_frames:]
+        )
         total = (
             0.45 * detector
             + 0.30 * value_stability

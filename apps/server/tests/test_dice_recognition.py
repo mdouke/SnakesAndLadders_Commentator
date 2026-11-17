@@ -603,14 +603,39 @@ def test_successfully_recounted_fused_face_confirms_automatically() -> None:
     assert result.confidence.pip_recounted
 
 
-def test_pip_layout_error_above_limit_requires_confirmation() -> None:
-    session = ready_session()
+def test_single_frame_layout_spike_does_not_block_confirmation() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        consecutive_value_frames=3,
+    ))
+    session.observe(frame(0, 0.2))
+    session.observe(frame(1, 0.0))
+    session.observe(frame(2, 0.0))
+    session.observe(frame(3, 0.0, value=5, pip_layout_error=0.10))
+    session.observe(frame(4, 0.0, value=5, pip_layout_error=0.10))
 
-    result = session.observe(frame(5, 0.0, value=4, pip_layout_error=0.17))
+    result = session.observe(frame(5, 0.0, value=5, pip_layout_error=0.16))
+
+    assert result.state is RecognitionState.CONFIRMED
+    assert result.confidence is not None
+    assert result.confidence.pip_layout_error == pytest.approx(0.10)
+
+
+def test_persistent_layout_error_requires_confirmation() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        consecutive_value_frames=3,
+    ))
+    session.observe(frame(0, 0.2))
+    session.observe(frame(1, 0.0))
+    session.observe(frame(2, 0.0))
+    session.observe(frame(3, 0.0, value=6, pip_layout_error=0.17))
+    session.observe(frame(4, 0.0, value=6, pip_layout_error=0.10))
+
+    result = session.observe(frame(5, 0.0, value=6, pip_layout_error=0.18))
 
     assert result.state is RecognitionState.NEEDS_CONFIRMATION
     assert result.confidence is not None
-    assert result.confidence.total >= 0.85
     assert result.confidence.pip_layout_error == pytest.approx(0.17)
 
 
