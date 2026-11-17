@@ -39,9 +39,11 @@ def frame(
     center: tuple[float, float] = (50.0, 50.0),
     connected: bool = True,
     rejected_count: int = 0,
+    pip_size_consistency: float = 1.0,
 ) -> FrameObservation:
     detections = (
-        (DieObservation(value, confidence, center),) if value is not None else ()
+        (DieObservation(value, confidence, center, pip_size_consistency),)
+        if value is not None else ()
     )
     return FrameObservation(
         monotonic_time=time,
@@ -224,6 +226,40 @@ def test_fixed_pip_threshold_controls_dark_pip_extraction() -> None:
     assert len(selected.centers) == 3
 
 
+def test_pip_size_consistency_detects_one_abnormally_small_pip() -> None:
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    cv2.circle(warped, (50, 50), 7, 0, -1)
+    cv2.circle(warped, (90, 90), 11, 0, -1)
+    cv2.circle(warped, (130, 130), 11, 0, -1)
+
+    analysis = DiceDetector(pip_threshold=235)._analyze_pips(
+        warped, collect_debug=True
+    )
+
+    assert len(analysis.centers) == 3
+    assert analysis.pip_size_consistency < 0.5
+
+
+@pytest.mark.parametrize("value", range(2, 7))
+def test_normal_multi_pip_faces_have_consistent_pip_sizes(value: int) -> None:
+    warped = np.full((180, 180), 255, dtype=np.uint8)
+    for pip_x, pip_y in PIPS[value]:
+        cv2.circle(
+            warped,
+            (round(90 + pip_x * 42), round(90 + pip_y * 42)),
+            9,
+            0,
+            -1,
+        )
+
+    analysis = DiceDetector(pip_threshold=235)._analyze_pips(
+        warped, collect_debug=False
+    )
+
+    assert len(analysis.centers) == value
+    assert analysis.pip_size_consistency >= 0.95
+
+
 def test_detector_reports_die_shape_with_invalid_pip_count() -> None:
     canvas = np.zeros((300, 300, 3), dtype=np.uint8)
     cv2.rectangle(canvas, (90, 90), (210, 210), (255, 255, 255), -1)
@@ -318,6 +354,19 @@ def test_low_confidence_candidate_can_be_corrected_by_operator() -> None:
     assert confirmation.value == 5
     assert confirmation.original_candidate == 4
     assert confirmation.source is ConfirmationSource.CORRECTED
+
+
+def test_uneven_pip_sizes_require_confirmation_even_with_high_confidence() -> None:
+    session = ready_session()
+
+    result = session.observe(
+        frame(5, 0.0, value=4, pip_size_consistency=0.28)
+    )
+
+    assert result.state is RecognitionState.NEEDS_CONFIRMATION
+    assert result.confidence is not None
+    assert result.confidence.total >= 0.85
+    assert result.confidence.pip_size_consistency == pytest.approx(0.28)
 
 
 def test_motion_unlocks_confirmed_die_as_a_new_roll() -> None:

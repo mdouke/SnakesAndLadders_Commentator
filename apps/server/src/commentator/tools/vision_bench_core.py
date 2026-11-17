@@ -69,6 +69,7 @@ def _settings_payload(settings: VisionSettings) -> dict[str, Any]:
         "confirmationThreshold": settings.confirmation_threshold,
         "stationaryFrames": settings.stationary_frames,
         "consecutiveValueFrames": settings.consecutive_value_frames,
+        "minPipSizeConsistency": settings.min_pip_size_consistency,
     }
 
 
@@ -81,6 +82,7 @@ def _confidence_payload(snapshot: RecognitionSnapshot) -> dict[str, float] | Non
         "valueStability": confidence.value_stability,
         "stillness": confidence.stillness,
         "positionStability": confidence.position_stability,
+        "pipSizeConsistency": confidence.pip_size_consistency,
         "total": confidence.total,
     }
 
@@ -384,6 +386,7 @@ def render_pip_debug(items: tuple[PipDetectionDebug, ...]) -> Frame | None:
                 f"#{item.candidate_index}  pips={item.counted_pips}  "
                 f"PipThr={item.threshold_value:.0f} "
                 f"{'auto' if item.threshold_is_automatic else 'fixed'}   "
+                f"PipSize={item.pip_size_consistency:.2f}   "
                 "face / count mask"
             ),
             (5, 19),

@@ -16,6 +16,7 @@ class DieDetection:
     confidence: float
     pip_centers: tuple[tuple[int, int], ...]
     candidate_index: int = 0
+    pip_size_consistency: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,7 @@ class PipDetectionDebug:
     threshold_is_automatic: bool
     contours: tuple[PipContourDebug, ...]
     counted_pips: int
+    pip_size_consistency: float
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class _PipAnalysis:
     threshold_value: float
     threshold_is_automatic: bool
     contours: tuple[PipContourDebug, ...]
+    pip_size_consistency: float
 
 
 def _order_points(points: np.ndarray) -> np.ndarray:
@@ -187,6 +190,7 @@ class DiceDetector:
                     threshold_is_automatic=analysis.threshold_is_automatic,
                     contours=analysis.contours,
                     counted_pips=value,
+                    pip_size_consistency=analysis.pip_size_consistency,
                 ))
             if not 1 <= value <= 6:
                 rejected_count += 1
@@ -216,7 +220,14 @@ class DiceDetector:
                 np.clip(0.45 * rectangularity + 0.25 * solidity + 0.30 * shape_score, 0, 1)
             )
             detections.append(
-                DieDetection(value, box_int, center, confidence, pip_centers)
+                DieDetection(
+                    value,
+                    box_int,
+                    center,
+                    confidence,
+                    pip_centers,
+                    pip_size_consistency=analysis.pip_size_consistency,
+                )
             )
 
         ordered_centers = sorted(
@@ -282,6 +293,7 @@ class DiceDetector:
         contours, _ = cv2.findContours(dark, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         inner_area = float(inner.shape[0] * inner.shape[1])
         pips: list[tuple[float, float]] = []
+        pip_area_ratios: list[float] = []
         contour_debug: list[PipContourDebug] = []
 
         for contour in contours:
@@ -331,6 +343,11 @@ class DiceDetector:
                 cx = moments["m10"] / moments["m00"] + margin
                 cy = moments["m01"] / moments["m00"] + margin
                 pips.append((cx, cy))
+                pip_area_ratios.append(float(area_ratio))
+        pip_size_consistency = (
+            min(pip_area_ratios) / max(pip_area_ratios)
+            if len(pip_area_ratios) >= 2 else 1.0
+        )
         return _PipAnalysis(
             centers=tuple(pips),
             mask=dark,
@@ -338,6 +355,7 @@ class DiceDetector:
             threshold_value=float(threshold_value),
             threshold_is_automatic=self.pip_threshold is None,
             contours=tuple(contour_debug),
+            pip_size_consistency=float(pip_size_consistency),
         )
 
     @staticmethod

@@ -52,6 +52,7 @@ class VisionSettings:
     confirmation_threshold: float = 0.60
     stationary_frames: int = 10
     consecutive_value_frames: int = 3
+    min_pip_size_consistency: float = 0.50
 
     def __post_init__(self) -> None:
         if self.camera_id is not None and self.camera_id < 0:
@@ -75,6 +76,7 @@ class VisionSettings:
             confirmation_threshold=self.confirmation_threshold,
             stationary_frames=self.stationary_frames,
             consecutive_value_frames=self.consecutive_value_frames,
+            min_pip_size_consistency=self.min_pip_size_consistency,
         )
 
 
@@ -119,6 +121,9 @@ class VisionSettingsStore:
                 consecutive_value_frames=int(
                     value.get("consecutiveValueFrames", 3)
                 ),
+                min_pip_size_consistency=float(
+                    value.get("minPipSizeConsistency", 0.50)
+                ),
             )
         except (TypeError, ValueError) as error:
             raise ValueError("サイコロ認識設定の値が不正です") from error
@@ -141,6 +146,7 @@ class VisionSettingsStore:
             "confirmationThreshold": settings.confirmation_threshold,
             "stationaryFrames": settings.stationary_frames,
             "consecutiveValueFrames": settings.consecutive_value_frames,
+            "minPipSizeConsistency": settings.min_pip_size_consistency,
         }
         temporary.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",

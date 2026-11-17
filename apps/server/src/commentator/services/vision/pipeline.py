@@ -64,6 +64,7 @@ class DiceRecognitionPipeline:
                 value=detection.value,
                 detector_confidence=detection.confidence,
                 center=(float(detection.center[0]), float(detection.center[1])),
+                pip_size_consistency=detection.pip_size_consistency,
             )
             for detection in detections
         )

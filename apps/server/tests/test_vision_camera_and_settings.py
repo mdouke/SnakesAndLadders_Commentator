@@ -82,6 +82,7 @@ def test_roi_crop_and_settings_round_trip(tmp_path: Path) -> None:
         confirmation_threshold=0.72,
         stationary_frames=4,
         consecutive_value_frames=2,
+        min_pip_size_consistency=0.55,
     )
     store.save(settings)
     assert store.load() == settings
@@ -114,6 +115,7 @@ def test_missing_thresholds_use_tuned_defaults_but_null_keeps_auto(
     assert migrated.confirmation_threshold == 0.60
     assert migrated.stationary_frames == 10
     assert migrated.consecutive_value_frames == 3
+    assert migrated.min_pip_size_consistency == 0.50
 
     path.write_text(
         '{"whiteThreshold": null, "pipThreshold": null}',
@@ -141,6 +143,7 @@ def test_valid_recognition_settings_are_accepted(settings: VisionSettings) -> No
         '{"automaticThreshold": 0.59, "confirmationThreshold": 0.60}',
         '{"stationaryFrames": 0}',
         '{"consecutiveValueFrames": 0}',
+        '{"minPipSizeConsistency": 1.1}',
     ],
 )
 def test_invalid_recognition_settings_are_rejected(

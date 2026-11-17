@@ -54,6 +54,7 @@ def test_metrics_include_correct_false_extra_and_latency() -> None:
         "valueStability": 1.0,
         "stillness": 1.0,
         "positionStability": 1.0,
+            "pipSizeConsistency": 1.0,
         "total": 0.7,
     }
 
@@ -98,13 +99,17 @@ def test_labels_reject_overlap_and_invalid_json(tmp_path: Path) -> None:
 def test_recognition_config_file_supports_partial_overrides(tmp_path: Path) -> None:
     path = tmp_path / "recognition.json"
     path.write_text(
-        '{"automaticThreshold": 0.9, "stationaryFrames": 4}',
+        (
+            '{"automaticThreshold": 0.9, "stationaryFrames": 4, '
+            '"minPipSizeConsistency": 0.55}'
+        ),
         encoding="utf-8",
     )
     config = load_recognition_config(path)
     assert config.automatic_threshold == 0.9
     assert config.stationary_frames == 4
     assert config.confirmation_threshold == RecognitionConfig().confirmation_threshold
+    assert config.min_pip_size_consistency == 0.55
 
 
 def test_settings_supply_recognition_config_but_explicit_config_wins(

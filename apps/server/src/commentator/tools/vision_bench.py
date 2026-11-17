@@ -82,6 +82,9 @@ class VisionBenchApp:
         self.consecutive_value_frames_var = tk.DoubleVar(
             value=float(settings.consecutive_value_frames)
         )
+        self.min_pip_size_consistency_var = tk.DoubleVar(
+            value=settings.min_pip_size_consistency
+        )
         self.recognition_apply_var = tk.StringVar(value="認識設定: 反映済み")
         self.mask_visible_var = tk.BooleanVar(value=True)
         self.connection_var = tk.StringVar(value="未接続")
@@ -309,6 +312,28 @@ class VisionBenchApp:
             foreground="#075985",
         ).pack(side=tk.LEFT)
 
+        quality_controls = ttk.Frame(controls)
+        quality_controls.pack(fill=tk.X, pady=(8, 0))
+        ttk.Label(quality_controls, text="目サイズ均一性の最小値").pack(
+            side=tk.LEFT
+        )
+        ttk.Scale(
+            quality_controls,
+            from_=0.0,
+            to=1.0,
+            variable=self.min_pip_size_consistency_var,
+            orient=tk.HORIZONTAL,
+            length=180,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.min_pip_size_consistency_label = ttk.Label(
+            quality_controls, width=5
+        )
+        self.min_pip_size_consistency_label.pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Label(
+            quality_controls,
+            text="採用した目の最小面積 ÷ 最大面積（設定値未満は確認依頼）",
+        ).pack(side=tk.LEFT)
+
         timing_controls = ttk.Frame(controls)
         timing_controls.pack(fill=tk.X, pady=(8, 0))
         ttk.Label(timing_controls, text="静止判定フレーム数").pack(side=tk.LEFT)
@@ -367,6 +392,7 @@ class VisionBenchApp:
             self.confirmation_threshold_var,
             self.stationary_frames_var,
             self.consecutive_value_frames_var,
+            self.min_pip_size_consistency_var,
         )
         for variable in variables:
             variable.trace_add("write", self._schedule_settings_update)
@@ -387,10 +413,14 @@ class VisionBenchApp:
             consecutive = min(
                 5, max(1, round(self.consecutive_value_frames_var.get()))
             )
+            pip_consistency = round(
+                min(1.0, max(0.0, self.min_pip_size_consistency_var.get())), 2
+            )
             self.automatic_threshold_var.set(automatic)
             self.confirmation_threshold_var.set(confirmation)
             self.stationary_frames_var.set(stationary)
             self.consecutive_value_frames_var.set(consecutive)
+            self.min_pip_size_consistency_var.set(pip_consistency)
         finally:
             self._normalizing_settings = False
         self.threshold_label.configure(text=f"設定 {round(self.threshold_var.get())}")
@@ -443,6 +473,9 @@ class VisionBenchApp:
             stationary_frames=round(self.stationary_frames_var.get()),
             consecutive_value_frames=round(
                 self.consecutive_value_frames_var.get()
+            ),
+            min_pip_size_consistency=round(
+                self.min_pip_size_consistency_var.get(), 2
             ),
         )
 
@@ -620,7 +653,8 @@ class VisionBenchApp:
                 "信頼度: — "
                 f"(自動 ≥ {config.automatic_threshold:.2f} / "
                 f"確認 ≥ {config.confirmation_threshold:.2f})\n"
-                "  detector — / value —\n  still — / position —"
+                "  detector — / value —\n  still — / position —\n"
+                f"  pip size — (確認 < {config.min_pip_size_consistency:.2f})"
             )
         else:
             breakdown = (
@@ -628,7 +662,10 @@ class VisionBenchApp:
                 f"(自動 ≥ {config.automatic_threshold:.2f} / "
                 f"確認 ≥ {config.confirmation_threshold:.2f})\n"
                 f"  detector {confidence.detector:.3f} / value {confidence.value_stability:.3f}\n"
-                f"  still {confidence.stillness:.3f} / position {confidence.position_stability:.3f}"
+                f"  still {confidence.stillness:.3f} / "
+                f"position {confidence.position_stability:.3f}\n"
+                f"  pip size {confidence.pip_size_consistency:.3f} "
+                f"(確認 < {config.min_pip_size_consistency:.2f})"
             )
         candidate = snapshot.candidate_value if snapshot.candidate_value is not None else "—"
         return (
@@ -645,6 +682,9 @@ class VisionBenchApp:
         consecutive = round(self.consecutive_value_frames_var.get())
         self.automatic_threshold_label.configure(text=f"{automatic:.2f}")
         self.confirmation_threshold_label.configure(text=f"{confirmation:.2f}")
+        self.min_pip_size_consistency_label.configure(
+            text=f"{self.min_pip_size_consistency_var.get():.2f}"
+        )
         self.stationary_frames_label.configure(
             text=self._frame_duration_label(stationary, fps)
         )
