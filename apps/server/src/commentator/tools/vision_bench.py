@@ -85,6 +85,9 @@ class VisionBenchApp:
         self.min_pip_size_consistency_var = tk.DoubleVar(
             value=settings.min_pip_size_consistency
         )
+        self.max_single_pip_center_offset_var = tk.DoubleVar(
+            value=settings.max_single_pip_center_offset
+        )
         self.recognition_apply_var = tk.StringVar(value="認識設定: 反映済み")
         self.mask_visible_var = tk.BooleanVar(value=True)
         self.connection_var = tk.StringVar(value="未接続")
@@ -196,6 +199,7 @@ class VisionBenchApp:
         ttk.Checkbutton(
             top_controls, text="自動露出", variable=self.auto_exposure_var
         ).pack(side=tk.LEFT)
+
         self.exposure_scale = ttk.Scale(
             top_controls,
             from_=-13.0,
@@ -334,6 +338,26 @@ class VisionBenchApp:
             text="採用した目の最小面積 ÷ 最大面積（設定値未満は確認依頼）",
         ).pack(side=tk.LEFT)
 
+        layout_controls = ttk.Frame(controls)
+        layout_controls.pack(fill=tk.X, pady=(8, 0))
+        ttk.Label(layout_controls, text="1の目の中心距離上限").pack(side=tk.LEFT)
+        ttk.Scale(
+            layout_controls,
+            from_=0.0,
+            to=0.5,
+            variable=self.max_single_pip_center_offset_var,
+            orient=tk.HORIZONTAL,
+            length=180,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.max_single_pip_center_offset_label = ttk.Label(
+            layout_controls, width=5
+        )
+        self.max_single_pip_center_offset_label.pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Label(
+            layout_controls,
+            text="補正面の一辺で正規化（設定値超過は確認依頼）",
+        ).pack(side=tk.LEFT)
+
         timing_controls = ttk.Frame(controls)
         timing_controls.pack(fill=tk.X, pady=(8, 0))
         ttk.Label(timing_controls, text="静止判定フレーム数").pack(side=tk.LEFT)
@@ -393,6 +417,7 @@ class VisionBenchApp:
             self.stationary_frames_var,
             self.consecutive_value_frames_var,
             self.min_pip_size_consistency_var,
+            self.max_single_pip_center_offset_var,
         )
         for variable in variables:
             variable.trace_add("write", self._schedule_settings_update)
@@ -416,11 +441,16 @@ class VisionBenchApp:
             pip_consistency = round(
                 min(1.0, max(0.0, self.min_pip_size_consistency_var.get())), 2
             )
+            pip_center_offset = round(
+                min(0.5, max(0.0, self.max_single_pip_center_offset_var.get())),
+                2,
+            )
             self.automatic_threshold_var.set(automatic)
             self.confirmation_threshold_var.set(confirmation)
             self.stationary_frames_var.set(stationary)
             self.consecutive_value_frames_var.set(consecutive)
             self.min_pip_size_consistency_var.set(pip_consistency)
+            self.max_single_pip_center_offset_var.set(pip_center_offset)
         finally:
             self._normalizing_settings = False
         self.threshold_label.configure(text=f"設定 {round(self.threshold_var.get())}")
@@ -476,6 +506,9 @@ class VisionBenchApp:
             ),
             min_pip_size_consistency=round(
                 self.min_pip_size_consistency_var.get(), 2
+            ),
+            max_single_pip_center_offset=round(
+                self.max_single_pip_center_offset_var.get(), 2
             ),
         )
 
@@ -654,7 +687,8 @@ class VisionBenchApp:
                 f"(自動 ≥ {config.automatic_threshold:.2f} / "
                 f"確認 ≥ {config.confirmation_threshold:.2f})\n"
                 "  detector — / value —\n  still — / position —\n"
-                f"  pip size — (確認 < {config.min_pip_size_consistency:.2f})"
+                f"  pip size — (確認 < {config.min_pip_size_consistency:.2f})\n"
+                f"  pip center — (確認 > {config.max_single_pip_center_offset:.2f})"
             )
         else:
             breakdown = (
@@ -665,7 +699,9 @@ class VisionBenchApp:
                 f"  still {confidence.stillness:.3f} / "
                 f"position {confidence.position_stability:.3f}\n"
                 f"  pip size {confidence.pip_size_consistency:.3f} "
-                f"(確認 < {config.min_pip_size_consistency:.2f})"
+                f"(確認 < {config.min_pip_size_consistency:.2f})\n"
+                f"  pip center {confidence.single_pip_center_offset:.3f} "
+                f"(確認 > {config.max_single_pip_center_offset:.2f})"
             )
         candidate = snapshot.candidate_value if snapshot.candidate_value is not None else "—"
         return (
@@ -684,6 +720,9 @@ class VisionBenchApp:
         self.confirmation_threshold_label.configure(text=f"{confirmation:.2f}")
         self.min_pip_size_consistency_label.configure(
             text=f"{self.min_pip_size_consistency_var.get():.2f}"
+        )
+        self.max_single_pip_center_offset_label.configure(
+            text=f"{self.max_single_pip_center_offset_var.get():.2f}"
         )
         self.stationary_frames_label.configure(
             text=self._frame_duration_label(stationary, fps)

@@ -40,6 +40,7 @@ class RecognitionConfig:
     confirmation_threshold: float = 0.60
     recognition_timeout_seconds: float = 10.0
     min_pip_size_consistency: float = 0.50
+    max_single_pip_center_offset: float = 0.22
 
     def __post_init__(self) -> None:
         if not 0 <= self.stationary_threshold < self.movement_threshold <= 1:
@@ -59,6 +60,8 @@ class RecognitionConfig:
             raise ValueError("認識タイムアウトは正の値にしてください")
         if not 0 <= self.min_pip_size_consistency <= 1:
             raise ValueError("目の大きさの均一性しきい値は0〜1で指定してください")
+        if not 0 <= self.max_single_pip_center_offset <= 1:
+            raise ValueError("1の目の中心距離上限は0〜1で指定してください")
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +70,7 @@ class DieObservation:
     detector_confidence: float
     center: tuple[float, float]
     pip_size_consistency: float = 1.0
+    single_pip_center_offset: float = 0.0
 
     def __post_init__(self) -> None:
         if not 1 <= self.value <= 6:
@@ -75,6 +79,8 @@ class DieObservation:
             raise ValueError("検出信頼度は0〜1で指定してください")
         if not 0 <= self.pip_size_consistency <= 1:
             raise ValueError("目の大きさの均一性は0〜1で指定してください")
+        if not 0 <= self.single_pip_center_offset <= 1:
+            raise ValueError("1の目の中心距離は0〜1で指定してください")
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +109,7 @@ class ConfidenceBreakdown:
     position_stability: float
     total: float
     pip_size_consistency: float = 1.0
+    single_pip_center_offset: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,6 +373,9 @@ class DiceRecognitionSession:
         # transient frames may contain a partial pip while the die is settling;
         # using their minimum would demote otherwise clean confirmations.
         pip_size_consistency = matching[-1].observation.pip_size_consistency
+        single_pip_center_offset = (
+            matching[-1].observation.single_pip_center_offset
+        )
         total = (
             0.45 * detector
             + 0.30 * value_stability
@@ -379,10 +389,16 @@ class DiceRecognitionSession:
             position_stability=position_stability,
             total=total,
             pip_size_consistency=pip_size_consistency,
+            single_pip_center_offset=single_pip_center_offset,
         )
         if (
             total >= self.config.automatic_threshold
             and pip_size_consistency >= self.config.min_pip_size_consistency
+            and (
+                candidate != 1
+                or single_pip_center_offset
+                <= self.config.max_single_pip_center_offset
+            )
         ):
             self._set_confirmation(
                 candidate, ConfirmationSource.AUTOMATIC, monotonic_time,

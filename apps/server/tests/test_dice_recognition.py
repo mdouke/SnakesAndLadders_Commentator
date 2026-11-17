@@ -40,9 +40,18 @@ def frame(
     connected: bool = True,
     rejected_count: int = 0,
     pip_size_consistency: float = 1.0,
+    single_pip_center_offset: float = 0.0,
 ) -> FrameObservation:
     detections = (
-        (DieObservation(value, confidence, center, pip_size_consistency),)
+        (
+            DieObservation(
+                value,
+                confidence,
+                center,
+                pip_size_consistency,
+                single_pip_center_offset,
+            ),
+        )
         if value is not None else ()
     )
     return FrameObservation(
@@ -258,6 +267,21 @@ def test_normal_multi_pip_faces_have_consistent_pip_sizes(value: int) -> None:
 
     assert len(analysis.centers) == value
     assert analysis.pip_size_consistency >= 0.95
+    assert analysis.single_pip_center_offset == 0.0
+
+
+def test_single_pip_center_offset_distinguishes_center_from_corner() -> None:
+    centered = np.full((180, 180), 255, dtype=np.uint8)
+    cv2.circle(centered, (90, 90), 10, 0, -1)
+    corner = np.full((180, 180), 255, dtype=np.uint8)
+    cv2.circle(corner, (50, 50), 10, 0, -1)
+    detector = DiceDetector(pip_threshold=235)
+
+    centered_analysis = detector._analyze_pips(centered, collect_debug=False)
+    corner_analysis = detector._analyze_pips(corner, collect_debug=False)
+
+    assert centered_analysis.single_pip_center_offset == pytest.approx(0.0)
+    assert corner_analysis.single_pip_center_offset > 0.22
 
 
 def test_detector_reports_die_shape_with_invalid_pip_count() -> None:
@@ -367,6 +391,49 @@ def test_uneven_pip_sizes_require_confirmation_even_with_high_confidence() -> No
     assert result.confidence is not None
     assert result.confidence.total >= 0.85
     assert result.confidence.pip_size_consistency == pytest.approx(0.28)
+
+
+def test_off_center_single_pip_requires_confirmation() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        consecutive_value_frames=3,
+    ))
+    session.observe(frame(0, 0.2))
+    session.observe(frame(1, 0.0))
+    session.observe(frame(2, 0.0))
+    for timestamp in (3, 4):
+        session.observe(
+            frame(timestamp, 0.0, value=1, single_pip_center_offset=0.27)
+        )
+
+    result = session.observe(
+        frame(5, 0.0, value=1, single_pip_center_offset=0.27)
+    )
+
+    assert result.state is RecognitionState.NEEDS_CONFIRMATION
+    assert result.confidence is not None
+    assert result.confidence.total >= 0.85
+    assert result.confidence.single_pip_center_offset == pytest.approx(0.27)
+
+
+def test_centered_single_pip_still_confirms_automatically() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        consecutive_value_frames=3,
+    ))
+    session.observe(frame(0, 0.2))
+    session.observe(frame(1, 0.0))
+    session.observe(frame(2, 0.0))
+    for timestamp in (3, 4):
+        session.observe(
+            frame(timestamp, 0.0, value=1, single_pip_center_offset=0.10)
+        )
+
+    result = session.observe(
+        frame(5, 0.0, value=1, single_pip_center_offset=0.10)
+    )
+
+    assert result.state is RecognitionState.CONFIRMED
 
 
 def test_motion_unlocks_confirmed_die_as_a_new_roll() -> None:

@@ -356,6 +356,7 @@ def _confidence_dict(value: ConfidenceBreakdown) -> dict[str, float]:
         "stillness": raw["stillness"],
         "positionStability": raw["position_stability"],
         "pipSizeConsistency": raw["pip_size_consistency"],
+        "singlePipCenterOffset": raw["single_pip_center_offset"],
         "total": raw["total"],
     }
 
@@ -387,6 +388,7 @@ def _config_dict(value: RecognitionConfig) -> dict[str, float | int]:
         "confirmationThreshold": raw["confirmation_threshold"],
         "recognitionTimeoutSeconds": raw["recognition_timeout_seconds"],
         "minPipSizeConsistency": raw["min_pip_size_consistency"],
+        "maxSinglePipCenterOffset": raw["max_single_pip_center_offset"],
     }
 
 
@@ -412,6 +414,9 @@ def load_recognition_config(path: Path) -> RecognitionConfig:
                 selected["recognitionTimeoutSeconds"]
             ),
             min_pip_size_consistency=float(selected["minPipSizeConsistency"]),
+            max_single_pip_center_offset=float(
+                selected["maxSinglePipCenterOffset"]
+            ),
         )
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
         raise ValueError("認識設定を読み込めません") from error

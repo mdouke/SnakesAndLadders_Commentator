@@ -115,6 +115,7 @@ def test_recorder_writes_video_sidecars_events_and_evaluation_labels(tmp_path: P
     assert settings["stationaryFrames"] == 10
     assert settings["consecutiveValueFrames"] == 3
     assert settings["minPipSizeConsistency"] == 0.50
+    assert settings["maxSinglePipCenterOffset"] == 0.22
     assert recorder.automatic_confirmations == 1
     assert recorder.review_candidates == 0
     assert recorder.labeled_rolls == 1
@@ -171,6 +172,7 @@ def test_recognition_settings_wait_for_safe_state_without_resetting_session(
         stationary_frames=4,
         consecutive_value_frames=2,
         min_pip_size_consistency=0.6,
+        max_single_pip_center_offset=0.24,
     )
 
     engine.update_settings(updated)
@@ -189,6 +191,7 @@ def test_recognition_settings_wait_for_safe_state_without_resetting_session(
     assert engine.active_recognition_config.automatic_threshold == 0.92
     assert engine.active_recognition_config.confirmation_threshold == 0.75
     assert engine.active_recognition_config.min_pip_size_consistency == 0.6
+    assert engine.active_recognition_config.max_single_pip_center_offset == 0.24
 
 
 def test_engine_renders_pip_count_debug_panel(tmp_path: Path) -> None:

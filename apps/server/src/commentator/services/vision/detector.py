@@ -17,6 +17,7 @@ class DieDetection:
     pip_centers: tuple[tuple[int, int], ...]
     candidate_index: int = 0
     pip_size_consistency: float = 1.0
+    single_pip_center_offset: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ class PipDetectionDebug:
     contours: tuple[PipContourDebug, ...]
     counted_pips: int
     pip_size_consistency: float
+    single_pip_center_offset: float
 
 
 @dataclass(frozen=True)
@@ -63,6 +65,7 @@ class _PipAnalysis:
     threshold_is_automatic: bool
     contours: tuple[PipContourDebug, ...]
     pip_size_consistency: float
+    single_pip_center_offset: float
 
 
 def _order_points(points: np.ndarray) -> np.ndarray:
@@ -191,6 +194,7 @@ class DiceDetector:
                     contours=analysis.contours,
                     counted_pips=value,
                     pip_size_consistency=analysis.pip_size_consistency,
+                    single_pip_center_offset=analysis.single_pip_center_offset,
                 ))
             if not 1 <= value <= 6:
                 rejected_count += 1
@@ -227,6 +231,7 @@ class DiceDetector:
                     confidence,
                     pip_centers,
                     pip_size_consistency=analysis.pip_size_consistency,
+                    single_pip_center_offset=analysis.single_pip_center_offset,
                 )
             )
 
@@ -348,6 +353,10 @@ class DiceDetector:
             min(pip_area_ratios) / max(pip_area_ratios)
             if len(pip_area_ratios) >= 2 else 1.0
         )
+        single_pip_center_offset = (
+            float(np.hypot(pips[0][0] - size / 2, pips[0][1] - size / 2) / size)
+            if len(pips) == 1 else 0.0
+        )
         return _PipAnalysis(
             centers=tuple(pips),
             mask=dark,
@@ -356,6 +365,7 @@ class DiceDetector:
             threshold_is_automatic=self.pip_threshold is None,
             contours=tuple(contour_debug),
             pip_size_consistency=float(pip_size_consistency),
+            single_pip_center_offset=single_pip_center_offset,
         )
 
     @staticmethod
