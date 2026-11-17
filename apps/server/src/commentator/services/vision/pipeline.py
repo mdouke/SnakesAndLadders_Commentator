@@ -67,6 +67,8 @@ class DiceRecognitionPipeline:
                 pip_size_consistency=detection.pip_size_consistency,
                 single_pip_center_offset=detection.single_pip_center_offset,
                 pip_merge_suspected=detection.pip_merge_suspected,
+                pip_recounted=detection.pip_recounted,
+                pip_layout_error=detection.pip_layout_error,
             )
             for detection in detections
         )

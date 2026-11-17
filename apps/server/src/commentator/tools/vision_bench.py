@@ -15,7 +15,10 @@ from commentator.services.vision.camera import (
     CameraConnectionError,
     CameraDisconnectedError,
 )
-from commentator.services.vision.recognition import RecognitionSnapshot
+from commentator.services.vision.recognition import (
+    ConfidenceBreakdown,
+    RecognitionSnapshot,
+)
 from commentator.services.vision.settings import (
     NormalizedRoi,
     VisionSettings,
@@ -35,6 +38,12 @@ STATE_LABELS = {
     "camera_error": "カメラエラー",
 }
 
+
+
+def _merge_status(confidence: ConfidenceBreakdown) -> str:
+    if not confidence.pip_merge_suspected:
+        return "なし"
+    return "あり→再計数済み" if confidence.pip_recounted else "あり→確認"
 
 class VisionBenchApp:
     def __init__(self, root: tk.Tk, engine: VisionBenchEngine) -> None:
@@ -87,6 +96,9 @@ class VisionBenchApp:
         )
         self.max_single_pip_center_offset_var = tk.DoubleVar(
             value=settings.max_single_pip_center_offset
+        )
+        self.max_pip_layout_error_var = tk.DoubleVar(
+            value=settings.max_pip_layout_error
         )
         self.recognition_apply_var = tk.StringVar(value="認識設定: 反映済み")
         self.mask_visible_var = tk.BooleanVar(value=True)
@@ -358,6 +370,24 @@ class VisionBenchApp:
             text="補正面の一辺で正規化（設定値超過は確認依頼）",
         ).pack(side=tk.LEFT)
 
+        arrangement_controls = ttk.Frame(controls)
+        arrangement_controls.pack(fill=tk.X, pady=(8, 0))
+        ttk.Label(arrangement_controls, text="目の配置ずれ上限").pack(side=tk.LEFT)
+        ttk.Scale(
+            arrangement_controls,
+            from_=0.0,
+            to=0.5,
+            variable=self.max_pip_layout_error_var,
+            orient=tk.HORIZONTAL,
+            length=180,
+        ).pack(side=tk.LEFT, padx=(3, 3))
+        self.max_pip_layout_error_label = ttk.Label(arrangement_controls, width=5)
+        self.max_pip_layout_error_label.pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Label(
+            arrangement_controls,
+            text="4〜6の目の標準配置からのずれ・目の間隔比（設定値超過は確認依頼）",
+        ).pack(side=tk.LEFT)
+
         timing_controls = ttk.Frame(controls)
         timing_controls.pack(fill=tk.X, pady=(8, 0))
         ttk.Label(timing_controls, text="静止判定フレーム数").pack(side=tk.LEFT)
@@ -418,6 +448,7 @@ class VisionBenchApp:
             self.consecutive_value_frames_var,
             self.min_pip_size_consistency_var,
             self.max_single_pip_center_offset_var,
+            self.max_pip_layout_error_var,
         )
         for variable in variables:
             variable.trace_add("write", self._schedule_settings_update)
@@ -451,6 +482,9 @@ class VisionBenchApp:
             self.consecutive_value_frames_var.set(consecutive)
             self.min_pip_size_consistency_var.set(pip_consistency)
             self.max_single_pip_center_offset_var.set(pip_center_offset)
+            self.max_pip_layout_error_var.set(
+                round(min(0.5, max(0.0, self.max_pip_layout_error_var.get())), 2)
+            )
         finally:
             self._normalizing_settings = False
         self.threshold_label.configure(text=f"設定 {round(self.threshold_var.get())}")
@@ -510,6 +544,7 @@ class VisionBenchApp:
             max_single_pip_center_offset=round(
                 self.max_single_pip_center_offset_var.get(), 2
             ),
+            max_pip_layout_error=round(self.max_pip_layout_error_var.get(), 2),
         )
 
     def _apply_settings(self) -> bool:
@@ -689,6 +724,7 @@ class VisionBenchApp:
                 "  detector — / value —\n  still — / position —\n"
                 f"  pip size — (確認 < {config.min_pip_size_consistency:.2f})\n"
                 f"  pip center — (確認 > {config.max_single_pip_center_offset:.2f})\n"
+                f"  pip layout — (確認 > {config.max_pip_layout_error:.2f})\n"
                 "  pip merge —"
             )
         else:
@@ -703,7 +739,9 @@ class VisionBenchApp:
                 f"(確認 < {config.min_pip_size_consistency:.2f})\n"
                 f"  pip center {confidence.single_pip_center_offset:.3f} "
                 f"(確認 > {config.max_single_pip_center_offset:.2f})\n"
-                f"  pip merge {'あり→確認' if confidence.pip_merge_suspected else 'なし'}"
+                f"  pip layout {confidence.pip_layout_error:.3f} "
+                f"(確認 > {config.max_pip_layout_error:.2f})\n"
+                f"  pip merge {_merge_status(confidence)}"
             )
         candidate = snapshot.candidate_value if snapshot.candidate_value is not None else "—"
         return (
@@ -725,6 +763,9 @@ class VisionBenchApp:
         )
         self.max_single_pip_center_offset_label.configure(
             text=f"{self.max_single_pip_center_offset_var.get():.2f}"
+        )
+        self.max_pip_layout_error_label.configure(
+            text=f"{self.max_pip_layout_error_var.get():.2f}"
         )
         self.stationary_frames_label.configure(
             text=self._frame_duration_label(stationary, fps)

@@ -7,6 +7,7 @@ from commentator.services.vision.detector import (
     DiceDetector,
     DieDetection,
     _order_points,
+    pip_layout_error,
 )
 from commentator.services.vision.motion import Roi, frame_motion_score
 from commentator.services.vision.pipeline import DiceRecognitionPipeline
@@ -42,6 +43,8 @@ def frame(
     pip_size_consistency: float = 1.0,
     single_pip_center_offset: float = 0.0,
     pip_merge_suspected: bool = False,
+    pip_recounted: bool = False,
+    pip_layout_error: float = 0.0,
 ) -> FrameObservation:
     detections = (
         (
@@ -52,6 +55,8 @@ def frame(
                 pip_size_consistency,
                 single_pip_center_offset,
                 pip_merge_suspected,
+                pip_recounted,
+                pip_layout_error,
             ),
         )
         if value is not None else ()
@@ -389,6 +394,57 @@ def test_detector_keeps_merge_flag_when_recount_fails() -> None:
     assert not detected[0].pip_recounted
 
 
+def _layout_points(
+    value: int,
+    *,
+    spacing: tuple[float, float] = (42.0, 42.0),
+    offset: tuple[float, float] = (90.0, 90.0),
+    rows: bool = False,
+) -> tuple[tuple[float, float], ...]:
+    points = PIPS[value]
+    if rows:
+        points = [(y, x) for x, y in points]
+    return tuple(
+        (offset[0] + x * spacing[0], offset[1] + y * spacing[1]) for x, y in points
+    )
+
+
+@pytest.mark.parametrize("value", range(1, 7))
+def test_canonical_layouts_have_no_layout_error(value: int) -> None:
+    assert pip_layout_error(_layout_points(value)) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_rotated_six_has_no_layout_error() -> None:
+    assert pip_layout_error(_layout_points(6, rows=True)) == pytest.approx(
+        0.0, abs=1e-9
+    )
+
+
+@pytest.mark.parametrize("value", (4, 5, 6))
+def test_oblique_foreshortened_face_has_no_layout_error(value: int) -> None:
+    # A die seen at an angle: the top face sits off-centre in the warped box and
+    # is compressed along one axis.
+    points = _layout_points(value, spacing=(32.0, 14.0), offset=(74.0, 62.0))
+    assert pip_layout_error(points) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_side_face_pips_counted_as_a_six_give_layout_error() -> None:
+    # Warped pip centres from roll-031 (recording 173133): a 4 on top plus two
+    # pips of the near side face below it were read as 6. The side-face row is
+    # unevenly spaced and shifted inwards, so no 6 layout fits.
+    centers = (
+        (117.0, 152.0), (48.0, 152.0), (129.0, 86.0),
+        (58.0, 85.0), (127.0, 33.0), (56.0, 32.0),
+    )
+    assert pip_layout_error(centers) > 0.15
+
+
+def test_five_missing_a_corner_pip_gives_layout_error() -> None:
+    five = list(_layout_points(5))
+    del five[0]
+    assert pip_layout_error(tuple(five)) > 0.15
+
+
 def test_detector_reports_die_shape_with_invalid_pip_count() -> None:
     canvas = np.zeros((300, 300, 3), dtype=np.uint8)
     cv2.rectangle(canvas, (90, 90), (210, 210), (255, 255, 255), -1)
@@ -532,6 +588,38 @@ def test_fused_pip_face_requires_confirmation_even_with_high_confidence() -> Non
     assert result.confidence is not None
     assert result.confidence.total >= 0.85
     assert result.confidence.pip_merge_suspected
+
+
+def test_successfully_recounted_fused_face_confirms_automatically() -> None:
+    session = ready_session()
+
+    result = session.observe(
+        frame(5, 0.0, value=4, pip_merge_suspected=True, pip_recounted=True)
+    )
+
+    assert result.state is RecognitionState.CONFIRMED
+    assert result.confidence is not None
+    assert result.confidence.pip_merge_suspected
+    assert result.confidence.pip_recounted
+
+
+def test_pip_layout_error_above_limit_requires_confirmation() -> None:
+    session = ready_session()
+
+    result = session.observe(frame(5, 0.0, value=4, pip_layout_error=0.17))
+
+    assert result.state is RecognitionState.NEEDS_CONFIRMATION
+    assert result.confidence is not None
+    assert result.confidence.total >= 0.85
+    assert result.confidence.pip_layout_error == pytest.approx(0.17)
+
+
+def test_pip_layout_error_within_limit_still_confirms() -> None:
+    session = ready_session()
+
+    result = session.observe(frame(5, 0.0, value=4, pip_layout_error=0.12))
+
+    assert result.state is RecognitionState.CONFIRMED
 
 
 def test_centered_single_pip_still_confirms_automatically() -> None:

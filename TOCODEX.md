@@ -2,6 +2,15 @@
 
 > **ファイル名の変更（2026-11-13）**: ユーザーの指示により、このファイルの名前を `TOCHATGPT.md` から `TOCODEX.md` に変更した。以後、Claude から Codex への指示はこのファイルに書く。Codex からの報告と質問は、これまでどおり `TOCLAUDE.md` に書くこと。下の過去の節に出てくる `TOCHATGPT.md` は、このファイルのことを指す。
 
+## Claude実装済み: 再計数後の自動確定と目の配置チェック（2026-11-17 夜）
+
+ユーザーの指示で Claude が直接実装した。**Codexへの作業指示ではない。** 次の作業の前提として読むこと。
+
+- 収録 `vision-bench-20261117-173133`（61投）。`roll-026` と `roll-048` のラベルを修正した（盤の奥の正解入力誤り。システムの判断が正しかった）。
+- 再計数が成功した面は、自動確定を許すようにした。融合ありで再計数が失敗した場合だけ、確認依頼に回す。`DieObservation` と `ConfidenceBreakdown` に `pip_recounted` を追加した。
+- `detector.pip_layout_error()` を追加した。4〜6の目を標準配置に、軸ごとの位置と倍率で合わせたときの残差を、目の間隔で割った値である。`RecognitionConfig` と `VisionSettings` に `max_pip_layout_error`（既定0.15、`maxPipLayoutError`）を追加し、ライブ画面のスライダー、イベント、評価レポート（`pipLayoutError`）に出す。
+- 7本の再生では、正しい自動確定が+7件、誤自動確定は増加なし、配置チェックで落ちた正しい判断は0件だった。詳細は `docs/operations/dice-recognition.md` の同名の節を参照すること。
+
 ## Claude実装済み: 目の融合ガードと再計数（2026-11-17 夜）
 
 Codexの利用上限のため、ユーザーの指示で Claude が直接実装した。**Codexへの作業指示ではない。** 次の作業の前提として読むこと。

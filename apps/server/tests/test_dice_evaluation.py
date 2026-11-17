@@ -57,6 +57,8 @@ def test_metrics_include_correct_false_extra_and_latency() -> None:
         "pipSizeConsistency": 1.0,
         "singlePipCenterOffset": 0.0,
         "pipMergeSuspected": False,
+        "pipRecounted": False,
+        "pipLayoutError": 0.0,
         "total": 0.7,
     }
 
@@ -104,7 +106,8 @@ def test_recognition_config_file_supports_partial_overrides(tmp_path: Path) -> N
         (
             '{"automaticThreshold": 0.9, "stationaryFrames": 4, '
             '"minPipSizeConsistency": 0.55, '
-            '"maxSinglePipCenterOffset": 0.24}'
+            '"maxSinglePipCenterOffset": 0.24, '
+            '"maxPipLayoutError": 0.2}'
         ),
         encoding="utf-8",
     )
@@ -114,6 +117,7 @@ def test_recognition_config_file_supports_partial_overrides(tmp_path: Path) -> N
     assert config.confirmation_threshold == RecognitionConfig().confirmation_threshold
     assert config.min_pip_size_consistency == 0.55
     assert config.max_single_pip_center_offset == 0.24
+    assert config.max_pip_layout_error == 0.2
 
 
 def test_settings_supply_recognition_config_but_explicit_config_wins(

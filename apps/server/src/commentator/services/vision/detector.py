@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, replace
 
 import cv2
@@ -20,6 +21,7 @@ class DieDetection:
     single_pip_center_offset: float = 0.0
     pip_merge_suspected: bool = False
     pip_recounted: bool = False
+    pip_layout_error: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,7 @@ class PipDetectionDebug:
     single_pip_center_offset: float
     pip_merge_suspected: bool = False
     pip_recounted: bool = False
+    pip_layout_error: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -71,6 +74,7 @@ class _PipAnalysis:
     pip_size_consistency: float
     single_pip_center_offset: float
     merged_pip_blob: bool = False
+    pip_layout_error: float = 0.0
 
 
 # When a fixed pip threshold leaves a merged blob inside the face, retry the
@@ -81,6 +85,59 @@ PIP_RECOUNT_THRESHOLD_STEPS = (10, 15, 20)
 # Single pips measure about 0.016-0.035 of the inner face in recordings; two
 # fused pips measure about 0.05-0.06.
 FUSED_PIP_MIN_AREA_RATIO = 0.04
+
+# Canonical pip layouts in pip-spacing units. A 6 has two orientations (columns
+# or rows) and 2/3 have two diagonals; 4 and 5 look the same after a 90° turn.
+_PIP_LAYOUTS: dict[int, tuple[np.ndarray, ...]] = {
+    4: (np.array([(-1, -1), (1, -1), (-1, 1), (1, 1)], dtype=float),),
+    5: (np.array([(-1, -1), (1, -1), (0, 0), (-1, 1), (1, 1)], dtype=float),),
+    6: (
+        np.array([(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 0), (1, 1)], dtype=float),
+        np.array([(-1, -1), (0, -1), (1, -1), (-1, 1), (0, 1), (1, 1)], dtype=float),
+    ),
+}
+_PIP_PERMUTATIONS = {
+    count: np.array(list(itertools.permutations(range(count))))
+    for count in _PIP_LAYOUTS
+}
+
+
+def pip_layout_error(centers: tuple[tuple[float, float], ...]) -> float:
+    """Return how far 4-6 pips are from the canonical layout.
+
+    Each axis gets its own offset and positive scale: an oblique die is warped
+    from a box that also holds part of a side face, so the top face is shifted
+    and foreshortened along one axis. The result is the RMS residual divided by
+    the smaller fitted pip spacing, minimised over pip assignments. Pips taken
+    from a side face, or a missing pip on a washed-out face, do not fit any
+    layout and give a large error. 1-3 pips are not checked (always 0.0).
+    """
+    count = len(centers)
+    if count not in _PIP_LAYOUTS:
+        return 0.0
+    points = np.asarray(centers, dtype=float)
+    best = float("inf")
+    for layout in _PIP_LAYOUTS[count]:
+        assigned = layout[_PIP_PERMUTATIONS[count]]  # (permutations, pips, 2)
+        squared = np.zeros(len(assigned))
+        scales = np.zeros((len(assigned), 2))
+        for axis in range(2):
+            template = assigned[:, :, axis]
+            observed = points[None, :, axis]
+            template_centered = template - template.mean(axis=1, keepdims=True)
+            observed_centered = observed - observed.mean()
+            scale = (template_centered * observed_centered).sum(axis=1) / (
+                (template_centered**2).sum(axis=1)
+            )
+            residual = observed_centered - scale[:, None] * template_centered
+            squared += (residual**2).sum(axis=1)
+            scales[:, axis] = scale
+        spacing = scales.min(axis=1)
+        valid = spacing > 1e-6
+        if valid.any():
+            error = np.sqrt(squared[valid] / count) / spacing[valid]
+            best = min(best, float(error.min()))
+    return best
 
 
 def _order_points(points: np.ndarray) -> np.ndarray:
@@ -225,6 +282,7 @@ class DiceDetector:
                     single_pip_center_offset=analysis.single_pip_center_offset,
                     pip_merge_suspected=merge_suspected,
                     pip_recounted=recounted,
+                    pip_layout_error=analysis.pip_layout_error,
                 ))
             if not 1 <= value <= 6:
                 rejected_count += 1
@@ -264,6 +322,7 @@ class DiceDetector:
                     single_pip_center_offset=analysis.single_pip_center_offset,
                     pip_merge_suspected=merge_suspected,
                     pip_recounted=recounted,
+                    pip_layout_error=analysis.pip_layout_error,
                 )
             )
 
@@ -418,6 +477,7 @@ class DiceDetector:
             pip_size_consistency=float(pip_size_consistency),
             single_pip_center_offset=single_pip_center_offset,
             merged_pip_blob=merged_pip_blob,
+            pip_layout_error=pip_layout_error(tuple(pips)),
         )
 
     @staticmethod

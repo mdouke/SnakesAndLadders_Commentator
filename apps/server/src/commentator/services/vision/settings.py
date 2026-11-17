@@ -54,6 +54,7 @@ class VisionSettings:
     consecutive_value_frames: int = 3
     min_pip_size_consistency: float = 0.50
     max_single_pip_center_offset: float = 0.22
+    max_pip_layout_error: float = 0.15
 
     def __post_init__(self) -> None:
         if self.camera_id is not None and self.camera_id < 0:
@@ -79,6 +80,7 @@ class VisionSettings:
             consecutive_value_frames=self.consecutive_value_frames,
             min_pip_size_consistency=self.min_pip_size_consistency,
             max_single_pip_center_offset=self.max_single_pip_center_offset,
+            max_pip_layout_error=self.max_pip_layout_error,
         )
 
 
@@ -129,6 +131,9 @@ class VisionSettingsStore:
                 max_single_pip_center_offset=float(
                     value.get("maxSinglePipCenterOffset", 0.22)
                 ),
+                max_pip_layout_error=float(
+                    value.get("maxPipLayoutError", 0.15)
+                ),
             )
         except (TypeError, ValueError) as error:
             raise ValueError("サイコロ認識設定の値が不正です") from error
@@ -153,6 +158,7 @@ class VisionSettingsStore:
             "consecutiveValueFrames": settings.consecutive_value_frames,
             "minPipSizeConsistency": settings.min_pip_size_consistency,
             "maxSinglePipCenterOffset": settings.max_single_pip_center_offset,
+            "maxPipLayoutError": settings.max_pip_layout_error,
         }
         temporary.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",

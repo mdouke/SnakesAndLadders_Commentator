@@ -71,6 +71,7 @@ def _settings_payload(settings: VisionSettings) -> dict[str, Any]:
         "consecutiveValueFrames": settings.consecutive_value_frames,
         "minPipSizeConsistency": settings.min_pip_size_consistency,
         "maxSinglePipCenterOffset": settings.max_single_pip_center_offset,
+        "maxPipLayoutError": settings.max_pip_layout_error,
     }
 
 
@@ -86,6 +87,8 @@ def _confidence_payload(snapshot: RecognitionSnapshot) -> dict[str, float] | Non
         "pipSizeConsistency": confidence.pip_size_consistency,
         "singlePipCenterOffset": confidence.single_pip_center_offset,
         "pipMergeSuspected": confidence.pip_merge_suspected,
+        "pipRecounted": confidence.pip_recounted,
+        "pipLayoutError": confidence.pip_layout_error,
         "total": confidence.total,
     }
 
@@ -398,6 +401,7 @@ def render_pip_debug(items: tuple[PipDetectionDebug, ...]) -> Frame | None:
                 f"PipSize={item.pip_size_consistency:.2f}   "
                 f"PipCenter={item.single_pip_center_offset:.2f}   "
                 f"Merge={_merge_label(item)}   "
+                f"Layout={item.pip_layout_error:.2f}   "
                 "face / count mask"
             ),
             (5, 19),

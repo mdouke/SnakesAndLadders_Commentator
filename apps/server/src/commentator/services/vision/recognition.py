@@ -41,6 +41,7 @@ class RecognitionConfig:
     recognition_timeout_seconds: float = 10.0
     min_pip_size_consistency: float = 0.50
     max_single_pip_center_offset: float = 0.22
+    max_pip_layout_error: float = 0.15
 
     def __post_init__(self) -> None:
         if not 0 <= self.stationary_threshold < self.movement_threshold <= 1:
@@ -62,6 +63,8 @@ class RecognitionConfig:
             raise ValueError("目の大きさの均一性しきい値は0〜1で指定してください")
         if not 0 <= self.max_single_pip_center_offset <= 1:
             raise ValueError("1の目の中心距離上限は0〜1で指定してください")
+        if not 0 <= self.max_pip_layout_error <= 1:
+            raise ValueError("目の配置ずれ上限は0〜1で指定してください")
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +75,8 @@ class DieObservation:
     pip_size_consistency: float = 1.0
     single_pip_center_offset: float = 0.0
     pip_merge_suspected: bool = False
+    pip_recounted: bool = False
+    pip_layout_error: float = 0.0
 
     def __post_init__(self) -> None:
         if not 1 <= self.value <= 6:
@@ -82,6 +87,8 @@ class DieObservation:
             raise ValueError("目の大きさの均一性は0〜1で指定してください")
         if not 0 <= self.single_pip_center_offset <= 1:
             raise ValueError("1の目の中心距離は0〜1で指定してください")
+        if self.pip_layout_error < 0:
+            raise ValueError("目の配置ずれは0以上で指定してください")
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +119,8 @@ class ConfidenceBreakdown:
     pip_size_consistency: float = 1.0
     single_pip_center_offset: float = 0.0
     pip_merge_suspected: bool = False
+    pip_recounted: bool = False
+    pip_layout_error: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -379,6 +388,8 @@ class DiceRecognitionSession:
             matching[-1].observation.single_pip_center_offset
         )
         pip_merge_suspected = matching[-1].observation.pip_merge_suspected
+        pip_recounted = matching[-1].observation.pip_recounted
+        pip_layout_error = matching[-1].observation.pip_layout_error
         total = (
             0.45 * detector
             + 0.30 * value_stability
@@ -394,13 +405,17 @@ class DiceRecognitionSession:
             pip_size_consistency=pip_size_consistency,
             single_pip_center_offset=single_pip_center_offset,
             pip_merge_suspected=pip_merge_suspected,
+            pip_recounted=pip_recounted,
+            pip_layout_error=pip_layout_error,
         )
         if (
             total >= self.config.automatic_threshold
             and pip_size_consistency >= self.config.min_pip_size_consistency
-            # Fused pips were seen on this face. Even a successful recount
-            # with a lower threshold is a re-read, so leave it to the operator.
-            and not pip_merge_suspected
+            # Fused pips that a lower-threshold recount could not separate.
+            # A successful recount was right in all 9 labelled cases, so it
+            # may auto-confirm; the layout check below still applies to it.
+            and not (pip_merge_suspected and not pip_recounted)
+            and pip_layout_error <= self.config.max_pip_layout_error
             and (
                 candidate != 1
                 or single_pip_center_offset
