@@ -50,8 +50,9 @@ from .domain.game import (
 from .infrastructure.logging import configure_logging, load_log_config
 from .infrastructure.persistence import SQLiteGameRepository
 from .presets import load_board_preset
+from .services.commentary import CommentaryService
 from .services.game import GameService
-from .services.realtime import IDLE_COMMENTARY, RealtimeClient, RealtimeHub
+from .services.realtime import RealtimeClient, RealtimeHub
 from .services.recognition import RecognitionRuntimeSettings, RecognitionService
 
 
@@ -137,6 +138,7 @@ def create_app(
     repository: GameRepository | None = None,
     recognition_service: RecognitionService | None = None,
     realtime_hub: RealtimeHub | None = None,
+    commentary_service: CommentaryService | None = None,
 ) -> FastAPI:
     board = board if board is not None else load_board_preset()
     repo = repository if repository is not None else MemoryGameRepository()
@@ -146,6 +148,12 @@ def create_app(
     hub = realtime_hub if realtime_hub is not None else RealtimeHub()
     game_service.add_listener(lambda payload: hub.publish("game", payload))
     recognition.subscribe(lambda payload: hub.publish("recognition", payload))
+    commentary = commentary_service or CommentaryService(game_service)
+    commentary.game_service = game_service
+    commentary.subscribe(lambda payload: hub.publish("commentary", payload))
+    # Registered after the hub listener, so each game update is sent before the
+    # commentary request it triggers.
+    commentary.attach()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -164,6 +172,7 @@ def create_app(
     application.state.game_service = game_service
     application.state.recognition_service = recognition
     application.state.realtime_hub = hub
+    application.state.commentary_service = commentary
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
@@ -426,7 +435,9 @@ def create_app(
         recognition.send_snapshot(
             lambda payload: hub.send_to(client, "recognition", payload)
         )
-        hub.send_to(client, "commentary", dict(IDLE_COMMENTARY))
+        commentary.send_snapshot(
+            lambda payload: hub.send_to(client, "commentary", payload)
+        )
 
     @application.websocket("/ws")
     async def realtime(websocket: WebSocket) -> None:

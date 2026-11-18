@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from commentator.api.responses import REALTIME_MESSAGE_ADAPTER
 from commentator.main import MemoryGameRepository, create_app
+from commentator.services.commentary import CommentaryService
 from commentator.services.game import GameService
 from commentator.services.realtime import RealtimeHub
 from commentator.services.recognition import RecognitionService
@@ -72,7 +73,12 @@ def make_client() -> tuple[TestClient, RecognitionService, MemoryGameRepository]
         camera_provider=NoCamera(),
         clock=lambda: float(next(ticks)),
     )
-    app = create_app(repository=repository, recognition_service=service)
+    commentary = CommentaryService(
+        GameService(repository), scheduler=lambda job: None  # never generates
+    )
+    app = create_app(
+        repository=repository, recognition_service=service, commentary_service=commentary
+    )
     return TestClient(app), service, repository
 
 
@@ -116,7 +122,8 @@ def test_connect_sends_game_recognition_and_commentary_snapshots(
         initial = initial_messages(ws)
     assert initial["game"]["payload"] is None
     assert initial["recognition"]["payload"]["state"] == "waiting"
-    assert initial["commentary"]["payload"] == {"status": "idle"}
+    assert initial["commentary"]["payload"]["status"] == "idle"
+    assert initial["commentary"]["payload"]["text"] is None
 
 
 def test_two_clients_receive_the_same_game_updates_in_the_same_order(

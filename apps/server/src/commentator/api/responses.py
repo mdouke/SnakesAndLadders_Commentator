@@ -211,9 +211,21 @@ class RecognitionCamerasResponse(ResponseModel):
 
 
 class CommentaryResponse(ResponseModel):
-    """Placeholder until Phase 6 adds generated commentary."""
+    """Commentary for the newest turn of the current game.
 
-    status: Literal["idle"]
+    ``generating`` and ``ready`` always refer to ``turnId``; a comment is replaced or
+    cleared when that turn is no longer the newest one (undo, a newer roll, another
+    game). ``provider`` is ``fake`` until Phase 6 adds Claude and OpenAI.
+    """
+
+    status: Literal["idle", "generating", "ready", "failed"]
+    game_id: str | None
+    turn_id: str | None
+    turn_number: int | None
+    text: str | None
+    provider: str | None
+    duration_ms: float | None
+    generated_at: str | None
 
 
 class GameMessage(ResponseModel):

@@ -6,6 +6,7 @@ import type { components } from "./generated/api";
 
 type Schemas = components["schemas"];
 
+export type Board = Schemas["BoardResponse"];
 export type GameState = Schemas["GameResponse"];
 export type GameStatus = GameState["status"];
 export type PlayerState = Schemas["PlayerResponse"];

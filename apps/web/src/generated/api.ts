@@ -770,14 +770,32 @@ export interface components {
         };
         /**
          * CommentaryResponse
-         * @description Placeholder until Phase 6 adds generated commentary.
+         * @description Commentary for the newest turn of the current game.
+         *
+         *     ``generating`` and ``ready`` always refer to ``turnId``; a comment is replaced or
+         *     cleared when that turn is no longer the newest one (undo, a newer roll, another
+         *     game). ``provider`` is ``fake`` until Phase 6 adds Claude and OpenAI.
          */
         CommentaryResponse: {
             /**
              * Status
-             * @constant
+             * @enum {string}
              */
-            status: "idle";
+            status: "idle" | "generating" | "ready" | "failed";
+            /** Gameid */
+            gameId: string | null;
+            /** Turnid */
+            turnId: string | null;
+            /** Turnnumber */
+            turnNumber: number | null;
+            /** Text */
+            text: string | null;
+            /** Provider */
+            provider: string | null;
+            /** Durationms */
+            durationMs: number | null;
+            /** Generatedat */
+            generatedAt: string | null;
         };
         /** GameMessage */
         GameMessage: {

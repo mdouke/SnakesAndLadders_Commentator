@@ -10,9 +10,6 @@ from typing import Any, Literal
 
 MessageType = Literal["game", "recognition", "commentary"]
 
-IDLE_COMMENTARY: dict[str, Any] = {"status": "idle"}
-
-
 @dataclass(eq=False)
 class RealtimeClient:
     """One connection's outbound queue, owned by the connection's event loop."""

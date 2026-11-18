@@ -1,4 +1,5 @@
 import type {
+  Board,
   GameState,
   RecognitionCamera,
   RecognitionState,
@@ -60,6 +61,10 @@ export function createDefaultGame(): Promise<GameState> {
       ]
     })
   });
+}
+
+export function getDefaultBoard(): Promise<Board> {
+  return request("/api/boards/default");
 }
 
 export function getCurrentGame(): Promise<GameState> {

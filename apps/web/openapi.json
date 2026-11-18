@@ -2084,16 +2084,105 @@
       },
       "CommentaryResponse": {
         "additionalProperties": false,
-        "description": "Placeholder until Phase 6 adds generated commentary.",
+        "description": "Commentary for the newest turn of the current game.\n\n``generating`` and ``ready`` always refer to ``turnId``; a comment is replaced or\ncleared when that turn is no longer the newest one (undo, a newer roll, another\ngame). ``provider`` is ``fake`` until Phase 6 adds Claude and OpenAI.",
         "properties": {
           "status": {
-            "const": "idle",
+            "enum": [
+              "idle",
+              "generating",
+              "ready",
+              "failed"
+            ],
             "title": "Status",
             "type": "string"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "turnId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnid"
+          },
+          "turnNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnnumber"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
           }
         },
         "required": [
-          "status"
+          "status",
+          "gameId",
+          "turnId",
+          "turnNumber",
+          "text",
+          "provider",
+          "durationMs",
+          "generatedAt"
         ],
         "title": "CommentaryResponse",
         "type": "object"

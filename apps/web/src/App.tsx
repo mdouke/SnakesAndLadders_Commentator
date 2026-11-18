@@ -18,8 +18,11 @@ import {
   stopRecognition,
   submitRoll
 } from "./api";
+import { BoardView, useDefaultBoard } from "./Board";
 import { newerGame, useRealtime } from "./realtime";
-import type { GameState, RecognitionCamera, RecognitionState } from "./types";
+import type {
+  CommentaryState, GameState, RecognitionCamera, RecognitionState
+} from "./types";
 
 const statusLabels: Record<GameState["status"], string> = {
   ready: "開始待ち",
@@ -187,6 +190,32 @@ function RecognitionPanel({
   );
 }
 
+function CommentaryView({
+  commentary, game, large = false
+}: {
+  commentary: CommentaryState | null;
+  game: GameState | null;
+  large?: boolean;
+}) {
+  // Only show commentary that belongs to the game on screen.
+  const current = commentary && game && commentary.gameId === game.id ? commentary : null;
+  let body: string;
+  if (!current || current.status === "idle") body = "実況コメントはここに表示されます";
+  else if (current.status === "generating") body = `ターン${current.turnNumber}の実況を準備しています…`;
+  else if (current.status === "failed") body = "実況を作成できませんでした";
+  else body = current.text ?? "";
+  return (
+    <section className={`commentary ${large ? "large" : "panel"} ${current?.status ?? "idle"}`}
+      aria-live="polite">
+      {!large && <h2>実況</h2>}
+      <p>{body}</p>
+      {!large && current?.status === "ready" && (
+        <p className="muted">ターン{current.turnNumber}・{current.provider}・{current.durationMs}ms</p>
+      )}
+    </section>
+  );
+}
+
 function AdminView() {
   const [game, setGame] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -198,6 +227,7 @@ function AdminView() {
   const [restoreVersion, setRestoreVersion] = useState(0);
   const pending = useRef(false);
   const realtime = useRealtime();
+  const board = useDefaultBoard();
 
   useEffect(() => {
     if (realtime.gameLoaded) setGame((current) => newerGame(current, realtime.game));
@@ -325,6 +355,8 @@ function AdminView() {
             </section>
           )}
           <PlayerList game={game} />
+          {board && <BoardView board={board} game={game} />}
+          <CommentaryView commentary={realtime.commentary} game={game} />
           <RecognitionPanel game={game} recognition={realtime.recognition} busy={busy}
             onGame={run} onError={setError} />
           <section className="panel controls">
@@ -444,7 +476,7 @@ function AdminView() {
 }
 
 function PlayerView() {
-  const { game, recognition, connected } = useRealtime();
+  const { game, recognition, commentary, connected } = useRealtime();
   const recognizing = recognition?.running && game?.status === "in_progress"
     && ["moving", "stationary", "candidate", "needs_confirmation"].includes(recognition.state);
 
@@ -455,7 +487,7 @@ function PlayerView() {
       {recognizing && <p className="recognition-status">サイコロを読み取っています…</p>}
       {!connected && <p className="connection-warning">サーバーに再接続しています…</p>}
       {game ? <PlayerList game={game} /> : <p>管理者がゲームを準備しています。</p>}
-      <section className="commentary-placeholder">実況コメントはここに表示されます</section>
+      <CommentaryView commentary={commentary} game={game} large />
     </main>
   );
 }

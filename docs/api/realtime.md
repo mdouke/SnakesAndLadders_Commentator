@@ -13,7 +13,7 @@
 |---|---|---|
 | `game` | 現在のゲーム（HTTPの `GameResponse` と同じ形）。ゲームがなければ `null` | 現在のゲームの `stateVersion` が変わったとき、現在のゲームが切り替わったとき |
 | `recognition` | `GET /api/recognition` と同じ形 | 状態、候補、`errorCode`、カメラ接続などが変わったとき（フレームごとには送らない） |
-| `commentary` | `{ "status": "idle" }` | 接続時のみ。Phase 6 で実況の内容を追加する |
+| `commentary` | 現在のゲームの最新ターンの実況（下記） | 実況の状態が変わったとき |
 
 型は OpenAPI の `components.schemas.RealtimeMessage`（`type` で判別する union）として公開し、
 Web では `types.ts` の `RealtimeMessage` を使う。
@@ -30,3 +30,23 @@ Web では `types.ts` の `RealtimeMessage` を使う。
 - 未送信のメッセージが64件を超えた遅い接続は、コード1013で切断する。他の接続の配信は
   止めない。クライアントは再接続し、新しい初期状態で置き換える。
 - Web は切断されると0.5秒から最大5秒の間隔で再接続する。
+
+## 実況（`commentary`）
+
+`status` は `idle`、`generating`、`ready`、`failed` のいずれか。`generating` と `ready` は、
+必ず `turnId` のターンについての実況である。`text` は `ready` のときだけ入る。
+
+| ゲームの変化 | 実況 |
+|---|---|
+| 出目の確定、Redo（同じゲームでターンが増えた） | そのターンの実況を作る（`generating` → `ready`） |
+| 最新ターンの出目訂正（最新ターンが置き換わった） | 訂正後の結果で作り直す |
+| Undo（ターンが減った） | `idle` に戻す。1つ前のターンの実況は作り直さない |
+| 一時停止、再開、位置訂正 | そのまま残す |
+| 別のゲームへの切り替え、新しいゲーム、サーバー起動直後 | `idle`（今起きたことではないため実況しない） |
+
+生成が終わった時点で、そのターンがもう現在のゲームの最新ターンでなければ、結果を捨てる
+（ログに `commentary_discarded`）。これにより、Undo や続けての出目確定の後に、古い実況が
+表示されることはない。
+
+Phase 6 までは、`provider` が `fake` のテンプレート実況（約0.8秒の待ち時間つき）を使う。
+`services/commentary.py` の `CommentaryProvider` を実装すれば、Claude や OpenAI に差し替えられる。
