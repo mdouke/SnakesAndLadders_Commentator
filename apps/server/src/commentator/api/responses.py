@@ -153,7 +153,9 @@ class GameResponse(ResponseModel):
     turns: list[TurnResponse]
 
 
-InvalidationReason = Literal["player_already_finished", "game_completed"]
+InvalidationReason = Literal[
+    "player_already_finished", "game_completed", "turn_change_not_applicable"
+]
 
 
 class InvalidatedTurn(ResponseModel):
@@ -192,6 +194,9 @@ class RecognitionResponse(ResponseModel):
     available: bool
     running: bool
     camera_connected: bool
+    game_ready: bool = Field(
+        description="False while no game is in progress: frames feed only the preview."
+    )
     state: RecognitionStateValue
     candidate_value: int | None
     candidate_id: str | None

@@ -50,7 +50,14 @@ class DiceRecognitionPipeline:
         self.roi = roi or NormalizedRoi()
         self._previous_frame: Frame | None = None
 
-    def process(self, frame: Frame, *, monotonic_time: float) -> RecognitionFrameResult:
+    def process(
+        self, frame: Frame, *, monotonic_time: float, observe: bool = True
+    ) -> RecognitionFrameResult:
+        """Detect dice in one frame and, when ``observe`` is true, advance the session.
+
+        With ``observe=False`` the frame still updates motion and detections (for the
+        preview) but the recognition session does not change.
+        """
         cropped = self.roi.crop(frame)
         motion_score = (
             frame_motion_score(self._previous_frame, cropped)
@@ -72,13 +79,16 @@ class DiceRecognitionPipeline:
             )
             for detection in detections
         )
-        snapshot = self.session.observe(FrameObservation(
-            monotonic_time=monotonic_time,
-            motion_score=motion_score,
-            detections=observations,
-            rejected_count=rejected_count,
-            roi_diagonal=diagonal,
-        ))
+        if observe:
+            snapshot = self.session.observe(FrameObservation(
+                monotonic_time=monotonic_time,
+                motion_score=motion_score,
+                detections=observations,
+                rejected_count=rejected_count,
+                roi_diagonal=diagonal,
+            ))
+        else:
+            snapshot = self.session.snapshot()
         self._previous_frame = cropped.copy()
         rejected = tuple(
             getattr(self.detector, "last_rejected_detections", ())

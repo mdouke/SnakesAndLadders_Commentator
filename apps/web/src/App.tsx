@@ -4,20 +4,17 @@ import {
   ApiRequestError,
   activateGame,
   confirmRecognitionCandidate,
-  correctPosition,
-  correctRoll,
   createDefaultGame,
   gameAction,
   getCurrentGame,
   getGames,
   getRecognitionCameras,
-  previewRollCorrection,
   rejectRecognitionCandidate,
-  restoreGame,
   startRecognition,
   stopRecognition,
   submitRoll
 } from "./api";
+import { CorrectionsPanel, HistoryPanel, confirmEnded, isEnded, playerName } from "./AdminPanels";
 import { BoardView, useDefaultBoard } from "./Board";
 import { newerGame, useRealtime } from "./realtime";
 import type {
@@ -58,7 +55,7 @@ const recognitionLabels: Record<RecognitionState["state"], string> = {
   candidate: "候補を判定中",
   confirmed: "確定",
   needs_confirmation: "確認が必要です",
-  removal_wait: "サイコロを取り除いてください",
+  removal_wait: "盤上のサイコロを取り除いてから振ってください",
   recognition_error: "認識できませんでした",
   camera_error: "カメラエラー"
 };
@@ -138,6 +135,12 @@ function RecognitionPanel({
         {recognition.confidence && <span>信頼度 {recognition.confidence.total.toFixed(2)}</span>}
         {recognition.errorCode && <span className="muted">({recognition.errorCode})</span>}
       </p>
+      {recognition.running && !recognition.gameReady && (
+        <p className="muted">
+          ゲームが進行中ではないため、サイコロは認識していません（カメラ映像の確認のみ）。
+          開始または再開すると認識を始めます。そのとき盤上にあるサイコロは読み取りません。
+        </p>
+      )}
       {!recognition.available ? (
         <p>この環境ではカメラ認識を利用できません。手動で出目を確定してください。</p>
       ) : (
@@ -221,10 +224,6 @@ function AdminView() {
   const [error, setError] = useState<string | null>(null);
   const [savedGames, setSavedGames] = useState<GameState[]>([]);
   const [busy, setBusy] = useState(false);
-  const [positions, setPositions] = useState<Record<string, number>>({});
-  const [reason, setReason] = useState("");
-  const [operator, setOperator] = useState("");
-  const [restoreVersion, setRestoreVersion] = useState(0);
   const pending = useRef(false);
   const realtime = useRealtime();
   const board = useDefaultBoard();
@@ -260,55 +259,7 @@ function AdminView() {
     getGames().then(setSavedGames).catch(() => undefined);
   }, []);
 
-  useEffect(() => {
-    if (game) {
-      setPositions(Object.fromEntries(game.players.map((player) => [player.id, player.position])));
-    }
-  }, [game]);
-
-  const isEnded = game?.status === "completed" || game?.status === "aborted";
-  const confirmEnded = () => !isEnded || window.confirm(
-    "このゲームは終了しています。結果を取り消して進行中に戻しますか？"
-  );
-  const auditReady = () => {
-    if (reason.trim() && operator.trim()) return true;
-    setError("訂正理由と操作者名を入力してください");
-    return false;
-  };
-  const prepareRollCorrection = async (turnId: string, turnNumber: number, value: number) => {
-    if (!game || !auditReady() || !confirmEnded()) return;
-    try {
-      const preview = await previewRollCorrection(
-        game.id, turnId, value, game.stateVersion,
-        reason, operator, Boolean(isEnded)
-      );
-      let confirmed = true;
-      if (preview.requiresConfirmation) {
-        const turnDetails = preview.invalidatedTurns.map((item) =>
-          `ターン${item.turnNumber}（出目${item.value}）`
-        );
-        const operationNames: Record<string, string> = {
-          start: "ゲーム開始", pause: "一時停止", resume: "再開",
-          suspend: "保存終了", abort: "中止", position_correction: "位置訂正"
-        };
-        const operationDetails = preview.invalidatedOperations.map((item) =>
-          operationNames[item.type] ?? item.type
-        );
-        const details = [...turnDetails, ...operationDetails].join("、");
-        confirmed = window.confirm(`${details}を無効にします。よろしいですか？`);
-      } else {
-        confirmed = window.confirm(`ターン${turnNumber}の出目を${value}に訂正しますか？`);
-      }
-      if (confirmed) {
-        run(() => correctRoll(
-          game.id, turnId, value, game.stateVersion,
-          reason, operator, Boolean(isEnded), preview.requiresConfirmation
-        ));
-      }
-    } catch (previewError) {
-      setError(previewError instanceof Error ? previewError.message : "訂正内容を確認できませんでした");
-    }
-  };
+  const ended = game ? isEnded(game) : false;
 
   return (
     <main>
@@ -346,6 +297,7 @@ function AdminView() {
         <>
           <section className="status-bar">
             <span>{statusLabels[game.status]}</span>
+            {game.currentPlayerId && <span>手番: {playerName(game, game.currentPlayerId)}</span>}
             <span>ターン {game.turnNumber}</span>
           </section>
           {game.interruption && (
@@ -382,15 +334,15 @@ function AdminView() {
               )}
               {game.canUndo && (
                 <button className="secondary" onClick={() => {
-                  if (window.confirm(`${game.undoLabel ?? "直前の操作"}を取り消しますか？`) && confirmEnded()) {
-                    run(() => gameAction(game.id, "undo", game.stateVersion, Boolean(isEnded)));
+                  if (window.confirm(`${game.undoLabel ?? "直前の操作"}を取り消しますか？`) && confirmEnded(game)) {
+                    run(() => gameAction(game.id, "undo", game.stateVersion, ended));
                   }
                 }}>Undo: {game.undoLabel}</button>
               )}
               {game.canRedo && (
                 <button className="secondary" onClick={() => {
-                  if (window.confirm(`${game.redoLabel ?? "操作"}をやり直しますか？`) && confirmEnded()) {
-                    run(() => gameAction(game.id, "redo", game.stateVersion, Boolean(isEnded)));
+                  if (window.confirm(`${game.redoLabel ?? "操作"}をやり直しますか？`) && confirmEnded(game)) {
+                    run(() => gameAction(game.id, "redo", game.stateVersion, ended));
                   }
                 }}>Redo: {game.redoLabel}</button>
               )}
@@ -399,6 +351,9 @@ function AdminView() {
           {game.status === "in_progress" && (
             <section className="panel controls">
               <h2>手動で出目を確定</h2>
+              <p className="muted">
+                {game.currentPlayerId ? `${playerName(game, game.currentPlayerId)}の出目` : ""}
+              </p>
               <div className="dice-row">
                 {[1, 2, 3, 4, 5, 6].map((value) => (
                   <button key={value} onClick={() => run(() => submitRoll(game.id, value, game.stateVersion))}>{value}</button>
@@ -406,67 +361,8 @@ function AdminView() {
               </div>
             </section>
           )}
-          {(["in_progress", "paused", "completed", "aborted"] as string[]).includes(game.status) && (
-            <section className="panel controls">
-              <h2>位置訂正</h2>
-              <div className="audit-fields">
-                <input value={operator} onChange={(event) => setOperator(event.target.value)} placeholder="操作者名" />
-                <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="訂正理由" />
-              </div>
-              <div className="correction-list">
-                {game.players.map((player) => (
-                  <label key={player.id}>
-                    {player.displayName}
-                    <input type="number" min="0" max="99" value={positions[player.id] ?? player.position}
-                      onChange={(event) => setPositions((current) => ({ ...current, [player.id]: Number(event.target.value) }))} />
-                    <button onClick={() => {
-                      if (auditReady() && window.confirm(`${player.displayName}の位置を訂正しますか？`) && confirmEnded()) {
-                        run(() => correctPosition(
-                          game.id, player.id, positions[player.id] ?? player.position,
-                          game.stateVersion, reason, operator, Boolean(isEnded)
-                        ));
-                      }
-                    }}>訂正</button>
-                  </label>
-                ))}
-              </div>
-            </section>
-          )}
-          {game.turns.length > 0 && (
-            <section className="panel controls">
-              <h2>出目訂正</h2>
-              <div className="audit-fields">
-                <input value={operator} onChange={(event) => setOperator(event.target.value)} placeholder="操作者名" />
-                <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="訂正理由" />
-              </div>
-              {game.turns.map((turn) => (
-                <details key={turn.id}>
-                  <summary>ターン {turn.number}: 出目 {turn.roll}</summary>
-                  <div className="dice-row compact">
-                    {[1, 2, 3, 4, 5, 6].map((value) => (
-                      <button key={value} onClick={() => {
-                        prepareRollCorrection(turn.id, turn.number, value);
-                      }}>{value}</button>
-                    ))}
-                  </div>
-                </details>
-              ))}
-            </section>
-          )}
-          <section className="panel controls">
-            <h2>スナップショット復元</h2>
-            <div className="audit-fields">
-              <input type="number" min="0" max={game.stateVersion} value={restoreVersion}
-                onChange={(event) => setRestoreVersion(Number(event.target.value))} />
-              <button className="danger" onClick={() => {
-                if (window.confirm(`状態バージョン${restoreVersion}へ復元しますか？`) && confirmEnded()) {
-                  run(() => restoreGame(
-                    game.id, restoreVersion, game.stateVersion, Boolean(isEnded)
-                  ));
-                }
-              }}>復元</button>
-            </div>
-          </section>
+          <CorrectionsPanel game={game} run={run} onError={setError} />
+          <HistoryPanel game={game} run={run} onError={setError} />
         </>
       )}
       </fieldset>

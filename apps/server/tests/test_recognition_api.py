@@ -30,7 +30,11 @@ class ObservationPipeline:
     def __init__(self, session: DiceRecognitionSession) -> None:
         self.session = session
 
-    def process(self, frame: FrameObservation, *, monotonic_time: float) -> Any:
+    def process(
+        self, frame: FrameObservation, *, monotonic_time: float, observe: bool = True
+    ) -> Any:
+        if not observe:
+            return SimpleNamespace(snapshot=self.session.snapshot(), detections=())
         adjusted = FrameObservation(
             monotonic_time=monotonic_time,
             motion_score=frame.motion_score,
@@ -41,7 +45,8 @@ class ObservationPipeline:
         )
         return SimpleNamespace(snapshot=self.session.observe(adjusted))
 
-    def camera_disconnected(self, *, monotonic_time: float) -> Any:
+    def camera_disconnected(self, *, monotonic_time: float, observe: bool = True
+    ) -> Any:
         return self.session.observe(FrameObservation(
             monotonic_time=monotonic_time,
             motion_score=0,
@@ -99,7 +104,9 @@ class RaisingStream:
 
 
 class FailingPipeline(ObservationPipeline):
-    def process(self, frame: FrameObservation, *, monotonic_time: float) -> Any:
+    def process(
+        self, frame: FrameObservation, *, monotonic_time: float, observe: bool = True
+    ) -> Any:
         raise RuntimeError("pipeline bug")
 
 

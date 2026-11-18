@@ -62,12 +62,22 @@ class PositionCorrection(VersionedRequest):
     operator: str = Field(min_length=1, max_length=120)
 
 
+class TurnChange(VersionedRequest):
+    player_id: str = Field(alias="playerId", min_length=1)
+    reason: str = Field(min_length=1, max_length=500)
+    operator: str = Field(min_length=1, max_length=120)
+
+
 class RollCorrection(VersionedRequest):
     value: int = Field(ge=1, le=6)
     reason: str = Field(min_length=1, max_length=500)
     operator: str = Field(min_length=1, max_length=120)
     dry_run: bool = Field(default=False, alias="dryRun")
     confirm_invalidated_rolls: bool = Field(default=False, alias="confirmInvalidatedRolls")
+
+
+class ResumeFromTurn(VersionedRequest):
+    turn_id: str | None = Field(default=None, alias="turnId", min_length=1)
 
 
 class RestoreRequest(VersionedRequest):

@@ -192,3 +192,23 @@ export function rejectRecognitionCandidate(
   });
 }
 
+
+export function changeTurn(
+  gameId: string, playerId: string, expectedStateVersion: number,
+  reason: string, operator: string
+): Promise<GameState> {
+  return request(`/api/games/${gameId}/turn-change`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, expectedStateVersion, reason, operator })
+  });
+}
+
+export function resumeFromTurn(
+  gameId: string, turnId: string | null, expectedStateVersion: number,
+  confirmEndedGame = false
+): Promise<GameState> {
+  return request(`/api/games/${gameId}/resume-from-turn`, {
+    method: "POST",
+    body: JSON.stringify({ turnId, expectedStateVersion, confirmEndedGame })
+  });
+}

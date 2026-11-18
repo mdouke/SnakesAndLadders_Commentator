@@ -303,6 +303,55 @@
         }
       }
     },
+    "/api/games/{game_id}/turn-change": {
+      "post": {
+        "summary": "Change Turn",
+        "operationId": "change_turn_api_games__game_id__turn_change_post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/games/{game_id}/turns/{turn_id}/correction": {
       "post": {
         "summary": "Correct Roll",
@@ -390,6 +439,55 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}/resume-from-turn": {
+      "post": {
+        "summary": "Resume From Turn",
+        "operationId": "resume_from_turn_api_games__game_id__resume_from_turn_post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeFromTurn"
               }
             }
           }
@@ -1019,7 +1117,8 @@
             "type": "string",
             "enum": [
               "player_already_finished",
-              "game_completed"
+              "game_completed",
+              "turn_change_not_applicable"
             ],
             "title": "Reason"
           },
@@ -1096,7 +1195,8 @@
             "type": "string",
             "enum": [
               "player_already_finished",
-              "game_completed"
+              "game_completed",
+              "turn_change_not_applicable"
             ],
             "title": "Reason"
           }
@@ -1598,6 +1698,11 @@
             "title": "Cameraconnected",
             "type": "boolean"
           },
+          "gameReady": {
+            "description": "False while no game is in progress: frames feed only the preview.",
+            "title": "Gameready",
+            "type": "boolean"
+          },
           "state": {
             "enum": [
               "unavailable",
@@ -1682,6 +1787,7 @@
           "available",
           "running",
           "cameraConnected",
+          "gameReady",
           "state",
           "candidateValue",
           "candidateId",
@@ -1735,6 +1841,37 @@
           "targetStateVersion"
         ],
         "title": "RestoreRequest"
+      },
+      "ResumeFromTurn": {
+        "properties": {
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "confirmEndedGame": {
+            "type": "boolean",
+            "title": "Confirmendedgame",
+            "default": false
+          },
+          "turnId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expectedStateVersion"
+        ],
+        "title": "ResumeFromTurn"
       },
       "RollCorrection": {
         "properties": {
@@ -1848,6 +1985,45 @@
           "expectedStateVersion"
         ],
         "title": "RollCreate"
+      },
+      "TurnChange": {
+        "properties": {
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "confirmEndedGame": {
+            "type": "boolean",
+            "title": "Confirmendedgame",
+            "default": false
+          },
+          "playerId": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Playerid"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "operator": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Operator"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expectedStateVersion",
+          "playerId",
+          "reason",
+          "operator"
+        ],
+        "title": "TurnChange"
       },
       "TurnResponse": {
         "additionalProperties": false,

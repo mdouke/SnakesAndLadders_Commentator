@@ -36,8 +36,10 @@ from .api.schemas import (
     RecognitionCandidateReject,
     RecognitionStart,
     RestoreRequest,
+    ResumeFromTurn,
     RollCorrection,
     RollCreate,
+    TurnChange,
     VersionedRequest,
 )
 from .domain.board import Board
@@ -148,6 +150,7 @@ def create_app(
     hub = realtime_hub if realtime_hub is not None else RealtimeHub()
     game_service.add_listener(lambda payload: hub.publish("game", payload))
     recognition.subscribe(lambda payload: hub.publish("recognition", payload))
+    recognition.attach_game()
     commentary = commentary_service or CommentaryService(game_service)
     commentary.game_service = game_service
     commentary.subscribe(lambda payload: hub.publish("commentary", payload))
@@ -296,6 +299,17 @@ def create_app(
             game_service.save_or_503(game)
             return game.to_dict()
 
+    @application.post("/api/games/{game_id}/turn-change", response_model=GameResponse)
+    def change_turn(game_id: str, request: TurnChange) -> dict[str, Any]:
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
+            _apply_action(lambda: game.change_turn(
+                request.player_id, reason=request.reason, operator=request.operator,
+            ))
+            game_service.save_or_503(game)
+            return game.to_dict()
+
     @application.post(
         "/api/games/{game_id}/turns/{turn_id}/correction",
         response_model=GameResponse | RollCorrectionPreview,
@@ -350,6 +364,16 @@ def create_app(
                     404, "snapshot_not_found", "スナップショットが見つかりません"
                 )
             _apply_action(lambda: game.restore_from(snapshot))
+            game_service.save_or_503(game)
+            return game.to_dict()
+
+    @application.post("/api/games/{game_id}/resume-from-turn", response_model=GameResponse)
+    def resume_from_turn(game_id: str, request: ResumeFromTurn) -> dict[str, Any]:
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
+            require_ended_confirmation(game, request.confirm_ended_game)
+            _apply_action(lambda: game.resume_after_turn(request.turn_id))
             game_service.save_or_503(game)
             return game.to_dict()
 

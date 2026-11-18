@@ -193,6 +193,7 @@ class DiceRecognitionSession:
         self._die_seen_in_cycle = False
         self._last_confirmed_center: tuple[float, float] | None = None
         self._last_confirmed_roi_diagonal = 1.0
+        self._motion_required = False
         self._samples: deque[_CandidateSample] = deque(
             maxlen=self.config.candidate_window_frames
         )
@@ -227,8 +228,13 @@ class DiceRecognitionSession:
         if self.state is RecognitionState.WAITING:
             die_visible = bool(frame.detections or frame.rejected_count)
             moved = frame.motion_score >= self.config.movement_threshold
-            new_position = die_visible and self._die_is_away_from_last_confirmation(frame)
+            new_position = (
+                not self._motion_required
+                and die_visible
+                and self._die_is_away_from_last_confirmation(frame)
+            )
             if moved or new_position:
+                self._motion_required = False
                 self._last_confirmed_center = None
                 self._reset_cycle(RecognitionState.MOVING)
                 self._cycle_started_time = frame.monotonic_time
@@ -309,9 +315,23 @@ class DiceRecognitionSession:
             self.state = RecognitionState.RECOGNITION_ERROR
             self._recognition_error_code = "confirmation_discarded"
 
+    def ignore_present_dice(self) -> None:
+        """Begin in ``removal_wait`` so a die already lying in the ROI is not read.
+
+        Used when a game starts or resumes while the camera is running. The die must
+        disappear for ``removal_frames`` or move clearly before a new throw counts.
+        """
+        self._last_confirmed_center = None
+        self._cycle_started_time = None
+        self._reset_cycle(RecognitionState.REMOVAL_WAIT)
+        # The die's position is unknown, so a die that "reappears" after a few missed
+        # detections cannot be told apart from it. Only clear motion starts a throw.
+        self._motion_required = True
+
     def reset_to_waiting(self) -> None:
         """Discard transient camera state before a new camera session starts."""
         self._last_confirmed_center = None
+        self._motion_required = False
         self._last_observation_time = None
         self._cycle_started_time = None
         self._reset_cycle(RecognitionState.WAITING)
@@ -471,6 +491,7 @@ class DiceRecognitionSession:
 
     def _observe_removal(self, frame: FrameObservation) -> None:
         if frame.motion_score >= self.config.movement_threshold:
+            self._motion_required = False
             self._last_confirmed_center = None
             self._reset_cycle(RecognitionState.MOVING)
             self._cycle_started_time = frame.monotonic_time

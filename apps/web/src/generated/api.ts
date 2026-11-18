@@ -141,6 +141,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/games/{game_id}/turn-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Turn */
+        post: operations["change_turn_api_games__game_id__turn_change_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/games/{game_id}/turns/{turn_id}/correction": {
         parameters: {
             query?: never;
@@ -169,6 +186,23 @@ export interface paths {
         put?: never;
         /** Restore Game */
         post: operations["restore_game_api_games__game_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/games/{game_id}/resume-from-turn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume From Turn */
+        post: operations["resume_from_turn_api_games__game_id__resume_from_turn_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -428,7 +462,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "player_already_finished" | "game_completed";
+            reason: "player_already_finished" | "game_completed" | "turn_change_not_applicable";
             /** Playerid */
             playerId?: string | null;
             /** Position */
@@ -450,7 +484,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "player_already_finished" | "game_completed";
+            reason: "player_already_finished" | "game_completed" | "turn_change_not_applicable";
         };
         /** PlayerCreate */
         PlayerCreate: {
@@ -617,6 +651,11 @@ export interface components {
             /** Cameraconnected */
             cameraConnected: boolean;
             /**
+             * Gameready
+             * @description False while no game is in progress: frames feed only the preview.
+             */
+            gameReady: boolean;
+            /**
              * State
              * @enum {string}
              */
@@ -647,6 +686,18 @@ export interface components {
             confirmEndedGame: boolean;
             /** Targetstateversion */
             targetStateVersion: number;
+        };
+        /** ResumeFromTurn */
+        ResumeFromTurn: {
+            /** Expectedstateversion */
+            expectedStateVersion: number;
+            /**
+             * Confirmendedgame
+             * @default false
+             */
+            confirmEndedGame: boolean;
+            /** Turnid */
+            turnId?: string | null;
         };
         /** RollCorrection */
         RollCorrection: {
@@ -691,6 +742,22 @@ export interface components {
             expectedStateVersion: number;
             /** Expectedturnnumber */
             expectedTurnNumber?: number | null;
+        };
+        /** TurnChange */
+        TurnChange: {
+            /** Expectedstateversion */
+            expectedStateVersion: number;
+            /**
+             * Confirmendedgame
+             * @default false
+             */
+            confirmEndedGame: boolean;
+            /** Playerid */
+            playerId: string;
+            /** Reason */
+            reason: string;
+            /** Operator */
+            operator: string;
         };
         /** TurnResponse */
         TurnResponse: {
@@ -1082,6 +1149,41 @@ export interface operations {
             };
         };
     };
+    change_turn_api_games__game_id__turn_change_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     correct_roll_api_games__game_id__turns__turn_id__correction_post: {
         parameters: {
             query?: never;
@@ -1130,6 +1232,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_from_turn_api_games__game_id__resume_from_turn_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeFromTurn"];
             };
         };
         responses: {

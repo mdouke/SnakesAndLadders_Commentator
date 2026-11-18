@@ -35,7 +35,11 @@ class ObservationPipeline:
     def __init__(self, session: DiceRecognitionSession) -> None:
         self.session = session
 
-    def process(self, frame: FrameObservation, *, monotonic_time: float) -> Any:
+    def process(
+        self, frame: FrameObservation, *, monotonic_time: float, observe: bool = True
+    ) -> Any:
+        if not observe:
+            return SimpleNamespace(snapshot=self.session.snapshot(), detections=())
         return SimpleNamespace(snapshot=self.session.observe(FrameObservation(
             monotonic_time=monotonic_time,
             motion_score=frame.motion_score,
@@ -44,7 +48,8 @@ class ObservationPipeline:
             roi_diagonal=frame.roi_diagonal,
         )), detections=())
 
-    def camera_disconnected(self, *, monotonic_time: float) -> Any:
+    def camera_disconnected(self, *, monotonic_time: float, observe: bool = True
+    ) -> Any:
         return self.session.observe(FrameObservation(
             monotonic_time=monotonic_time, motion_score=0, camera_connected=False,
         ))
@@ -259,7 +264,9 @@ class FramePipeline:
         self.session = DiceRecognitionSession()
         self.roi = NormalizedRoi(x=0.25, y=0.25, width=0.5, height=0.5)
 
-    def process(self, frame: np.ndarray, *, monotonic_time: float) -> Any:
+    def process(
+        self, frame: np.ndarray, *, monotonic_time: float, observe: bool = True
+    ) -> Any:
         detection = DieDetection(
             value=5,
             box=np.array([[0, 0], [20, 0], [20, 20], [0, 20]], dtype=np.int32),
@@ -267,10 +274,14 @@ class FramePipeline:
             confidence=0.9,
             pip_centers=(),
         )
-        snapshot = self.session.observe(FrameObservation(monotonic_time, 0.0))
+        snapshot = (
+            self.session.observe(FrameObservation(monotonic_time, 0.0))
+            if observe else self.session.snapshot()
+        )
         return SimpleNamespace(snapshot=snapshot, detections=(detection,))
 
-    def camera_disconnected(self, *, monotonic_time: float) -> Any:
+    def camera_disconnected(self, *, monotonic_time: float, observe: bool = True
+    ) -> Any:
         return self.session.observe(FrameObservation(
             monotonic_time=monotonic_time, motion_score=0, camera_connected=False,
         ))

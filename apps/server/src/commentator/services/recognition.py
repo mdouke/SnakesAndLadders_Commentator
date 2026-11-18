@@ -25,7 +25,9 @@ from .vision.recognition import (
 class Pipeline(Protocol):
     session: DiceRecognitionSession
 
-    def process(self, frame: Any, *, monotonic_time: float) -> Any: ...
+    def process(
+        self, frame: Any, *, monotonic_time: float, observe: bool = True
+    ) -> Any: ...
     def camera_disconnected(self, *, monotonic_time: float) -> RecognitionSnapshot: ...
     def reset_frames(self) -> None: ...
 
@@ -91,6 +93,10 @@ class RecognitionService:
         self._last_notified: dict[str, Any] | None = None
         self._last_frame: Any = None
         self._last_detections: tuple[Any, ...] = ()
+        self._gate_enabled = False
+        self._game_ready = True
+        self._requested_gate: tuple[str | None, bool] | None = None
+        self._applied_gate: tuple[str | None, bool] | None = None
 
     @property
     def available(self) -> bool:
@@ -196,6 +202,7 @@ class RecognitionService:
                 ) from error
             self.pipeline.session.reset_to_waiting()
             self.pipeline.reset_frames()
+            self._applied_gate = None  # re-arm: a die already present is ignored
             self._cycle_context = None
             self._cycle_context_captured = False
             self._last_frame = None
@@ -313,13 +320,59 @@ class RecognitionService:
         if self.pipeline is None:
             raise ApiError(503, "recognition_unavailable", "サイコロ認識を利用できません")
         with self._lock:
-            before = self.pipeline.session.snapshot().state
-            result = self.pipeline.process(frame, monotonic_time=self.clock())
-            self._remember_frame(frame, result)
-            self._capture_cycle_context(before, result.snapshot.state)
-            self._handle_snapshot_locked(result.snapshot)
+            self._process_locked(frame)
         self._notify_if_changed()
         return self.snapshot()
+
+    def attach_game(self) -> None:
+        """Recognize dice only while the current game is in progress.
+
+        Before this is called (unit tests of the bare service) every frame is
+        recognized. Afterwards frames outside an in-progress game only feed the
+        preview, and a die already lying in the ROI when play starts is ignored.
+        """
+        self._gate_enabled = True
+        self.game_service.add_listener(self.game_changed)
+        self.game_changed(self.game_service.current_payload())
+
+    def game_changed(self, game: dict[str, Any] | None) -> None:
+        """Game listener. Runs under the game lock, so it only records the new
+        state; the recognition thread applies it under the recognition lock
+        (lock order: recognition -> game)."""
+        active = game is not None and game["status"] == "in_progress"
+        self._requested_gate = (game["id"] if game is not None else None, active)
+
+    def _process_locked(self, frame: Any) -> None:
+        assert self.pipeline is not None
+        self._apply_gate_locked()
+        observe = self._game_ready
+        before = self.pipeline.session.snapshot().state
+        result = self.pipeline.process(
+            frame, monotonic_time=self.clock(), observe=observe
+        )
+        self._remember_frame(frame, result)
+        if observe:
+            self._capture_cycle_context(before, result.snapshot.state)
+            self._handle_snapshot_locked(result.snapshot)
+
+    def _apply_gate_locked(self) -> None:
+        if not self._gate_enabled or self.pipeline is None:
+            return
+        requested = self._requested_gate
+        if requested == self._applied_gate:
+            return
+        self._applied_gate = requested
+        session = self.pipeline.session
+        self._cycle_context = None
+        self._cycle_context_captured = False
+        if requested is not None and requested[1]:
+            # Play (re)started: ignore a die that is already on the board.
+            session.ignore_present_dice()
+            self._game_ready = True
+        else:
+            session.reset_to_waiting()
+            self._game_ready = False
+        self._error_code = None
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -339,6 +392,7 @@ class RecognitionService:
                 "available": self.available,
                 "running": self._running,
                 "cameraConnected": self._camera_connected,
+                "gameReady": self._game_ready,
                 "state": (
                     recognition.state.value if recognition else "unavailable"
                 ),
@@ -378,13 +432,7 @@ class RecognitionService:
                     break
                 try:
                     with self._lock:
-                        before = self.pipeline.session.snapshot().state
-                        result = self.pipeline.process(
-                            frame, monotonic_time=self.clock()
-                        )
-                        self._remember_frame(frame, result)
-                        self._capture_cycle_context(before, result.snapshot.state)
-                        self._handle_snapshot_locked(result.snapshot)
+                        self._process_locked(frame)
                 except Exception as error:
                     self._record_worker_failure(
                         error, error_code="recognition_worker_failed"

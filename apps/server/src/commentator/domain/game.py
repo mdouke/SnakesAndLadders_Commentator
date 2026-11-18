@@ -41,6 +41,7 @@ class OperationType(StrEnum):
     ABORT = "abort"
     ROLL = "roll"
     POSITION_CORRECTION = "position_correction"
+    TURN_CHANGE = "turn_change"
     CORRECTION = "correction"
     UNDO = "undo"
     REDO = "redo"
@@ -377,7 +378,7 @@ class GameState:
             OperationType.ROLL,
             payload,
             occurred_at,
-            label=f"出目 {value}（ターン{turn.number}）",
+            label=f"{player.display_name}の出目 {value}（ターン{turn.number}）",
             branch_before=branch_before,
             branch_after=branch_after,
         )
@@ -551,6 +552,50 @@ class GameState:
             branch_after=branch_after,
         )
 
+    def change_turn(
+        self, player_id: str, *, reason: str, operator: str,
+        now: datetime | None = None,
+    ) -> None:
+        """Hand the turn to another player (e.g. someone threw out of order)."""
+        occurred_at = now or datetime.now(UTC)
+        previous = self.current_player
+        branch_before = self.branch_id
+        branch_after = self._next_action_branch()
+        self._apply_turn_change(player_id)
+        target = self.current_player
+        assert target is not None
+        self._record(
+            OperationType.TURN_CHANGE,
+            {
+                "playerId": player_id,
+                "previousPlayerId": previous.id if previous else None,
+                "reason": reason,
+                "operator": operator,
+            },
+            occurred_at,
+            label=(
+                f"手番変更（{previous.display_name if previous else '-'}"
+                f"→{target.display_name}）"
+            ),
+            branch_before=branch_before,
+            branch_after=branch_after,
+        )
+
+    def _apply_turn_change(self, player_id: str) -> None:
+        if self.status not in {GameStatus.IN_PROGRESS, GameStatus.PAUSED}:
+            raise ValueError("進行中または一時停止中のゲームだけ手番を変更できます")
+        index = next(
+            (index for index, player in enumerate(self.players) if player.id == player_id),
+            None,
+        )
+        if index is None:
+            raise ValueError("プレイヤーが見つかりません")
+        if self.players[index].reached_goal:
+            raise ValueError("ゴール済みのプレイヤーには手番を変更できません")
+        if index == self.current_player_index:
+            raise ValueError("すでにそのプレイヤーの手番です")
+        self.current_player_index = index
+
     def _apply_position_correction(self, player_id: str, position: int) -> None:
         if self.status not in {
             GameStatus.IN_PROGRESS, GameStatus.PAUSED,
@@ -691,6 +736,29 @@ class GameState:
                         "reason": "game_completed",
                     })
                 continue
+            elif event.type is OperationType.TURN_CHANGE:
+                target_id = str(payload.get("playerId", ""))
+                target_index = next(
+                    (
+                        index for index, player in enumerate(self.players)
+                        if player.id == target_id
+                    ),
+                    None,
+                )
+                if (
+                    target_index is None
+                    or self.players[target_index].reached_goal
+                    or target_index == self.current_player_index
+                ):
+                    # After the correction the change is impossible or already true.
+                    invalidated_operations.append({
+                        "eventId": event.id,
+                        "timelineIndex": event.timeline_index,
+                        "type": event.type.value,
+                        "playerId": target_id,
+                        "reason": "turn_change_not_applicable",
+                    })
+                    continue
             elif event.type is OperationType.POSITION_CORRECTION:
                 corrected_player_id = str(payload.get("playerId", ""))
                 corrected_player = next(
@@ -756,7 +824,10 @@ class GameState:
         self.redo_history.clear()
         self.undo_history.append(HistoryAction(
             id=audit.id,
-            label=f"出目訂正（ターン{target_turn.number}: {target_turn.roll}→{value}）",
+            label=(
+                f"出目訂正（{self._player_name(target_turn.player_id)}・"
+                f"ターン{target_turn.number}: {target_turn.roll}→{value}）"
+            ),
             activated_event_ids=activated,
             deactivated_event_ids=[event.id for event in suffix],
             branch_before=branch_before,
@@ -822,6 +893,54 @@ class GameState:
             event.id for event in snapshot.operation_events
             if event.active and event.timeline_index is not None
         }
+        self._switch_timeline(
+            target_active_ids,
+            payload={"targetStateVersion": target_version},
+            label=f"状態復元（バージョン{target_version}）",
+            now=now,
+        )
+
+    def resume_after_turn(self, turn_id: str | None, *, now: datetime | None = None) -> None:
+        """Continue from just after one turn of the *current* history.
+
+        Unlike ``restore_from`` with a version snapshot, this keeps corrections that
+        were made later: it cuts the active timeline after that turn's roll. With
+        ``turn_id=None`` it returns to the state before the first roll.
+        """
+        active = self._active_timeline()
+        rolls = [event for event in active if event.type is OperationType.ROLL]
+
+        def position(event: OperationRecord) -> int:
+            assert event.timeline_index is not None  # active timeline events only
+            return event.timeline_index
+
+        if turn_id is None:
+            if not rolls:
+                raise ValueError("まだ出目がありません")
+            keep = [event for event in active if position(event) < position(rolls[0])]
+            label = "最初の出目の前から再開"
+        else:
+            target = next(
+                (event for event in rolls if event.payload.get("turnId") == turn_id), None
+            )
+            turn = next((item for item in self.turns if item.id == turn_id), None)
+            if target is None or turn is None:
+                raise ValueError("再開するターンが見つかりません")
+            if target is rolls[-1] and target is active[-1]:
+                raise ValueError("このターンが最新の状態です")
+            keep = [event for event in active if position(event) <= position(target)]
+            label = f"ターン{turn.number}の後から再開（{self._player_name(turn.player_id)}）"
+        self._switch_timeline(
+            {event.id for event in keep},
+            payload={"targetTurnId": turn_id},
+            label=label,
+            now=now,
+        )
+
+    def _switch_timeline(
+        self, target_active_ids: set[str], *, payload: dict[str, Any], label: str,
+        now: datetime | None,
+    ) -> None:
         current_active_ids = {event.id for event in self._active_timeline()}
         for event in self.operation_events:
             if event.timeline_index is not None:
@@ -831,14 +950,14 @@ class GameState:
         self._rebuild()
         occurred_at = now or datetime.now(UTC)
         audit = self._append_record(
-            OperationType.RESTORE, {"targetStateVersion": target_version}, occurred_at,
+            OperationType.RESTORE, payload, occurred_at,
             branch_id=self.branch_id, timeline_index=None, active=False,
         )
         self.state_version += 1
         self.redo_history.clear()
         self.undo_history.append(HistoryAction(
             id=audit.id,
-            label=f"状態復元（バージョン{target_version}）",
+            label=label,
             activated_event_ids=sorted(target_active_ids - current_active_ids),
             deactivated_event_ids=sorted(current_active_ids - target_active_ids),
             branch_before=branch_before,
@@ -952,6 +1071,10 @@ class GameState:
             branch_before=branch_before,
             branch_after=branch_after,
         ))
+
+    def _player_name(self, player_id: str) -> str:
+        player = next((item for item in self.players if item.id == player_id), None)
+        return (player.display_name or player.name) if player is not None else player_id
 
     def _next_action_branch(self) -> str:
         return str(uuid4()) if self.redo_history else self.branch_id
@@ -1068,6 +1191,8 @@ class GameState:
             self._apply_position_correction(
                 str(event.payload["playerId"]), int(event.payload["position"])
             )
+        elif event.type is OperationType.TURN_CHANGE:
+            self._apply_turn_change(str(event.payload["playerId"]))
         self.state_version = event.state_version
 
     def _refresh_ranks(self) -> None:

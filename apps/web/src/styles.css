@@ -88,3 +88,19 @@ summary { cursor: pointer; font-weight: 700; }
 .legend-ladder::before, .legend-snake::before { content: ""; display: inline-block; width: 1.2rem; height: 0.25rem; margin-right: 0.35rem; vertical-align: middle; border-radius: 2px; }
 .legend-ladder::before { background: #2f8f4e; }
 .legend-snake::before { background: #c0453c; }
+.board .cell.last-normal { fill: #f3dca0; stroke: #b07d12; stroke-width: 0.4; stroke-dasharray: 1 0.6; }
+.legend-current { font-weight: 800; }
+.legend-cell::before { content: ""; display: inline-block; width: 0.9rem; height: 0.9rem; margin-right: 0.35rem; vertical-align: -0.1rem; border-radius: 3px; border: 1px solid #c9c3b3; }
+.legend-cell.last-from::before { background: #fde7b0; }
+.legend-cell.last-normal::before { background: #f3dca0; border: 1px dashed #b07d12; }
+.legend-cell.last-to::before { background: #f7c95c; }
+.muted { color: #657068; }
+.correction-block { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e3ddcc; }
+.correction-block h3 { margin-bottom: 0.75rem; }
+summary .muted { font-weight: 400; margin-left: 0.4rem; }
+.table-scroll { overflow-x: auto; margin-bottom: 1rem; }
+.turn-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.turn-table th, .turn-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #e3ddcc; text-align: left; white-space: nowrap; }
+.turn-table th { color: #657068; font-size: 0.85rem; }
+button.small { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+details.advanced { margin-top: 1rem; }

@@ -49,11 +49,14 @@ export function BoardView({ board, game }: { board: Board; game: GameState }) {
           const { x, y } = cellCenter(square);
           const isLastFrom = lastTurn?.before === square;
           const isLastTo = lastTurn?.finalPosition === square;
+          const isLastNormal = lastTurn !== null && lastTurn.normalPosition === square
+            && lastTurn.normalPosition !== lastTurn.finalPosition;
           return (
             <g key={square}>
               <rect x={x - CELL / 2} y={y - CELL / 2} width={CELL} height={CELL}
                 className={`cell ${square % 2 === 0 ? "even" : "odd"}`
-                  + `${isLastFrom ? " last-from" : ""}${isLastTo ? " last-to" : ""}`} />
+                  + `${isLastFrom ? " last-from" : ""}${isLastNormal ? " last-normal" : ""}`
+                  + `${isLastTo ? " last-to" : ""}`} />
               <text x={x - CELL / 2 + 0.8} y={y - CELL / 2 + 2.6} className="cell-number">
                 {square}
               </text>
@@ -85,6 +88,11 @@ export function BoardView({ board, game }: { board: Board; game: GameState }) {
         })}
       </svg>
       <div className="board-legend">
+        {game.currentPlayerId && (
+          <span className="legend-current">
+            手番: {game.players.find((player) => player.id === game.currentPlayerId)?.displayName}
+          </span>
+        )}
         {waiting.length > 0 && (
           <span>スタート前: {waiting.map((player) => player.displayName).join("、")}</span>
         )}
@@ -94,6 +102,15 @@ export function BoardView({ board, game }: { board: Board; game: GameState }) {
             {" "}出目{lastTurn.roll}・{lastTurn.before}→{lastTurn.normalPosition}
             {lastTurn.finalPosition !== lastTurn.normalPosition && `→${lastTurn.finalPosition}`}
           </span>
+        )}
+        {lastTurn && (
+          <>
+            <span className="legend-cell last-from">移動前</span>
+            {lastTurn.normalPosition !== lastTurn.finalPosition && (
+              <span className="legend-cell last-normal">通常移動後</span>
+            )}
+            <span className="legend-cell last-to">最終位置</span>
+          </>
         )}
         <span className="legend-ladder">ハシゴ</span>
         <span className="legend-snake">ヘビ</span>
