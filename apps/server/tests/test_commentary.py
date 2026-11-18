@@ -107,6 +107,7 @@ def test_undo_clears_pending_and_shown_commentary() -> None:
     table.scheduler.run()
     assert table.state["status"] == "idle"  # the late result is not shown
 
+    table.apply(lambda game: game.resume())  # Undo paused the game
     table.apply(lambda game: game.roll(5))
     table.scheduler.run()
     assert table.state["status"] == "ready"

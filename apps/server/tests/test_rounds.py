@@ -41,6 +41,7 @@ def test_finished_player_is_skipped_without_breaking_rounds() -> None:
 def test_turn_change_does_not_start_a_new_round_by_itself() -> None:
     state = game()
     state.change_turn("c", reason="順番", operator="admin")
+    state.resume()
     state.roll(1)          # C in round 1, next is A -> round 2
     assert state.turns[0].round == 1
     assert state.round_number == 2

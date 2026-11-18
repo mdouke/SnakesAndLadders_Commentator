@@ -30,6 +30,8 @@ def test_change_turn_moves_the_turn_and_next_rolls_continue_from_there() -> None
     game = three_players()
     change(game, "c")
     assert game.current_player is not None and game.current_player.id == "c"
+    assert game.status.value == "paused"  # corrections wait for the admin
+    game.resume()
 
     game.roll(3)
     assert game.turns[-1].player_id == "c"
@@ -61,6 +63,7 @@ def test_change_turn_survives_sqlite_reload(tmp_path: Path) -> None:
     repository = SQLiteGameRepository(tmp_path / "games.sqlite3")
     game = three_players()
     change(game, "c")
+    game.resume()
     game.roll(2)
     repository.save(game)
 
@@ -73,6 +76,7 @@ def test_roll_correction_replays_across_a_turn_change() -> None:
     game = three_players()
     first = game.roll(3)          # A
     change(game, "c")             # skip B
+    game.resume()
     game.roll(4)                  # C
     game.correct_roll(first.id, 5, reason="誤入力", operator="admin")
 

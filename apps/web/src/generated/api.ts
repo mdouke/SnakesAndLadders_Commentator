@@ -586,6 +586,11 @@ export interface components {
              * @description Display turn of the next roll (0 before start).
              */
             roundNumber: number;
+            /**
+             * Pausereason
+             * @description Why a paused game is paused: after_correction, process_interrupted, or null for a manual pause.
+             */
+            pauseReason: string | null;
             /** Currentplayerid */
             currentPlayerId: string | null;
             /** Startedat */

@@ -405,6 +405,12 @@ function AdminView() {
             {game.currentPlayerId && <span>手番: {playerName(game, game.currentPlayerId)}</span>}
             {game.roundNumber > 0 && <span>ターン {game.roundNumber}</span>}
           </section>
+          {game.pauseReason === "after_correction" && (
+            <section className="interruption-banner">
+              <strong>訂正したため一時停止しています。</strong>
+              <span>盤上のコマを画面の位置に合わせてから「再開」を押してください。</span>
+            </section>
+          )}
           {game.status === "aborted" && (
             <section className="interruption-banner">
               <strong>このゲームは中止されました。</strong>

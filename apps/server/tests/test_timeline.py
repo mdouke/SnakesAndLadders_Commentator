@@ -17,16 +17,17 @@ def test_timeline_lists_operations_in_history_order() -> None:
     first = state.roll(3)
     state.correct_position("b", 5, reason="盤とずれた", operator="admin")
     state.change_turn("a", reason="順番", operator="admin")
-    state.pause()
     timeline = state.to_dict()["timeline"]
 
+    # The correction pauses the game; the turn change happens while paused.
     assert [entry["type"] for entry in timeline] == [
-        "start", "roll", "position_correction", "turn_change", "pause",
+        "start", "roll", "position_correction", "pause", "turn_change",
     ]
     assert timeline[1]["turnId"] == first.id
     assert timeline[2]["position"] == 5 and timeline[2]["beforePosition"] == 0
     assert timeline[2]["reason"] == "盤とずれた"
-    assert timeline[3]["previousPlayerId"] == "b" and timeline[3]["playerId"] == "a"
+    assert timeline[3]["reason"] == "after_correction"
+    assert timeline[4]["previousPlayerId"] == "b" and timeline[4]["playerId"] == "a"
 
 
 def test_undone_operations_leave_the_timeline_but_stay_in_the_audit_log() -> None:

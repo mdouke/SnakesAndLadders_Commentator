@@ -62,8 +62,14 @@ function whoWhy(operator: string | null, reason: string | null): string {
   return parts.length > 0 ? `（${parts.join("・")}）` : "";
 }
 
+const pauseReasons: Record<string, string> = {
+  after_correction: "一時停止（訂正のため自動）",
+  process_interrupted: "一時停止（異常終了を検出）"
+};
+
 function operationText(game: GameState, entry: TimelineEntry): string {
   const name = operationNames[entry.type] ?? entry.type;
+  if (entry.type === "pause") return pauseReasons[entry.reason ?? ""] ?? name;
   if (entry.type === "position_correction") {
     return `${name}：${playerName(game, entry.playerId)} ${entry.beforePosition ?? "?"}→${entry.position ?? "?"}`;
   }
@@ -220,7 +226,10 @@ export function HistoryPanel({ game, run, onError }: PanelProps) {
               placeholder="操作者名" aria-label="操作者名" />
             <input value={reason} onChange={(event) => setReason(event.target.value)}
               placeholder="理由" aria-label="理由" />
-            <span className="muted">訂正と「ここまで戻す」には両方の入力が必要です。すべて記録され、Undoで取り消せます。</span>
+            <span className="muted">
+              訂正と「ここまで戻す」には両方の入力が必要です。すべて記録され、Undoで取り消せます。
+              訂正するとゲームは一時停止し、「再開」を押すまで進みません。
+            </span>
           </div>
           <div className="current-tools">
             <strong>今の状態を直す</strong>
@@ -245,7 +254,9 @@ export function HistoryPanel({ game, run, onError }: PanelProps) {
                   return (
                     <li key={entry.id} className="timeline-op">
                       <span>{operationText(game, entry)}</span>
-                      <span className="muted">{whoWhy(entry.operator, entry.reason)}</span>
+                      {entry.type !== "pause" && (
+                        <span className="muted">{whoWhy(entry.operator, entry.reason)}</span>
+                      )}
                     </li>
                   );
                 }

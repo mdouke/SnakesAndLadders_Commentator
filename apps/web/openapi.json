@@ -1449,6 +1449,18 @@
             "title": "Roundnumber",
             "type": "integer"
           },
+          "pauseReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why a paused game is paused: after_correction, process_interrupted, or null for a manual pause.",
+            "title": "Pausereason"
+          },
           "currentPlayerId": {
             "anyOf": [
               {
@@ -1537,6 +1549,7 @@
           "status",
           "turnNumber",
           "roundNumber",
+          "pauseReason",
           "currentPlayerId",
           "startedAt",
           "endedAt",

@@ -33,8 +33,7 @@ def test_abort_is_not_undoable_and_blocks_changes() -> None:
 def test_reopen_restores_status_and_turn_including_turn_change() -> None:
     state = game()
     state.roll(3)                                   # A -> next B
-    state.change_turn("c", reason="順番", operator="admin")
-    state.pause()
+    state.change_turn("c", reason="順番", operator="admin")  # also pauses
     state.abort()
     state.reopen()
     assert state.status is GameStatus.PAUSED
@@ -47,9 +46,9 @@ def test_undo_after_reopen_keeps_turn_order_consistent() -> None:
     state.roll(3)          # A rolled, B is next
     state.abort()
     state.reopen()
-    state.undo()           # undo A's roll
+    state.undo()           # undo A's roll (Undo pauses the game)
     assert state.turns == []
-    assert state.status is GameStatus.IN_PROGRESS
+    assert state.status is GameStatus.PAUSED
     assert state.current_player is not None and state.current_player.id == "a"
 
 

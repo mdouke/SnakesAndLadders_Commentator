@@ -61,7 +61,7 @@ def test_resume_before_first_roll_and_latest_turn() -> None:
         state.resume_after_turn(latest.id, reason="戻す", operator="admin")
     state.resume_after_turn(None, reason="戻す", operator="admin")
     assert state.turns == []
-    assert state.status is GameStatus.IN_PROGRESS
+    assert state.status is GameStatus.PAUSED  # waits for the admin to resume
     with pytest.raises(ValueError, match="まだ出目"):
         state.resume_after_turn(None, reason="戻す", operator="admin")
 
@@ -97,7 +97,8 @@ def test_resume_from_turn_api_refuses_aborted_game_until_reopened() -> None:
     resumed = request(app, "POST", f"/api/games/{created['id']}/resume-from-turn", body)
     assert resumed.status_code == 200
     assert [turn["roll"] for turn in resumed.json()["turns"]] == [3]
-    assert resumed.json()["status"] == "in_progress"
+    assert resumed.json()["status"] == "paused"
+    assert resumed.json()["pauseReason"] == "after_correction"
 
 
 def test_resume_requires_who_and_why_and_is_audited() -> None:

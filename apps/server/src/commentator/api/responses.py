@@ -196,6 +196,12 @@ class GameResponse(ResponseModel):
     status: GameStatusValue
     turn_number: int = Field(description="Number of rolls so far (used for conflict checks).")
     round_number: int = Field(description="Display turn of the next roll (0 before start).")
+    pause_reason: str | None = Field(
+        description=(
+            "Why a paused game is paused: after_correction, process_interrupted, "
+            "or null for a manual pause."
+        )
+    )
     current_player_id: str | None
     started_at: str | None
     ended_at: str | None

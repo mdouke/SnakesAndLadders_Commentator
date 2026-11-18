@@ -49,6 +49,9 @@ class OperationType(StrEnum):
     RESTORE = "restore"
 
 
+PAUSE_AFTER_CORRECTION = "after_correction"
+
+
 class RollSource(StrEnum):
     MANUAL = "manual"
     AUTOMATIC = "automatic"
@@ -566,6 +569,38 @@ class GameState:
         for player in self.players:
             player.rank_confirmed = player.reached_goal
 
+    def _hold_after_correction(
+        self, occurred_at: datetime, *, record_state_version: int
+    ) -> str | None:
+        """Pause after any correction so play only continues when the admin resumes.
+
+        Returns the pause event id so the caller can make it part of the same
+        Undo step. A game that is not in progress is left unchanged.
+        """
+        if self.status is not GameStatus.IN_PROGRESS:
+            return None
+        self._apply_pause()
+        record = self._append_record(
+            OperationType.PAUSE, {"reason": PAUSE_AFTER_CORRECTION}, occurred_at,
+            record_state_version=record_state_version,
+        )
+        return record.id
+
+    @property
+    def pause_reason(self) -> str | None:
+        if self.status is not GameStatus.PAUSED:
+            return None
+        pauses = [event for event in self._active_timeline() if event.type is OperationType.PAUSE]
+        return pauses[-1].payload.get("reason") if pauses else None
+
+    def _attach_hold(self, occurred_at: datetime) -> None:
+        """Pause after a recorded correction and undo both in one step."""
+        hold = self._hold_after_correction(
+            occurred_at, record_state_version=self.state_version
+        )
+        if hold is not None and self.undo_history:
+            self.undo_history[-1].activated_event_ids.append(hold)
+
     def _require_not_aborted(self) -> None:
         if self.status is GameStatus.ABORTED:
             raise ValueError("中止したゲームは、中止を取り消してから操作してください")
@@ -608,6 +643,7 @@ class GameState:
             branch_before=branch_before,
             branch_after=branch_after,
         )
+        self._attach_hold(occurred_at)
 
     def change_turn(
         self, player_id: str, *, reason: str, operator: str,
@@ -638,6 +674,7 @@ class GameState:
             branch_before=branch_before,
             branch_after=branch_after,
         )
+        self._attach_hold(occurred_at)
 
     def _apply_turn_change(self, player_id: str) -> None:
         if self.status not in {GameStatus.IN_PROGRESS, GameStatus.PAUSED}:
@@ -872,6 +909,11 @@ class GameState:
             activated.append(cloned.id)
         self.branch_id = new_branch
         self.state_version = command_version
+        hold = self._hold_after_correction(
+            occurred_at, record_state_version=command_version + 1
+        )
+        if hold is not None:
+            activated.append(hold)
         audit = self._append_record(
             OperationType.CORRECTION,
             {
@@ -930,6 +972,7 @@ class GameState:
         self.branch_id = action.branch_before
         self._rebuild()
         occurred_at = now or datetime.now(UTC)
+        self._hold_after_correction(occurred_at, record_state_version=self.state_version + 1)
         self._append_record(
             OperationType.UNDO, {"targetActionId": action.id, "label": action.label}, occurred_at,
             timeline_index=None, active=False,
@@ -947,6 +990,7 @@ class GameState:
         self.branch_id = action.branch_after
         self._rebuild()
         occurred_at = now or datetime.now(UTC)
+        self._hold_after_correction(occurred_at, record_state_version=self.state_version + 1)
         self._append_record(
             OperationType.REDO, {"targetActionId": action.id, "label": action.label}, occurred_at,
             timeline_index=None, active=False,
@@ -1023,6 +1067,11 @@ class GameState:
         self.branch_id = str(uuid4())
         self._rebuild()
         occurred_at = now or datetime.now(UTC)
+        hold = self._hold_after_correction(
+            occurred_at, record_state_version=self.state_version + 1
+        )
+        if hold is not None:
+            target_active_ids = target_active_ids | {hold}
         audit = self._append_record(
             OperationType.RESTORE, {**payload, "label": label}, occurred_at,
             branch_id=self.branch_id, timeline_index=None, active=False,
@@ -1158,6 +1207,7 @@ class GameState:
             "status": self.status.value,
             "turnNumber": self.turn_number,
             "roundNumber": self.round_number,
+            "pauseReason": self.pause_reason,
             "currentPlayerId": current_id,
             "startedAt": self.started_at.isoformat() if self.started_at else None,
             "endedAt": self.ended_at.isoformat() if self.ended_at else None,
@@ -1279,7 +1329,13 @@ class GameState:
         if event.type is OperationType.START:
             self._apply_start(event.occurred_at)
         elif event.type is OperationType.PAUSE:
-            self._apply_pause()
+            if (
+                event.payload.get("reason") == PAUSE_AFTER_CORRECTION
+                and self.status is not GameStatus.IN_PROGRESS
+            ):
+                pass  # an automatic hold is only meaningful while in progress
+            else:
+                self._apply_pause()
             if event.payload.get("reason") == "process_interrupted":
                 self.interruption_detected_at = datetime.fromisoformat(
                     str(event.payload["detectedAt"])

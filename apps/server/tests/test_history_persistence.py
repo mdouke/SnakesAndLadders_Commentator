@@ -155,6 +155,7 @@ def test_undo_then_new_roll_uses_new_branch_and_preserves_old_turn(tmp_path: Pat
     original = state.roll(3, now=NOW)
     repository.save(state)
     state.undo(now=NOW)
+    state.resume(now=NOW)  # Undo pauses the game
     replacement = state.roll(5, now=NOW)
     repository.save(state)
 
@@ -196,6 +197,7 @@ def test_roll_correction_skips_finished_player_and_preserves_other_rolls() -> No
     ])
     state.start(now=NOW)
     state.correct_position("a", 79, reason="setup", operator="test", now=NOW)
+    state.resume(now=NOW)  # corrections pause the game
     for value in [2, 3, 4, 5, 6]:
         state.roll(value, now=NOW)
     target = state.turns[0].id
@@ -221,6 +223,7 @@ def test_roll_correction_skips_finished_player_and_preserves_other_rolls() -> No
     two_players = game()
     two_players.start(now=NOW)
     two_players.correct_position("a", 79, reason="setup", operator="test", now=NOW)
+    two_players.resume(now=NOW)  # corrections pause the game
     first_turn = two_players.roll(2, now=NOW).id
     two_players.roll(3, now=NOW)
     two_players.correct_roll(
@@ -240,6 +243,7 @@ def test_roll_correction_invalidates_operations_after_completion_and_undoes(
     state = game()
     state.start(now=NOW)
     state.correct_position("a", 79, reason="setup", operator="test", now=NOW)
+    state.resume(now=NOW)  # corrections pause the game
     target_turn = state.roll(2, now=NOW).id
     state.roll(3, now=NOW)
     if interruption == "pause":
@@ -274,8 +278,12 @@ def test_roll_correction_invalidates_operations_after_completion_and_undoes(
 
     state.undo(now=NOW)
     assert [turn.to_dict() for turn in state.turns] == original_turns
-    assert [event.type for event in state._active_timeline()] == original_types
-    assert state.to_dict()["status"] == GameStatus.IN_PROGRESS.value
+    # Undo restores the history and then pauses until the admin resumes.
+    assert [event.type for event in state._active_timeline()] == [
+        *original_types, OperationType.PAUSE,
+    ]
+    assert state.to_dict()["status"] == GameStatus.PAUSED.value
+    assert state.to_dict()["pauseReason"] == "after_correction"
 
 
 def test_roll_correction_invalidates_position_correction_for_finished_player() -> None:
@@ -286,6 +294,7 @@ def test_roll_correction_invalidates_position_correction_for_finished_player() -
     ])
     state.start(now=NOW)
     state.correct_position("a", 79, reason="setup", operator="test", now=NOW)
+    state.resume(now=NOW)  # corrections pause the game
     target_turn = state.roll(2, now=NOW).id
     state.roll(3, now=NOW)
     state.correct_position("a", 50, reason="physical board", operator="test", now=NOW)
@@ -345,7 +354,8 @@ def test_position_correction_recalculates_goal_ranks_and_terminal_status() -> No
     state.roll(1, now=NOW)
     state.roll(1, now=NOW)
     state.correct_position("a", 50, reason="wrong goal", operator="test", now=NOW)
-    assert state.status is GameStatus.IN_PROGRESS
+    # The game is no longer completed, but play waits for the admin to resume.
+    assert state.status is GameStatus.PAUSED
     assert [player.rank for player in state.players] == [2, 1, 3, 3]
 
     aborted = game()
@@ -377,7 +387,7 @@ def test_position_correction_recalculates_goal_ranks_and_terminal_status() -> No
     reopened.roll(1, now=NOW)
     reopened.roll(1, now=NOW)
     reopened.correct_position("a", 50, reason="wrong goal", operator="test", now=NOW)
-    assert reopened.status is GameStatus.IN_PROGRESS
+    assert reopened.status is GameStatus.PAUSED  # no longer completed; waits for resume
     assert reopened.current_player is not None
     assert reopened.current_player.id == "c"
 
@@ -535,6 +545,7 @@ def test_roll_correction_preview_and_confirmation_api() -> None:
         ], game_id="preview")
         state.start(now=NOW)
         state.correct_position("a", 79, reason="setup", operator="test", now=NOW)
+        state.resume(now=NOW)  # corrections pause the game
         for value in [2, 3, 4, 5, 6]:
             state.roll(value, now=NOW)
         target = state.turns[0].id
