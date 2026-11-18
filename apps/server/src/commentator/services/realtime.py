@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any, Literal
 
-MessageType = Literal["game", "recognition", "commentary"]
+MessageType = Literal["game", "recognition", "commentary", "speech"]
 
 @dataclass(eq=False)
 class RealtimeClient:

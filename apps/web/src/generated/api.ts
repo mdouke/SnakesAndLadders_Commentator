@@ -415,6 +415,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/commentary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Commentary */
+        get: operations["get_commentary_api_commentary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commentary/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Regenerate Commentary */
+        post: operations["regenerate_commentary_api_commentary_regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commentary/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Commentary Requests */
+        get: operations["list_commentary_requests_api_commentary_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/commentary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Commentary Settings */
+        get: operations["get_commentary_settings_api_settings_commentary_get"];
+        /** Update Commentary Settings */
+        put: operations["update_commentary_settings_api_settings_commentary_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/speech": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Speech */
+        get: operations["get_speech_api_speech_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/speech/voices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Voices */
+        get: operations["list_voices_api_speech_voices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/speech": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Speech Settings */
+        get: operations["get_speech_settings_api_settings_speech_get"];
+        /** Update Speech Settings */
+        put: operations["update_speech_settings_api_settings_speech_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/speech/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Speech */
+        post: operations["preview_speech_api_speech_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/speech/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Speech */
+        post: operations["stop_speech_api_speech_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -513,6 +668,189 @@ export interface components {
             valid: boolean;
             /** Message */
             message: string | null;
+        };
+        /** CommentaryRegenerate */
+        CommentaryRegenerate: {
+            /** Turnid */
+            turnId?: string | null;
+        };
+        /** CommentaryRequestError */
+        CommentaryRequestError: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /** CommentaryRequestList */
+        CommentaryRequestList: {
+            /** Requests */
+            requests: components["schemas"]["CommentaryRequestRecord"][];
+        };
+        /**
+         * CommentaryRequestRecord
+         * @description One stored generation request (prompt, full response, timing, errors).
+         */
+        CommentaryRequestRecord: {
+            /** Id */
+            id: string;
+            /** Gameid */
+            gameId: string;
+            /** Turnid */
+            turnId: string;
+            /** Stateversion */
+            stateVersion: number;
+            /** Revision */
+            revision: number;
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "turn" | "regenerate";
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string | null;
+            /** Promptversion */
+            promptVersion: string;
+            /** Systemprompt */
+            systemPrompt: string;
+            /** Userprompt */
+            userPrompt: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "displayed" | "discarded" | "superseded";
+            /** Outcome */
+            outcome: ("generated" | "fallback" | "error") | null;
+            /** Responsetext */
+            responseText: string | null;
+            /** Finaltext */
+            finalText: string | null;
+            /** Fallbackreason */
+            fallbackReason: string | null;
+            /** Errorcode */
+            errorCode: string | null;
+            /** Errormessage */
+            errorMessage: string | null;
+            /** Attempts */
+            attempts: number;
+            /** Errors */
+            errors: components["schemas"]["CommentaryRequestError"][];
+            /** Providerrequestids */
+            providerRequestIds: string[];
+            /** Startedat */
+            startedAt: string;
+            /** Finishedat */
+            finishedAt: string | null;
+            /** Durationms */
+            durationMs: number | null;
+        };
+        /**
+         * CommentaryResponse
+         * @description Commentary for the newest turn of the current game.
+         *
+         *     ``generating`` and ``ready`` always refer to ``turnId`` and ``requestId``; a
+         *     comment is replaced or cleared when it is no longer current (undo, a newer roll,
+         *     regeneration, another game, an aborted or saved game). ``source`` is
+         *     ``generated`` for provider output and ``fallback`` when the template comment
+         *     replaced a failed or unusable response (``fallbackReason`` says why).
+         */
+        CommentaryResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "generating" | "ready" | "failed";
+            /** Gameid */
+            gameId: string | null;
+            /** Turnid */
+            turnId: string | null;
+            /** Turnnumber */
+            turnNumber: number | null;
+            /** Requestid */
+            requestId: string | null;
+            /** Revision */
+            revision: number | null;
+            /** Text */
+            text: string | null;
+            /** Source */
+            source: ("generated" | "fallback") | null;
+            /** Fallbackreason */
+            fallbackReason: string | null;
+            /** Provider */
+            provider: string | null;
+            /** Model */
+            model: string | null;
+            /** Durationms */
+            durationMs: number | null;
+            /** Generatedat */
+            generatedAt: string | null;
+        };
+        /** CommentarySettingsResponse */
+        CommentarySettingsResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "fake" | "claude" | "openai";
+            /** Claudemodel */
+            claudeModel: string;
+            /** Openaimodel */
+            openaiModel: string;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "ja" | "en";
+            /**
+             * Length
+             * @enum {string}
+             */
+            length: "short" | "medium" | "long";
+            /**
+             * Style
+             * @enum {string}
+             */
+            style: "lively" | "calm" | "kids";
+            /** Usenames */
+            useNames: boolean;
+            /** Timeoutseconds */
+            timeoutSeconds: number;
+            /** Maxretries */
+            maxRetries: number;
+            /** Providers */
+            providers: {
+                [key: string]: components["schemas"]["ProviderAvailability"];
+            };
+        };
+        /**
+         * CommentarySettingsUpdate
+         * @description Only the given fields change. API keys are never accepted here.
+         */
+        CommentarySettingsUpdate: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Provider */
+            provider?: ("fake" | "claude" | "openai") | null;
+            /** Claudemodel */
+            claudeModel?: string | null;
+            /** Openaimodel */
+            openaiModel?: string | null;
+            /** Language */
+            language?: ("ja" | "en") | null;
+            /** Length */
+            length?: ("short" | "medium" | "long") | null;
+            /** Style */
+            style?: ("lively" | "calm" | "kids") | null;
+            /** Usenames */
+            useNames?: boolean | null;
+            /** Timeoutseconds */
+            timeoutSeconds?: number | null;
+            /** Maxretries */
+            maxRetries?: number | null;
         };
         /** ComponentStatus */
         ComponentStatus: {
@@ -776,6 +1114,13 @@ export interface components {
             /** Operator */
             operator: string;
         };
+        /** ProviderAvailability */
+        ProviderAvailability: {
+            /** Installed */
+            installed: boolean;
+            /** Credentialsconfigured */
+            credentialsConfigured: boolean;
+        };
         /** RecentProblem */
         RecentProblem: {
             /** At */
@@ -965,6 +1310,70 @@ export interface components {
             expectedTurnNumber?: number | null;
         };
         /**
+         * SpeechPreview
+         * @description Try a voice; settings given here are used for this preview only.
+         */
+        SpeechPreview: {
+            /** Text */
+            text?: string | null;
+            /** Voice */
+            voice?: string | null;
+            /** Rate */
+            rate?: number | null;
+            /** Volume */
+            volume?: number | null;
+        };
+        /**
+         * SpeechResponse
+         * @description What the server is reading aloud right now.
+         */
+        SpeechResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "speaking" | "error";
+            /** Kind */
+            kind: ("commentary" | "preview") | null;
+            /** Requestid */
+            requestId: string | null;
+            /** Turnid */
+            turnId: string | null;
+            /** Text */
+            text: string | null;
+            /** Error */
+            error: string | null;
+        };
+        /** SpeechSettingsResponse */
+        SpeechSettingsResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Voice */
+            voice: string | null;
+            /** Rate */
+            rate: number | null;
+            /** Volume */
+            volume: number;
+            /** Available */
+            available: boolean;
+            /** Engine */
+            engine: string;
+        };
+        /**
+         * SpeechSettingsUpdate
+         * @description Only the given fields change; send ``null`` to use the voice's default.
+         */
+        SpeechSettingsUpdate: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Voice */
+            voice?: string | null;
+            /** Rate */
+            rate?: number | null;
+            /** Volume */
+            volume?: number | null;
+        };
+        /**
          * SystemStatus
          * @description Health of the server and its dependencies for the admin status panel.
          */
@@ -1097,6 +1506,20 @@ export interface components {
              */
             confirmEndedGame: boolean;
         };
+        /** VoiceInfo */
+        VoiceInfo: {
+            /** Name */
+            name: string;
+            /** Locale */
+            locale: string;
+            /** Sample */
+            sample: string;
+        };
+        /** VoiceList */
+        VoiceList: {
+            /** Voices */
+            voices: components["schemas"]["VoiceInfo"][];
+        };
         /** CommentaryMessage */
         CommentaryMessage: {
             /**
@@ -1107,35 +1530,6 @@ export interface components {
             /** Sequence */
             sequence: number;
             payload: components["schemas"]["CommentaryResponse"];
-        };
-        /**
-         * CommentaryResponse
-         * @description Commentary for the newest turn of the current game.
-         *
-         *     ``generating`` and ``ready`` always refer to ``turnId``; a comment is replaced or
-         *     cleared when that turn is no longer the newest one (undo, a newer roll, another
-         *     game). ``provider`` is ``fake`` until Phase 6 adds Claude and OpenAI.
-         */
-        CommentaryResponse: {
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "idle" | "generating" | "ready" | "failed";
-            /** Gameid */
-            gameId: string | null;
-            /** Turnid */
-            turnId: string | null;
-            /** Turnnumber */
-            turnNumber: number | null;
-            /** Text */
-            text: string | null;
-            /** Provider */
-            provider: string | null;
-            /** Durationms */
-            durationMs: number | null;
-            /** Generatedat */
-            generatedAt: string | null;
         };
         /** GameMessage */
         GameMessage: {
@@ -1159,11 +1553,22 @@ export interface components {
             sequence: number;
             payload: components["schemas"]["RecognitionResponse"];
         };
+        /** SpeechMessage */
+        SpeechMessage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "speech";
+            /** Sequence */
+            sequence: number;
+            payload: components["schemas"]["SpeechResponse"];
+        };
         /**
          * RealtimeMessage
          * @description One message on the ``/ws`` stream, selected by ``type``.
          */
-        RealtimeMessage: components["schemas"]["GameMessage"] | components["schemas"]["RecognitionMessage"] | components["schemas"]["CommentaryMessage"];
+        RealtimeMessage: components["schemas"]["GameMessage"] | components["schemas"]["RecognitionMessage"] | components["schemas"]["CommentaryMessage"] | components["schemas"]["SpeechMessage"];
     };
     responses: never;
     parameters: never;
@@ -1955,6 +2360,290 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_commentary_api_commentary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentaryResponse"];
+                };
+            };
+        };
+    };
+    regenerate_commentary_api_commentary_regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentaryRegenerate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_commentary_requests_api_commentary_requests_get: {
+        parameters: {
+            query?: {
+                game_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentaryRequestList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_commentary_settings_api_settings_commentary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentarySettingsResponse"];
+                };
+            };
+        };
+    };
+    update_commentary_settings_api_settings_commentary_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentarySettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentarySettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_speech_api_speech_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechResponse"];
+                };
+            };
+        };
+    };
+    list_voices_api_speech_voices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceList"];
+                };
+            };
+        };
+    };
+    get_speech_settings_api_settings_speech_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_speech_settings_api_settings_speech_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeechSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_speech_api_speech_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeechPreview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_speech_api_speech_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechResponse"];
                 };
             };
         };

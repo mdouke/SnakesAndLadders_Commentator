@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type {
-  CommentaryState, GameState, RealtimeMessage, RecognitionState
+  CommentaryState, GameState, RealtimeMessage, RecognitionState, SpeechState
 } from "./types";
 
 export interface RealtimeState {
@@ -11,6 +11,7 @@ export interface RealtimeState {
   gameLoaded: boolean;
   recognition: RecognitionState | null;
   commentary: CommentaryState | null;
+  speech: SpeechState | null;
 }
 
 const RECONNECT_MIN_MS = 500;
@@ -36,7 +37,8 @@ export function newerGame(
 
 export function useRealtime(): RealtimeState {
   const [state, setState] = useState<RealtimeState>({
-    connected: false, game: null, gameLoaded: false, recognition: null, commentary: null
+    connected: false, game: null, gameLoaded: false, recognition: null, commentary: null,
+    speech: null
   });
   const lastSequence = useRef(0);
 
@@ -67,6 +69,8 @@ export function useRealtime(): RealtimeState {
               return { ...current, recognition: message.payload };
             case "commentary":
               return { ...current, commentary: message.payload };
+            case "speech":
+              return { ...current, speech: message.payload };
           }
         });
       };

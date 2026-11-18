@@ -25,16 +25,24 @@ from .api.responses import (
     BoardPresetList,
     BoardResponse,
     BoardValidation,
+    CommentaryRequestList,
+    CommentaryResponse,
+    CommentarySettingsResponse,
     GameResponse,
     HealthResponse,
     LoggingStatus,
     RecognitionCamerasResponse,
     RecognitionResponse,
     RollCorrectionPreview,
+    SpeechResponse,
+    SpeechSettingsResponse,
     SystemStatus,
+    VoiceList,
 )
 from .api.schemas import (
     BoardDefinition,
+    CommentaryRegenerate,
+    CommentarySettingsUpdate,
     GameCreate,
     LoggingSettingsUpdate,
     PositionCorrection,
@@ -45,6 +53,8 @@ from .api.schemas import (
     ResumeFromTurn,
     RollCorrection,
     RollCreate,
+    SpeechPreview,
+    SpeechSettingsUpdate,
     TurnChange,
     VersionedRequest,
 )
@@ -57,11 +67,16 @@ from .domain.game import (
 )
 from .infrastructure.logging import LoggingControl
 from .infrastructure.persistence import SQLiteGameRepository
+from .infrastructure.persistence.commentary_log import SQLiteCommentaryLog, to_api
+from .infrastructure.secrets import default_secrets_path, load_secrets
 from .presets import BoardPresetError, BoardPresetStore, board_from_definition, load_board_preset
-from .services.commentary import CommentaryService
+from .services.commentary import CommentaryError, CommentaryService
 from .services.game import GameService
+from .services.llm.providers import provider_availability
+from .services.llm.settings import CommentarySettingsStore
 from .services.realtime import RealtimeClient, RealtimeHub
 from .services.recognition import RecognitionRuntimeSettings, RecognitionService
+from .services.tts import MacSayEngine, SpeechService, SpeechSettings, SpeechSettingsStore
 
 
 class GameRepository(Protocol):
@@ -149,6 +164,7 @@ def create_app(
     commentary_service: CommentaryService | None = None,
     board_store: BoardPresetStore | None = None,
     logging_control: LoggingControl | None = None,
+    speech_service: SpeechService | None = None,
 ) -> FastAPI:
     board = board if board is not None else load_board_preset()
     boards = board_store if board_store is not None else BoardPresetStore.default()
@@ -172,16 +188,36 @@ def create_app(
     # commentary request it triggers.
     commentary.attach()
 
+    def player_readings() -> dict[str, str]:
+        game = game_service.current_payload()
+        if game is None:
+            return {}
+        return {
+            player["displayName"]: player["spokenName"]
+            for player in game["players"]
+            if player.get("spokenName")
+        }
+
+    speech = speech_service or SpeechService()
+    speech.is_current = commentary.is_current
+    speech.readings = player_readings
+    speech.language = lambda: commentary.settings.get().language
+    # After the hub subscriber, so the screen shows a comment before it is spoken.
+    commentary.subscribe(speech.commentary_changed)
+    speech.subscribe(lambda payload: hub.publish("speech", payload))
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         log_control.start()
         with game_service.lock:
             recover_interrupted_games(repo)
+        speech.start()
         try:
             yield
         finally:
             if recognition.running:
                 recognition.stop()
+            speech.stop()
             log_control.stop()
 
     application = FastAPI(
@@ -192,6 +228,7 @@ def create_app(
     application.state.recognition_service = recognition
     application.state.realtime_hub = hub
     application.state.commentary_service = commentary
+    application.state.speech_service = speech
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
@@ -553,18 +590,47 @@ def create_app(
             }
 
         comment = commentary.snapshot()
-        commentary_status = {
-            "status": "error" if comment["status"] == "failed" else "ok",
-            "label": f"{commentary.provider.name}（仮の実況）"
-            if commentary.provider.name == "fake" else commentary.provider.name,
-            "detail": "直近の実況の生成に失敗しました" if comment["status"] == "failed" else None,
-        }
+        comment_settings = commentary.settings.get()
+        provider_label = {
+            "fake": "テンプレート（仮の実況）",
+            "claude": f"Claude（{comment_settings.claude_model}）",
+            "openai": f"OpenAI（{comment_settings.openai_model}）",
+        }[comment_settings.provider]
+        commentary_status: dict[str, Any]
+        if not comment_settings.enabled:
+            commentary_status = {"status": "off", "label": "オフ", "detail": None}
+        elif comment["status"] == "failed":
+            commentary_status = {"status": "error", "label": provider_label,
+                                 "detail": "直近の実況を作れませんでした"}
+        elif comment["source"] == "fallback":
+            commentary_status = {
+                "status": "warning", "label": provider_label,
+                "detail": f"直近の実況は代替文です（{comment['fallbackReason']}）",
+            }
+        else:
+            commentary_status = {"status": "ok", "label": provider_label, "detail": None}
+        speech_settings = speech.settings.get()
+        speech_state = speech.snapshot()
+        tts_status: dict[str, Any]
+        if not speech.engine.available():
+            tts_status = {"status": "not_configured", "label": "利用不可",
+                          "detail": "この環境では読み上げを使えません"}
+        elif not speech_settings.enabled:
+            tts_status = {"status": "off", "label": "オフ", "detail": None}
+        elif speech_state["status"] == "error":
+            tts_status = {"status": "error", "label": "エラー", "detail": speech_state["error"]}
+        else:
+            tts_status = {
+                "status": "ok",
+                "label": "読み上げ中" if speech_state["status"] == "speaking" else "待機中",
+                "detail": speech_settings.voice or "標準の音声",
+            }
         return {
             "checkedAt": datetime.now(UTC).isoformat(),
             "database": database,
             "camera": camera,
             "commentary": commentary_status,
-            "tts": {"status": "not_configured", "label": "未接続", "detail": "Phase 6 で接続予定"},
+            "tts": tts_status,
             "recording": {
                 "status": "not_configured", "label": "未接続", "detail": "Phase 7 で接続予定",
             },
@@ -589,6 +655,101 @@ def create_app(
         )
         return log_control.status()
 
+    def commentary_settings_payload() -> dict[str, Any]:
+        return {**commentary.settings.get().to_dict(), "providers": provider_availability()}
+
+    @application.get("/api/commentary", response_model=CommentaryResponse)
+    def get_commentary() -> dict[str, Any]:
+        return commentary.snapshot()
+
+    @application.post("/api/commentary/regenerate", response_model=CommentaryResponse)
+    def regenerate_commentary(request: CommentaryRegenerate) -> dict[str, Any]:
+        try:
+            return commentary.regenerate(request.turn_id)
+        except CommentaryError as error:
+            raise ApiError(409, error.code, str(error)) from error
+
+    @application.get("/api/commentary/requests", response_model=CommentaryRequestList)
+    def list_commentary_requests(
+        game_id: str | None = None, limit: int = 50
+    ) -> dict[str, Any]:
+        rows = commentary.log.list(game_id=game_id, limit=max(1, min(limit, 200)))
+        return {"requests": [to_api(row) for row in rows]}
+
+    @application.get("/api/settings/commentary", response_model=CommentarySettingsResponse)
+    def get_commentary_settings() -> dict[str, Any]:
+        return commentary_settings_payload()
+
+    @application.put("/api/settings/commentary", response_model=CommentarySettingsResponse)
+    def update_commentary_settings(request: CommentarySettingsUpdate) -> dict[str, Any]:
+        changes = request.model_dump(by_alias=True, exclude_unset=True)
+        if any(value is None for value in changes.values()):
+            raise ApiError(422, "invalid_settings", "設定値に null は指定できません")
+        try:
+            commentary.settings.update(changes)
+        except ValueError as error:
+            raise ApiError(422, "invalid_settings", str(error)) from error
+        commentary.settings_changed()
+        logging.getLogger("commentator.settings").info(
+            "commentary settings changed",
+            extra={"event": "commentary_settings_changed", "fields": sorted(changes)},
+        )
+        return commentary_settings_payload()
+
+    def speech_settings_payload() -> dict[str, Any]:
+        return {
+            **speech.settings.get().to_dict(),
+            "available": speech.engine.available(),
+            "engine": speech.engine.name,
+        }
+
+    @application.get("/api/speech", response_model=SpeechResponse)
+    def get_speech() -> dict[str, Any]:
+        return speech.snapshot()
+
+    @application.get("/api/speech/voices", response_model=VoiceList)
+    def list_voices() -> dict[str, Any]:
+        return {"voices": [voice.to_dict() for voice in speech.engine.voices()]}
+
+    @application.get("/api/settings/speech", response_model=SpeechSettingsResponse)
+    def get_speech_settings() -> dict[str, Any]:
+        return speech_settings_payload()
+
+    @application.put("/api/settings/speech", response_model=SpeechSettingsResponse)
+    def update_speech_settings(request: SpeechSettingsUpdate) -> dict[str, Any]:
+        changes = request.model_dump(by_alias=True, exclude_unset=True)
+        if changes.get("enabled", True) is None or changes.get("volume", 0) is None:
+            raise ApiError(422, "invalid_settings", "enabled と volume に null は指定できません")
+        try:
+            speech.settings.update(changes)
+        except ValueError as error:
+            raise ApiError(422, "invalid_settings", str(error)) from error
+        speech.settings_changed()
+        return speech_settings_payload()
+
+    @application.post("/api/speech/preview", response_model=SpeechResponse)
+    def preview_speech(request: SpeechPreview) -> dict[str, Any]:
+        base = speech.settings.get()
+        given = request.model_dump(exclude_unset=True)
+        try:
+            settings = SpeechSettings(
+                enabled=True,
+                voice=given["voice"] if "voice" in given else base.voice,
+                rate=given["rate"] if "rate" in given else base.rate,
+                volume=given["volume"] if given.get("volume") is not None else base.volume,
+            ).validated()
+            speech.preview(request.text, settings)
+        except ValueError as error:
+            raise ApiError(422, "invalid_settings", str(error)) from error
+        except RuntimeError as error:
+            raise ApiError(409, "speech_unavailable", str(error)) from error
+        return speech.snapshot()
+
+    @application.post("/api/speech/stop", response_model=SpeechResponse)
+    def stop_speech() -> dict[str, Any]:
+        speech.cancel()
+        return speech.snapshot()
+
     def send_initial_state(client: RealtimeClient) -> None:
         # Each snapshot is queued under the lock that orders its later updates,
         # so a client never receives an older state after a newer one.
@@ -600,6 +761,7 @@ def create_app(
         commentary.send_snapshot(
             lambda payload: hub.send_to(client, "commentary", payload)
         )
+        speech.send_snapshot(lambda payload: hub.send_to(client, "speech", payload))
 
     @application.websocket("/ws")
     async def realtime(websocket: WebSocket) -> None:
@@ -685,11 +847,27 @@ def create_production_app() -> FastAPI:
         managed=True,
     )
     log_control.start()  # before anything else logs
+    # API keys for the commentary providers; `export` in the terminal still wins.
+    load_secrets(default_secrets_path(repository_root))
     database_path = Path(os.environ.get(
         "COMMENTATOR_DB_PATH", str(repository_root / "var" / "commentator.sqlite3")
     ))
+    repository = SQLiteGameRepository(database_path)
+    game_service = GameService(repository)
+    commentary = CommentaryService(
+        game_service,
+        settings=CommentarySettingsStore(repository_root / "var" / "commentary-settings.json"),
+        log=SQLiteCommentaryLog(database_path),
+    )
+    speech = SpeechService(
+        engine=MacSayEngine(),
+        settings=SpeechSettingsStore(repository_root / "var" / "speech-settings.json"),
+    )
     return create_app(
-        repository=SQLiteGameRepository(database_path), logging_control=log_control
+        repository=repository,
+        commentary_service=commentary,
+        logging_control=log_control,
+        speech_service=speech,
     )
 
 

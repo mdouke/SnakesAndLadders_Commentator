@@ -26,8 +26,8 @@ def test_status_reports_each_component(tmp_path: Path) -> None:
 
     assert status["database"]["status"] == "ok"
     assert status["camera"]["status"] == "not_configured"
-    assert status["commentary"]["label"].startswith("fake")
-    assert status["tts"]["status"] == "not_configured"
+    assert status["commentary"]["label"].startswith("テンプレート")
+    assert status["tts"]["status"] == "ok"  # the silent engine used outside production
     assert status["recording"]["status"] == "not_configured"
     assert status["logging"]["editable"] is False
     assert status["realtimeClients"] == 0

@@ -101,7 +101,7 @@ def receive(ws: WebSocketTestSession) -> dict[str, Any]:
 
 
 def initial_messages(ws: WebSocketTestSession) -> dict[str, dict[str, Any]]:
-    messages = [receive(ws) for _ in range(3)]
+    messages = [receive(ws) for _ in range(4)]
     sequences = [message["sequence"] for message in messages]
     assert sequences == sorted(sequences)
     return {message["type"]: message for message in messages}
@@ -129,6 +129,7 @@ def test_connect_sends_game_recognition_and_commentary_snapshots(
     assert initial["recognition"]["payload"]["state"] == "waiting"
     assert initial["commentary"]["payload"]["status"] == "idle"
     assert initial["commentary"]["payload"]["text"] is None
+    assert initial["speech"]["payload"]["status"] == "idle"
 
 
 def test_two_clients_receive_the_same_game_updates_in_the_same_order(

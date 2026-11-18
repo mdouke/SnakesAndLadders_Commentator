@@ -317,19 +317,113 @@ class SystemStatus(ResponseModel):
 class CommentaryResponse(ResponseModel):
     """Commentary for the newest turn of the current game.
 
-    ``generating`` and ``ready`` always refer to ``turnId``; a comment is replaced or
-    cleared when that turn is no longer the newest one (undo, a newer roll, another
-    game). ``provider`` is ``fake`` until Phase 6 adds Claude and OpenAI.
+    ``generating`` and ``ready`` always refer to ``turnId`` and ``requestId``; a
+    comment is replaced or cleared when it is no longer current (undo, a newer roll,
+    regeneration, another game, an aborted or saved game). ``source`` is
+    ``generated`` for provider output and ``fallback`` when the template comment
+    replaced a failed or unusable response (``fallbackReason`` says why).
     """
 
     status: Literal["idle", "generating", "ready", "failed"]
     game_id: str | None
     turn_id: str | None
     turn_number: int | None
+    request_id: str | None
+    revision: int | None
     text: str | None
+    source: Literal["generated", "fallback"] | None
+    fallback_reason: str | None
     provider: str | None
+    model: str | None
     duration_ms: float | None
     generated_at: str | None
+
+
+class SpeechResponse(ResponseModel):
+    """What the server is reading aloud right now."""
+
+    status: Literal["idle", "speaking", "error"]
+    kind: Literal["commentary", "preview"] | None
+    request_id: str | None
+    turn_id: str | None
+    text: str | None
+    error: str | None
+
+
+class ProviderAvailability(ResponseModel):
+    installed: bool
+    credentials_configured: bool
+
+
+class CommentarySettingsResponse(ResponseModel):
+    enabled: bool
+    provider: Literal["fake", "claude", "openai"]
+    claude_model: str
+    openai_model: str
+    language: Literal["ja", "en"]
+    length: Literal["short", "medium", "long"]
+    style: Literal["lively", "calm", "kids"]
+    use_names: bool
+    timeout_seconds: float
+    max_retries: int
+    providers: dict[str, ProviderAvailability]
+
+
+class CommentaryRequestError(ResponseModel):
+    code: str
+    message: str
+
+
+class CommentaryRequestRecord(ResponseModel):
+    """One stored generation request (prompt, full response, timing, errors)."""
+
+    id: str
+    game_id: str
+    turn_id: str
+    state_version: int
+    revision: int
+    trigger: Literal["turn", "regenerate"]
+    provider: str
+    model: str | None
+    prompt_version: str
+    system_prompt: str
+    user_prompt: str
+    status: Literal["pending", "displayed", "discarded", "superseded"]
+    outcome: Literal["generated", "fallback", "error"] | None
+    response_text: str | None
+    final_text: str | None
+    fallback_reason: str | None
+    error_code: str | None
+    error_message: str | None
+    attempts: int
+    errors: list[CommentaryRequestError]
+    provider_request_ids: list[str]
+    started_at: str
+    finished_at: str | None
+    duration_ms: float | None
+
+
+class CommentaryRequestList(ResponseModel):
+    requests: list[CommentaryRequestRecord]
+
+
+class SpeechSettingsResponse(ResponseModel):
+    enabled: bool
+    voice: str | None
+    rate: int | None
+    volume: float
+    available: bool
+    engine: str
+
+
+class VoiceInfo(ResponseModel):
+    name: str
+    locale: str
+    sample: str
+
+
+class VoiceList(ResponseModel):
+    voices: list[VoiceInfo]
 
 
 class GameMessage(ResponseModel):
@@ -350,10 +444,16 @@ class CommentaryMessage(ResponseModel):
     payload: CommentaryResponse
 
 
+class SpeechMessage(ResponseModel):
+    type: Literal["speech"]
+    sequence: int
+    payload: SpeechResponse
+
+
 class RealtimeMessage(
     RootModel[
         Annotated[
-            GameMessage | RecognitionMessage | CommentaryMessage,
+            GameMessage | RecognitionMessage | CommentaryMessage | SpeechMessage,
             Field(discriminator="type"),
         ]
     ]

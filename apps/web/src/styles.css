@@ -199,3 +199,33 @@ details.advanced { margin-top: 1rem; }
   .timeline-row { grid-template-columns: auto 1fr auto; }
   .timeline-row > span:nth-child(4), .timeline-row > span:nth-child(5) { grid-column: 2 / -1; }
 }
+
+/* Commentary and speech (Phase 6) */
+.badge { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+.badge.warning { color: #6b4a00; background: #fff3ce; border: 1px solid #d79b22; }
+.commentary .button-row { align-items: center; margin-top: 0.75rem; }
+.player-status { display: grid; justify-items: center; gap: 0.5rem; min-height: 3rem; }
+.phase-chip { display: inline-flex; align-items: center; gap: 0.6rem; margin: 0; padding: 0.6rem 1.2rem; border-radius: 999px; font-size: clamp(1rem, 2.2vw, 1.4rem); font-weight: 800; color: #172218; background: #e4eadf; }
+.phase-chip.waiting { background: #fff3ce; }
+.phase-chip.recognizing, .phase-chip.generating { background: #dfe9f6; }
+.phase-chip.speaking { color: white; background: #28613c; }
+.phase-chip.paused { background: #e8e2d4; color: #526258; }
+.dots { display: inline-flex; gap: 0.25rem; }
+.dots i { width: 0.45rem; height: 0.45rem; border-radius: 999px; background: currentColor; opacity: 0.3; animation: dot-pulse 1.2s infinite ease-in-out; }
+.dots i:nth-child(2) { animation-delay: 0.2s; }
+.dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-pulse { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dots i { animation: none; opacity: 0.8; } }
+.commentary.large .game-message { margin-bottom: 1rem; font-weight: 800; color: #28613c; }
+.commentary.large.ready p:last-child { color: #172218; }
+.player-view .players { margin-top: 2rem; text-align: left; }
+.settings-panel h3 { margin: 1.25rem 0 0.75rem; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem 1.25rem; margin-bottom: 0.75rem; }
+.settings-grid label { display: grid; gap: 0.35rem; font-size: 0.9rem; font-weight: 700; }
+.settings-grid label.check { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.settings-grid select, .settings-grid input:not([type]), .settings-grid input[type="number"], .sample-input { padding: 0.55rem; border: 1px solid #aaa; border-radius: 8px; font: inherit; }
+.range-row { display: flex; align-items: center; gap: 0.5rem; }
+.range-row input { flex: 1; min-width: 0; }
+.sample-input { flex: 1; min-width: 12rem; }
+.log-text { white-space: normal !important; min-width: 18rem; }
+.log-text pre { max-height: 16rem; overflow: auto; padding: 0.5rem; border-radius: 8px; background: #f5f2e8; white-space: pre-wrap; font-size: 0.8rem; }

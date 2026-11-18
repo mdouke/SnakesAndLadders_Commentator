@@ -18,5 +18,5 @@ def test_openapi_publishes_the_realtime_message_union() -> None:
     schemas = json.loads(render_openapi())["components"]["schemas"]
     assert schemas["RealtimeMessage"]["discriminator"]["propertyName"] == "type"
     assert set(schemas["RealtimeMessage"]["discriminator"]["mapping"]) == {
-        "game", "recognition", "commentary",
+        "game", "recognition", "commentary", "speech",
     }

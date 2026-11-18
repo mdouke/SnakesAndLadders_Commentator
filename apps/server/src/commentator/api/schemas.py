@@ -115,3 +115,48 @@ class BoardDefinition(RequestModel):
 
 class LoggingSettingsUpdate(RequestModel):
     retention: Literal["rotate", "permanent"]
+
+
+class CommentarySettingsUpdate(RequestModel):
+    """Only the given fields change. API keys are never accepted here."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, str_strip_whitespace=True, extra="forbid"
+    )
+
+    enabled: bool | None = None
+    provider: Literal["fake", "claude", "openai"] | None = None
+    claude_model: str | None = Field(default=None, min_length=1, max_length=100)
+    openai_model: str | None = Field(default=None, min_length=1, max_length=100)
+    language: Literal["ja", "en"] | None = None
+    length: Literal["short", "medium", "long"] | None = None
+    style: Literal["lively", "calm", "kids"] | None = None
+    use_names: bool | None = None
+    timeout_seconds: float | None = Field(default=None, ge=1, le=60)
+    max_retries: int | None = Field(default=None, ge=0, le=3)
+
+
+class CommentaryRegenerate(RequestModel):
+    turn_id: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class SpeechSettingsUpdate(RequestModel):
+    """Only the given fields change; send ``null`` to use the voice's default."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, str_strip_whitespace=True, extra="forbid"
+    )
+
+    enabled: bool | None = None
+    voice: str | None = Field(default=None, max_length=100)
+    rate: int | None = Field(default=None, ge=80, le=400)
+    volume: float | None = Field(default=None, ge=0, le=1)
+
+
+class SpeechPreview(RequestModel):
+    """Try a voice; settings given here are used for this preview only."""
+
+    text: str | None = Field(default=None, max_length=300)
+    voice: str | None = Field(default=None, max_length=100)
+    rate: int | None = Field(default=None, ge=80, le=400)
+    volume: float | None = Field(default=None, ge=0, le=1)

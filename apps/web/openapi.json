@@ -965,6 +965,318 @@
           }
         }
       }
+    },
+    "/api/commentary": {
+      "get": {
+        "summary": "Get Commentary",
+        "operationId": "get_commentary_api_commentary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/commentary/regenerate": {
+      "post": {
+        "summary": "Regenerate Commentary",
+        "operationId": "regenerate_commentary_api_commentary_regenerate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentaryRegenerate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/commentary/requests": {
+      "get": {
+        "summary": "List Commentary Requests",
+        "operationId": "list_commentary_requests_api_commentary_requests_get",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentaryRequestList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/commentary": {
+      "get": {
+        "summary": "Get Commentary Settings",
+        "operationId": "get_commentary_settings_api_settings_commentary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentarySettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Commentary Settings",
+        "operationId": "update_commentary_settings_api_settings_commentary_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentarySettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentarySettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/speech": {
+      "get": {
+        "summary": "Get Speech",
+        "operationId": "get_speech_api_speech_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/speech/voices": {
+      "get": {
+        "summary": "List Voices",
+        "operationId": "list_voices_api_speech_voices_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/speech": {
+      "get": {
+        "summary": "Get Speech Settings",
+        "operationId": "get_speech_settings_api_settings_speech_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Speech Settings",
+        "operationId": "update_speech_settings_api_settings_speech_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeechSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/speech/preview": {
+      "post": {
+        "summary": "Preview Speech",
+        "operationId": "preview_speech_api_speech_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeechPreview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/speech/stop": {
+      "post": {
+        "summary": "Stop Speech",
+        "operationId": "stop_speech_api_speech_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1227,6 +1539,675 @@
           "message"
         ],
         "title": "BoardValidation"
+      },
+      "CommentaryRegenerate": {
+        "properties": {
+          "turnId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnid"
+          }
+        },
+        "type": "object",
+        "title": "CommentaryRegenerate"
+      },
+      "CommentaryRequestError": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "CommentaryRequestError"
+      },
+      "CommentaryRequestList": {
+        "properties": {
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/CommentaryRequestRecord"
+            },
+            "type": "array",
+            "title": "Requests"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "requests"
+        ],
+        "title": "CommentaryRequestList"
+      },
+      "CommentaryRequestRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "gameId": {
+            "type": "string",
+            "title": "Gameid"
+          },
+          "turnId": {
+            "type": "string",
+            "title": "Turnid"
+          },
+          "stateVersion": {
+            "type": "integer",
+            "title": "Stateversion"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "turn",
+              "regenerate"
+            ],
+            "title": "Trigger"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "promptVersion": {
+            "type": "string",
+            "title": "Promptversion"
+          },
+          "systemPrompt": {
+            "type": "string",
+            "title": "Systemprompt"
+          },
+          "userPrompt": {
+            "type": "string",
+            "title": "Userprompt"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "displayed",
+              "discarded",
+              "superseded"
+            ],
+            "title": "Status"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "generated",
+                  "fallback",
+                  "error"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "responseText": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsetext"
+          },
+          "finalText": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finaltext"
+          },
+          "fallbackReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallbackreason"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/CommentaryRequestError"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "providerRequestIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Providerrequestids"
+          },
+          "startedAt": {
+            "type": "string",
+            "title": "Startedat"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "gameId",
+          "turnId",
+          "stateVersion",
+          "revision",
+          "trigger",
+          "provider",
+          "model",
+          "promptVersion",
+          "systemPrompt",
+          "userPrompt",
+          "status",
+          "outcome",
+          "responseText",
+          "finalText",
+          "fallbackReason",
+          "errorCode",
+          "errorMessage",
+          "attempts",
+          "errors",
+          "providerRequestIds",
+          "startedAt",
+          "finishedAt",
+          "durationMs"
+        ],
+        "title": "CommentaryRequestRecord",
+        "description": "One stored generation request (prompt, full response, timing, errors)."
+      },
+      "CommentaryResponse": {
+        "additionalProperties": false,
+        "description": "Commentary for the newest turn of the current game.\n\n``generating`` and ``ready`` always refer to ``turnId`` and ``requestId``; a\ncomment is replaced or cleared when it is no longer current (undo, a newer roll,\nregeneration, another game, an aborted or saved game). ``source`` is\n``generated`` for provider output and ``fallback`` when the template comment\nreplaced a failed or unusable response (``fallbackReason`` says why).",
+        "properties": {
+          "status": {
+            "enum": [
+              "idle",
+              "generating",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "turnId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnid"
+          },
+          "turnNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnnumber"
+          },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requestid"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "generated",
+                  "fallback"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "fallbackReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallbackreason"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          },
+          "generatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generatedat"
+          }
+        },
+        "required": [
+          "status",
+          "gameId",
+          "turnId",
+          "turnNumber",
+          "requestId",
+          "revision",
+          "text",
+          "source",
+          "fallbackReason",
+          "provider",
+          "model",
+          "durationMs",
+          "generatedAt"
+        ],
+        "title": "CommentaryResponse",
+        "type": "object"
+      },
+      "CommentarySettingsResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "fake",
+              "claude",
+              "openai"
+            ],
+            "title": "Provider"
+          },
+          "claudeModel": {
+            "type": "string",
+            "title": "Claudemodel"
+          },
+          "openaiModel": {
+            "type": "string",
+            "title": "Openaimodel"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "ja",
+              "en"
+            ],
+            "title": "Language"
+          },
+          "length": {
+            "type": "string",
+            "enum": [
+              "short",
+              "medium",
+              "long"
+            ],
+            "title": "Length"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "lively",
+              "calm",
+              "kids"
+            ],
+            "title": "Style"
+          },
+          "useNames": {
+            "type": "boolean",
+            "title": "Usenames"
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "title": "Timeoutseconds"
+          },
+          "maxRetries": {
+            "type": "integer",
+            "title": "Maxretries"
+          },
+          "providers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProviderAvailability"
+            },
+            "type": "object",
+            "title": "Providers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "provider",
+          "claudeModel",
+          "openaiModel",
+          "language",
+          "length",
+          "style",
+          "useNames",
+          "timeoutSeconds",
+          "maxRetries",
+          "providers"
+        ],
+        "title": "CommentarySettingsResponse"
+      },
+      "CommentarySettingsUpdate": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "fake",
+                  "claude",
+                  "openai"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "claudeModel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claudemodel"
+          },
+          "openaiModel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openaimodel"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ja",
+                  "en"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "length": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "short",
+                  "medium",
+                  "long"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Length"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "lively",
+                  "calm",
+                  "kids"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          },
+          "useNames": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usenames"
+          },
+          "timeoutSeconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 60.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeoutseconds"
+          },
+          "maxRetries": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxretries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CommentarySettingsUpdate",
+        "description": "Only the given fields change. API keys are never accepted here."
       },
       "ComponentStatus": {
         "properties": {
@@ -2055,6 +3036,25 @@
         ],
         "title": "PositionCorrection"
       },
+      "ProviderAvailability": {
+        "properties": {
+          "installed": {
+            "type": "boolean",
+            "title": "Installed"
+          },
+          "credentialsConfigured": {
+            "type": "boolean",
+            "title": "Credentialsconfigured"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "installed",
+          "credentialsConfigured"
+        ],
+        "title": "ProviderAvailability"
+      },
       "RecentProblem": {
         "properties": {
           "at": {
@@ -2632,6 +3632,257 @@
         ],
         "title": "RollCreate"
       },
+      "SpeechPreview": {
+        "properties": {
+          "text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 400.0,
+                "minimum": 80.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume"
+          }
+        },
+        "type": "object",
+        "title": "SpeechPreview",
+        "description": "Try a voice; settings given here are used for this preview only."
+      },
+      "SpeechResponse": {
+        "additionalProperties": false,
+        "description": "What the server is reading aloud right now.",
+        "properties": {
+          "status": {
+            "enum": [
+              "idle",
+              "speaking",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "commentary",
+                  "preview"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requestid"
+          },
+          "turnId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnid"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "required": [
+          "status",
+          "kind",
+          "requestId",
+          "turnId",
+          "text",
+          "error"
+        ],
+        "title": "SpeechResponse",
+        "type": "object"
+      },
+      "SpeechSettingsResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "volume": {
+            "type": "number",
+            "title": "Volume"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "engine": {
+            "type": "string",
+            "title": "Engine"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "voice",
+          "rate",
+          "volume",
+          "available",
+          "engine"
+        ],
+        "title": "SpeechSettingsResponse"
+      },
+      "SpeechSettingsUpdate": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 400.0,
+                "minimum": 80.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volume"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SpeechSettingsUpdate",
+        "description": "Only the given fields change; send ``null`` to use the voice's default."
+      },
       "SystemStatus": {
         "properties": {
           "checkedAt": {
@@ -3058,6 +4309,47 @@
         ],
         "title": "VersionedRequest"
       },
+      "VoiceInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "sample": {
+            "type": "string",
+            "title": "Sample"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "locale",
+          "sample"
+        ],
+        "title": "VoiceInfo"
+      },
+      "VoiceList": {
+        "properties": {
+          "voices": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceInfo"
+            },
+            "type": "array",
+            "title": "Voices"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "voices"
+        ],
+        "title": "VoiceList"
+      },
       "CommentaryMessage": {
         "additionalProperties": false,
         "properties": {
@@ -3080,111 +4372,6 @@
           "payload"
         ],
         "title": "CommentaryMessage",
-        "type": "object"
-      },
-      "CommentaryResponse": {
-        "additionalProperties": false,
-        "description": "Commentary for the newest turn of the current game.\n\n``generating`` and ``ready`` always refer to ``turnId``; a comment is replaced or\ncleared when that turn is no longer the newest one (undo, a newer roll, another\ngame). ``provider`` is ``fake`` until Phase 6 adds Claude and OpenAI.",
-        "properties": {
-          "status": {
-            "enum": [
-              "idle",
-              "generating",
-              "ready",
-              "failed"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "gameId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gameid"
-          },
-          "turnId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Turnid"
-          },
-          "turnNumber": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Turnnumber"
-          },
-          "text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Text"
-          },
-          "provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider"
-          },
-          "durationMs": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Durationms"
-          },
-          "generatedAt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generatedat"
-          }
-        },
-        "required": [
-          "status",
-          "gameId",
-          "turnId",
-          "turnNumber",
-          "text",
-          "provider",
-          "durationMs",
-          "generatedAt"
-        ],
-        "title": "CommentaryResponse",
         "type": "object"
       },
       "GameMessage": {
@@ -3242,13 +4429,38 @@
         "title": "RecognitionMessage",
         "type": "object"
       },
+      "SpeechMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "speech",
+            "title": "Type",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SpeechResponse"
+          }
+        },
+        "required": [
+          "type",
+          "sequence",
+          "payload"
+        ],
+        "title": "SpeechMessage",
+        "type": "object"
+      },
       "RealtimeMessage": {
         "description": "One message on the ``/ws`` stream, selected by ``type``.",
         "discriminator": {
           "mapping": {
             "commentary": "#/components/schemas/CommentaryMessage",
             "game": "#/components/schemas/GameMessage",
-            "recognition": "#/components/schemas/RecognitionMessage"
+            "recognition": "#/components/schemas/RecognitionMessage",
+            "speech": "#/components/schemas/SpeechMessage"
           },
           "propertyName": "type"
         },
@@ -3261,6 +4473,9 @@
           },
           {
             "$ref": "#/components/schemas/CommentaryMessage"
+          },
+          {
+            "$ref": "#/components/schemas/SpeechMessage"
           }
         ],
         "title": "RealtimeMessage"

@@ -1,5 +1,11 @@
 import type {
+  CommentaryRequestRecord,
+  CommentarySettings,
+  CommentaryState,
   LoggingStatus,
+  SpeechSettings,
+  SpeechState,
+  VoiceInfo,
   SystemStatus,
   Board,
   BoardPresetList,
@@ -266,4 +272,53 @@ export function updateLogRetention(retention: "rotate" | "permanent"): Promise<L
     method: "PUT",
     body: JSON.stringify({ retention })
   });
+}
+
+export function regenerateCommentary(turnId?: string): Promise<CommentaryState> {
+  return request("/api/commentary/regenerate", {
+    method: "POST", body: JSON.stringify(turnId ? { turnId } : {})
+  });
+}
+
+export function getCommentaryRequests(
+  gameId: string, limit = 20
+): Promise<{ requests: CommentaryRequestRecord[] }> {
+  const query = new URLSearchParams({ gameId, limit: String(limit) });
+  return request(`/api/commentary/requests?${query}`);
+}
+
+export function getCommentarySettings(): Promise<CommentarySettings> {
+  return request("/api/settings/commentary");
+}
+
+export type CommentarySettingsChange = Partial<Omit<CommentarySettings, "providers">>;
+
+export function updateCommentarySettings(
+  changes: CommentarySettingsChange
+): Promise<CommentarySettings> {
+  return request("/api/settings/commentary", { method: "PUT", body: JSON.stringify(changes) });
+}
+
+export function getSpeechSettings(): Promise<SpeechSettings> {
+  return request("/api/settings/speech");
+}
+
+export type SpeechSettingsChange = Partial<Pick<SpeechSettings, "enabled" | "voice" | "rate" | "volume">>;
+
+export function updateSpeechSettings(changes: SpeechSettingsChange): Promise<SpeechSettings> {
+  return request("/api/settings/speech", { method: "PUT", body: JSON.stringify(changes) });
+}
+
+export function listVoices(): Promise<{ voices: VoiceInfo[] }> {
+  return request("/api/speech/voices");
+}
+
+export function previewSpeech(
+  preview: SpeechSettingsChange & { text?: string }
+): Promise<SpeechState> {
+  return request("/api/speech/preview", { method: "POST", body: JSON.stringify(preview) });
+}
+
+export function stopSpeech(): Promise<SpeechState> {
+  return request("/api/speech/stop", { method: "POST", body: "{}" });
 }

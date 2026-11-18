@@ -20,6 +20,10 @@ dev = [
   "pytest>=8.3,<9",
   "ruff>=0.9,<1",
 ]
+llm = [
+  "anthropic>=2.10,<3",
+  "openai>=3.55,<4",
+]
 vision = [
   "numpy>=1.26,<3",
   "opencv-python>=4.10,<5",

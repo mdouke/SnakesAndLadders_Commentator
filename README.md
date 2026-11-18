@@ -36,7 +36,7 @@ AI間の引き継ぎ文書 `TOCLAUDE.md` と `TOCODEX.md` は、レビューと�
 ```bash
 # 初回セットアップ
 python3 -m venv .venv
-.venv/bin/pip install -e '.[dev,vision]'
+.venv/bin/pip install -e '.[dev,vision,llm]'
 npm install
 
 # ターミナル1: API
@@ -49,6 +49,18 @@ npm run dev:web
 # 実機調整用ライブプレビュー（API・Web UIとは独立して起動可能）
 .venv/bin/python -m commentator.tools.vision_bench
 ```
+
+Claude や OpenAI で実況する場合は、`var/secrets.env` に API キーを書いてから API を起動し、管理者画面の「実況・読み上げの設定」で生成方法を選びます。`var/` は Git の管理対象外です。ファイルは起動時に一度だけ読み込むので、書き換えたら API を起動し直してください。
+
+```bash
+# var/secrets.env（chmod 600 にしておく）
+ANTHROPIC_API_KEY=sk-ant-...   # Claude を使う場合
+OPENAI_API_KEY=sk-...          # OpenAI を使う場合
+```
+
+ターミナルで `export` した値がある場合はそちらが優先されます。別の場所のファイルを使う場合は `COMMENTATOR_SECRETS_PATH` で指定します。キーの値は画面・DB・ログには出ません（ログには読み込んだ変数名だけが残ります）。キーがない、または API が失敗した場合は、出目と位置だけを使ったテンプレートの文で実況します。
+
+読み上げはサーバーを動かしている Mac の標準音声（`say`）で行います。実況・読み上げの設定は `var/commentary-settings.json` と `var/speech-settings.json` に保存されます。
 
 - 管理者画面: `http://127.0.0.1:5173/`
 - プレイヤー画面: `http://127.0.0.1:5173/player`
