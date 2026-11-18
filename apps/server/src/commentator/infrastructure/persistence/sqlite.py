@@ -88,6 +88,7 @@ def _turn(value: dict[str, Any]) -> TurnRecord:
         corrected_from=(
             dict(value["correctedFrom"]) if value.get("correctedFrom") else None
         ),
+        round=int(value.get("round", 0)),
         branch_id=str(value.get("branchId", "main")),
         state_version_before=int(value.get("stateVersionBefore", 0)),
         state_version_after=int(value.get("stateVersionAfter", 0)),
@@ -104,6 +105,7 @@ def game_to_snapshot(game: GameState) -> dict[str, Any]:
         "status": game.status.value,
         "currentPlayerIndex": game.current_player_index,
         "turnNumber": game.turn_number,
+        "roundNumber": game.round_number,
         "turns": [_turn_data(item) for item in game.turns],
         "startedAt": game.started_at.isoformat() if game.started_at else None,
         "endedAt": game.ended_at.isoformat() if game.ended_at else None,
@@ -162,6 +164,7 @@ def game_from_snapshot(value: dict[str, Any]) -> GameState:
         status=GameStatus(value["status"]),
         current_player_index=value["currentPlayerIndex"],
         turn_number=int(value["turnNumber"]),
+        round_number=int(value.get("roundNumber", 0)),
         turns=[_turn(item) for item in value["turns"]],
         started_at=_dt(value.get("startedAt")),
         ended_at=_dt(value.get("endedAt")),
@@ -177,6 +180,11 @@ def game_from_snapshot(value: dict[str, Any]) -> GameState:
         player.statistics = compute_statistics([
             turn for turn in game.turns if turn.player_id == player.id
         ])
+    if game.started_at is not None and (
+        game.round_number == 0 or any(turn.round == 0 for turn in game.turns)
+    ):
+        # Saved before rounds existed: derive them by replaying the history.
+        game._rebuild()
     return game
 
 
@@ -195,6 +203,11 @@ class SQLiteGameRepository:
         connection.isolation_level = "IMMEDIATE"
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
+
+    def health(self) -> None:
+        """Raise if the database file cannot be queried."""
+        with closing(self._connect()) as connection:
+            connection.execute("SELECT 1").fetchone()
 
     def _initialize(self) -> None:
         with closing(self._connect()) as connection:

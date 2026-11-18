@@ -54,6 +54,23 @@ class BoardResponse(ResponseModel):
     jumps: list[BoardJump]
 
 
+class BoardPresetSummary(ResponseModel):
+    id: str
+    name: str
+    built_in: bool
+    snake_count: int
+    ladder_count: int
+
+
+class BoardPresetList(ResponseModel):
+    presets: list[BoardPresetSummary]
+
+
+class BoardValidation(ResponseModel):
+    valid: bool
+    message: str | None
+
+
 class PlayerStatistics(ResponseModel):
     rolls: list[int]
     face_counts: dict[str, int]
@@ -103,6 +120,8 @@ class CorrectedFrom(ResponseModel):
     value: int
     source: RollSourceValue
     confirmation_id: str | None
+    reason: str | None
+    operator: str | None
 
 
 class TurnResponse(ResponseModel):
@@ -122,9 +141,39 @@ class TurnResponse(ResponseModel):
     original_candidate: int | None
     confidence: RecognitionConfidence | None
     corrected_from: CorrectedFrom | None
+    round: int = Field(description="Display turn: increases after every player has rolled once.")
     branch_id: str
     state_version_before: int
     state_version_after: int
+
+
+class TimelineEntry(ResponseModel):
+    """One event of the effective history (``turnId`` links a roll to its turn)."""
+
+    id: str
+    type: Literal[
+        "start", "pause", "resume", "suspend", "abort", "reopen",
+        "roll", "position_correction", "turn_change",
+    ]
+    occurred_at: str
+    turn_id: str | None
+    player_id: str | None
+    previous_player_id: str | None
+    before_position: int | None
+    position: int | None
+    reason: str | None
+    operator: str | None
+
+
+class AuditEntry(ResponseModel):
+    """A change to the history itself; newest first."""
+
+    id: str
+    type: Literal["correction", "restore", "undo", "redo"]
+    occurred_at: str
+    label: str
+    reason: str | None
+    operator: str | None
 
 
 class Interruption(ResponseModel):
@@ -135,6 +184,7 @@ class Interruption(ResponseModel):
 class GameResponse(ResponseModel):
     id: str
     board_id: str
+    board: BoardResponse
     branch_id: str
     state_version: int
     can_undo: bool
@@ -144,13 +194,16 @@ class GameResponse(ResponseModel):
     interruption: Interruption | None
     suspension_history: list[str]
     status: GameStatusValue
-    turn_number: int
+    turn_number: int = Field(description="Number of rolls so far (used for conflict checks).")
+    round_number: int = Field(description="Display turn of the next roll (0 before start).")
     current_player_id: str | None
     started_at: str | None
     ended_at: str | None
     suspended_at: str | None
     players: list[PlayerResponse]
     turns: list[TurnResponse]
+    timeline: list[TimelineEntry]
+    audit_log: list[AuditEntry]
 
 
 InvalidationReason = Literal[
@@ -213,6 +266,46 @@ class RecognitionCamera(ResponseModel):
 
 class RecognitionCamerasResponse(ResponseModel):
     cameras: list[RecognitionCamera]
+
+
+ComponentStatusValue = Literal["ok", "warning", "error", "off", "not_configured"]
+
+
+class ComponentStatus(ResponseModel):
+    status: ComponentStatusValue
+    label: str
+    detail: str | None
+
+
+class LoggingStatus(ResponseModel):
+    retention: Literal["rotate", "permanent"]
+    directory: str
+    retention_days: int
+    locked: bool
+    editable: bool
+
+
+class RecentProblem(ResponseModel):
+    at: str
+    level: str
+    logger: str
+    message: str
+    event: str | None
+    error_code: str | None
+
+
+class SystemStatus(ResponseModel):
+    """Health of the server and its dependencies for the admin status panel."""
+
+    checked_at: str
+    database: ComponentStatus
+    camera: ComponentStatus
+    commentary: ComponentStatus
+    tts: ComponentStatus
+    recording: ComponentStatus
+    realtime_clients: int
+    logging: LoggingStatus
+    recent_problems: list[RecentProblem]
 
 
 class CommentaryResponse(ResponseModel):

@@ -4,7 +4,6 @@ import {
   ApiRequestError,
   activateGame,
   confirmRecognitionCandidate,
-  createDefaultGame,
   gameAction,
   getCurrentGame,
   getGames,
@@ -14,9 +13,12 @@ import {
   stopRecognition,
   submitRoll
 } from "./api";
-import { CorrectionsPanel, HistoryPanel, confirmEnded, isEnded, playerName } from "./AdminPanels";
-import { BoardView, useDefaultBoard } from "./Board";
+import { HistoryPanel, confirmEnded, isEnded, playerName } from "./AdminPanels";
+import { BoardView } from "./Board";
 import { newerGame, useRealtime } from "./realtime";
+import { GameSetupPanel } from "./Setup";
+import { StatsPanel } from "./Stats";
+import { StatusPanel } from "./StatusPanel";
 import type {
   CommentaryState, GameState, RecognitionCamera, RecognitionState
 } from "./types";
@@ -30,6 +32,96 @@ const statusLabels: Record<GameState["status"], string> = {
   aborted: "ゲーム中止"
 };
 
+function rankText(game: GameState, player: GameState["players"][number]): string {
+  if (player.rank === null) return "";
+  // An aborted game never gets an official result.
+  if (game.status === "aborted") return `暫定${player.rank}位`;
+  return `${player.rank}位${player.rankConfirmed ? "確定" : ""}`;
+}
+
+function resumable(game: GameState): boolean {
+  return ["suspended", "paused", "aborted"].includes(game.status);
+}
+
+function formatDate(value: string | null): string {
+  return value ? new Date(value).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "未開始";
+}
+
+function PastGamesDialog({
+  games, onClose, onSelect
+}: {
+  games: GameState[];
+  onClose: () => void;
+  onSelect: (game: GameState) => void;
+}) {
+  const ordered = [...games].sort((a, b) => Number(resumable(b)) - Number(resumable(a)));
+  return (
+    <div className="dialog-backdrop" role="presentation" onClick={onClose}>
+      <div className="dialog wide" role="dialog" aria-modal="true" aria-labelledby="past-title"
+        onClick={(event) => event.stopPropagation()}>
+        <h2 id="past-title">過去のゲームを選択</h2>
+        <p className="muted">
+          選んだゲームが現在のゲームになり、プレイヤー画面にも表示されます。
+          一時停止・保存終了したゲームは「再開」、中止したゲームは「中止を取り消して再開」で続けられます。
+        </p>
+        {ordered.length === 0 ? <p>ほかのゲームはありません。</p> : (
+          <ul className="past-games">
+            {ordered.map((item) => (
+              <li key={item.id}>
+                <button className={resumable(item) ? "" : "secondary"} onClick={() => onSelect(item)}>
+                  <span className="past-status">{statusLabels[item.status]}</span>
+                  <span>
+                    {item.roundNumber > 0 ? `ターン${item.roundNumber}` : "開始前"}
+                    ・{item.players.map((player) => player.displayName).join(" / ")}
+                  </span>
+                  <span className="muted">{item.board.name}・{formatDate(item.startedAt)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="button-row dialog-actions">
+          <button className="secondary" onClick={onClose} autoFocus>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AbortDialog({
+  game, onCancel, onSuspend, onAbort
+}: {
+  game: GameState;
+  onCancel: () => void;
+  onSuspend: () => void;
+  onAbort: () => void;
+}) {
+  const canSuspend = game.status === "in_progress" || game.status === "paused";
+  return (
+    <div className="dialog-backdrop" role="presentation" onClick={onCancel}>
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="abort-title"
+        onClick={(event) => event.stopPropagation()}>
+        <h2 id="abort-title">ゲームを終わりにしますか？</h2>
+        <p>ゲームの状態は操作のたびに自動で保存されています。終わり方を選んでください。</p>
+        <ul>
+          {canSuspend && (
+            <li><strong>保存して終了</strong>：続きを後で再開できます（「過去のゲームを選択」から開けます）。</li>
+          )}
+          <li>
+            <strong>中止して終了</strong>：このゲームを終わりにし、今の順位を暫定順位として残します。
+            あとで「中止を取り消して再開」することもできます。
+          </li>
+        </ul>
+        <div className="button-row dialog-actions">
+          <button className="secondary" onClick={onCancel} autoFocus>キャンセル</button>
+          {canSuspend && <button onClick={onSuspend}>保存して終了</button>}
+          <button className="danger" onClick={onAbort}>中止して終了</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlayerList({ game }: { game: GameState }) {
   return (
     <div className="players">
@@ -38,7 +130,7 @@ function PlayerList({ game }: { game: GameState }) {
           <span className="token" style={{ backgroundColor: player.color }} />
           <div>
             <h3>{player.displayName}</h3>
-            <p>{player.position}マス目 ・ {player.rank}位{player.rankConfirmed ? "確定" : ""}</p>
+            <p>{player.position}マス目 ・ {rankText(game, player)}</p>
             {player.reachedGoal && <strong>ゴール</strong>}
           </div>
         </article>
@@ -226,20 +318,35 @@ function AdminView() {
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const realtime = useRealtime();
-  const board = useDefaultBoard();
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [abortDialog, setAbortDialog] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
+  const openPastGames = () => {
+    getGames().then(setSavedGames).catch(() => undefined);
+    setPastOpen(true);
+  };
 
   useEffect(() => {
     if (realtime.gameLoaded) setGame((current) => newerGame(current, realtime.game));
   }, [realtime.game, realtime.gameLoaded]);
 
-  const run = useCallback(async (operation: () => Promise<GameState>) => {
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const run = useCallback(async (operation: () => Promise<GameState>, done?: string) => {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     try {
       setError(null);
+      setNotice(null);
       const result = await operation();
       setGame((current) => newerGame(current, result));
+      if (done) setNotice(done);
       getGames().then(setSavedGames).catch(() => undefined);
     } catch (reason) {
       if (reason instanceof ApiRequestError && reason.code === "state_version_conflict") {
@@ -275,39 +382,62 @@ function AdminView() {
       </header>
 
       <fieldset disabled={busy} className="operation-area">
-      {savedGames.some((item) => ["suspended", "paused"].includes(item.status)) && (
-        <section className="panel saved-games">
-          <h2>再開できるゲーム</h2>
-          <div className="saved-game-list">
-            {savedGames.filter((item) => ["suspended", "paused"].includes(item.status)).map((item) => (
-              <button className="secondary" key={item.id} onClick={() => run(() => activateGame(item))}>
-                {statusLabels[item.status]}・ターン {item.turnNumber}・{item.players.map((player) => player.displayName).join(" / ")}
-              </button>
-            ))}
-          </div>
-        </section>
+      {pastOpen && (
+        <PastGamesDialog games={savedGames.filter((item) => item.id !== game?.id)}
+          onClose={() => setPastOpen(false)}
+          onSelect={(item) => {
+            setPastOpen(false);
+            setSetupOpen(false);
+            run(() => activateGame(item), "過去のゲームを開きました");
+          }} />
       )}
       {!game ? (
-        <section className="panel empty">
-          <h2>ゲームを準備</h2>
-          <p>まずはデフォルトの2人でゲームを作成します。</p>
-          <button onClick={() => run(createDefaultGame)}>新しいゲーム</button>
-        </section>
+        <>
+          <div className="button-row past-games-entry">
+            <button className="secondary" onClick={openPastGames}>過去のゲームを選択</button>
+          </div>
+          <GameSetupPanel onCreate={run} />
+        </>
       ) : (
         <>
           <section className="status-bar">
             <span>{statusLabels[game.status]}</span>
             {game.currentPlayerId && <span>手番: {playerName(game, game.currentPlayerId)}</span>}
-            <span>ターン {game.turnNumber}</span>
+            {game.roundNumber > 0 && <span>ターン {game.roundNumber}</span>}
           </section>
+          {game.status === "aborted" && (
+            <section className="interruption-banner">
+              <strong>このゲームは中止されました。</strong>
+              <span>順位は暫定です。続ける場合は「中止を取り消して再開」を押してください。</span>
+            </section>
+          )}
+          {abortDialog && (
+            <AbortDialog game={game}
+              onCancel={() => setAbortDialog(false)}
+              onSuspend={() => {
+                setAbortDialog(false);
+                run(() => gameAction(game.id, "suspend", game.stateVersion),
+                  "保存して終了しました。「過去のゲームを選択」から続けられます");
+              }}
+              onAbort={() => {
+                setAbortDialog(false);
+                run(() => gameAction(game.id, "abort", game.stateVersion),
+                  "ゲームを中止しました（順位は暫定）");
+              }} />
+          )}
           {game.interruption && (
             <section className="interruption-banner">
               <strong>前回は異常終了しました。</strong>
-              <span>ターン{game.turnNumber}・実物の盤面と画面の位置を確認してから再開してください。</span>
+              <span>ターン{game.roundNumber}・実物の盤面と画面の位置を確認してから再開してください。</span>
             </section>
           )}
           <PlayerList game={game} />
-          {board && <BoardView board={board} game={game} />}
+          {setupOpen && (
+            <GameSetupPanel
+              onCreate={(operation) => { setSetupOpen(false); run(operation); }}
+              onCancel={() => setSetupOpen(false)} />
+          )}
+          <BoardView game={game} />
           <CommentaryView commentary={realtime.commentary} game={game} />
           <RecognitionPanel game={game} recognition={realtime.recognition} busy={busy}
             onGame={run} onError={setError} />
@@ -315,7 +445,7 @@ function AdminView() {
             <h2>ゲーム操作</h2>
             <div className="button-row">
               {(game.status === "completed" || game.status === "aborted") && (
-                <button onClick={() => run(createDefaultGame)}>新しいゲーム</button>
+                <button onClick={() => setSetupOpen(true)}>新しいゲーム</button>
               )}
               {game.status === "ready" && (
                 <button onClick={() => run(() => gameAction(game.id, "start", game.stateVersion))}>開始</button>
@@ -330,19 +460,29 @@ function AdminView() {
                 <button onClick={() => run(() => gameAction(game.id, "resume", game.stateVersion))}>再開</button>
               )}
               {!(["completed", "aborted"] as string[]).includes(game.status) && (
-                <button className="danger" onClick={() => run(() => gameAction(game.id, "abort", game.stateVersion))}>中止</button>
+                <button className="danger" onClick={() => setAbortDialog(true)}>中止</button>
+              )}
+              <button className="secondary" onClick={openPastGames}>過去のゲームを選択</button>
+              {game.status === "aborted" && (
+                <button onClick={() => {
+                  if (window.confirm("中止を取り消して、中止する前の状態からゲームを続けますか？")) {
+                    run(() => gameAction(game.id, "reopen", game.stateVersion), "中止を取り消しました");
+                  }
+                }}>中止を取り消して再開</button>
               )}
               {game.canUndo && (
                 <button className="secondary" onClick={() => {
                   if (window.confirm(`${game.undoLabel ?? "直前の操作"}を取り消しますか？`) && confirmEnded(game)) {
-                    run(() => gameAction(game.id, "undo", game.stateVersion, ended));
+                    run(() => gameAction(game.id, "undo", game.stateVersion, ended),
+                      `取り消しました: ${game.undoLabel ?? "直前の操作"}`);
                   }
                 }}>Undo: {game.undoLabel}</button>
               )}
               {game.canRedo && (
                 <button className="secondary" onClick={() => {
                   if (window.confirm(`${game.redoLabel ?? "操作"}をやり直しますか？`) && confirmEnded(game)) {
-                    run(() => gameAction(game.id, "redo", game.stateVersion, ended));
+                    run(() => gameAction(game.id, "redo", game.stateVersion, ended),
+                      `やり直しました: ${game.redoLabel ?? "操作"}`);
                   }
                 }}>Redo: {game.redoLabel}</button>
               )}
@@ -361,11 +501,13 @@ function AdminView() {
               </div>
             </section>
           )}
-          <CorrectionsPanel game={game} run={run} onError={setError} />
+          <StatsPanel game={game} />
           <HistoryPanel game={game} run={run} onError={setError} />
         </>
       )}
       </fieldset>
+      <StatusPanel connected={realtime.connected} />
+      {notice && <p className="notice toast" role="status">{notice}</p>}
       {error && <p className="error">{error}</p>}
     </main>
   );

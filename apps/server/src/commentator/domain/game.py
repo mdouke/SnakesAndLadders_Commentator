@@ -39,6 +39,7 @@ class OperationType(StrEnum):
     RESUME = "resume"
     SUSPEND = "suspend"
     ABORT = "abort"
+    REOPEN = "reopen"
     ROLL = "roll"
     POSITION_CORRECTION = "position_correction"
     TURN_CHANGE = "turn_change"
@@ -224,6 +225,8 @@ class TurnRecord:
     original_candidate: int | None = None
     confidence: dict[str, Any] | None = None
     corrected_from: dict[str, Any] | None = None
+    # Display turn: increases each time play has gone around all players once.
+    round: int = 0
     branch_id: str = "main"
     state_version_before: int = 0
     state_version_after: int = 0
@@ -245,7 +248,12 @@ class TurnRecord:
             "confirmationId": self.confirmation_id,
             "originalCandidate": self.original_candidate,
             "confidence": deepcopy(self.confidence),
-            "correctedFrom": deepcopy(self.corrected_from),
+            # Corrections saved before who/why was recorded lack those keys.
+            "correctedFrom": (
+                {"reason": None, "operator": None, **deepcopy(self.corrected_from)}
+                if self.corrected_from else None
+            ),
+            "round": self.round,
             "branchId": self.branch_id,
             "stateVersionBefore": self.state_version_before,
             "stateVersionAfter": self.state_version_after,
@@ -262,6 +270,7 @@ class GameState:
     status: GameStatus = GameStatus.READY
     current_player_index: int | None = 0
     turn_number: int = 0
+    round_number: int = 0
     turns: list[TurnRecord] = field(default_factory=list)
     started_at: datetime | None = None
     ended_at: datetime | None = None
@@ -272,6 +281,10 @@ class GameState:
     redo_history: list[HistoryAction] = field(default_factory=list)
     interruption_detected_at: datetime | None = None
     interruption_last_saved_at: datetime | None = None
+    # State just before an abort, re-derived on every replay so that reopening
+    # stays correct after undoing actions that happened before the abort.
+    status_before_abort: GameStatus | None = None
+    player_index_before_abort: int | None = None
     initial_players: list[PlayerState] | None = None
 
     def __post_init__(self) -> None:
@@ -330,6 +343,7 @@ class GameState:
             raise ValueError("準備中のゲームだけを開始できます")
         self.status = GameStatus.IN_PROGRESS
         self.started_at = occurred_at
+        self.round_number = 1
 
     def roll(
         self,
@@ -378,7 +392,7 @@ class GameState:
             OperationType.ROLL,
             payload,
             occurred_at,
-            label=f"{player.display_name}の出目 {value}（ターン{turn.number}）",
+            label=f"{player.display_name}の出目 {value}（ターン{turn.round}）",
             branch_before=branch_before,
             branch_after=branch_after,
         )
@@ -422,6 +436,7 @@ class GameState:
             original_candidate=original_candidate,
             confidence=deepcopy(confidence),
             corrected_from=deepcopy(corrected_from),
+            round=self.round_number,
             branch_id=branch_id,
             state_version_before=self.state_version,
             state_version_after=self.state_version + 1,
@@ -441,7 +456,15 @@ class GameState:
         if sum(item.reached_goal for item in self.players) >= len(self.players) - 1:
             self._complete(occurred_at)
         else:
+            roller_index = self.current_player_index
             self._advance_turn()
+            # Wrapping back to an earlier seat starts the next round.
+            if (
+                roller_index is not None
+                and self.current_player_index is not None
+                and self.current_player_index <= roller_index
+            ):
+                self.round_number += 1
             self._refresh_ranks()
         return turn
 
@@ -511,14 +534,47 @@ class GameState:
         branch_before = self.branch_id
         branch_after = self._next_action_branch()
         self._apply_abort(occurred_at)
+        # Abort ends the game; it is not an Undo target. Use ``reopen`` instead.
         self._record(
             OperationType.ABORT, {}, occurred_at, label="ゲーム中止",
-            branch_before=branch_before, branch_after=branch_after,
+            branch_before=branch_before, branch_after=branch_after, undoable=False,
         )
+
+    def reopen(self, *, now: datetime | None = None) -> None:
+        """Cancel an abort and return to the exact state the game had before it."""
+        if self.status is not GameStatus.ABORTED:
+            raise ValueError("中止したゲームだけを再開できます")
+        # A game loaded from storage has not replayed its events yet.
+        self._rebuild()
+        occurred_at = now or datetime.now(UTC)
+        branch_before = self.branch_id
+        branch_after = self._next_action_branch()
+        self._apply_reopen()
+        self._record(
+            OperationType.REOPEN, {}, occurred_at, label="中止の取り消し",
+            branch_before=branch_before, branch_after=branch_after, undoable=False,
+        )
+
+    def _apply_reopen(self) -> None:
+        if self.status is not GameStatus.ABORTED or self.status_before_abort is None:
+            raise ValueError("中止したゲームだけを再開できます")
+        self.status = self.status_before_abort
+        self.current_player_index = self.player_index_before_abort
+        self.ended_at = None
+        self.status_before_abort = None
+        self.player_index_before_abort = None
+        for player in self.players:
+            player.rank_confirmed = player.reached_goal
+
+    def _require_not_aborted(self) -> None:
+        if self.status is GameStatus.ABORTED:
+            raise ValueError("中止したゲームは、中止を取り消してから操作してください")
 
     def _apply_abort(self, occurred_at: datetime) -> None:
         if self.status in {GameStatus.COMPLETED, GameStatus.ABORTED}:
             raise ValueError("終了済みのゲームは中止できません")
+        self.status_before_abort = self.status
+        self.player_index_before_abort = self.current_player_index
         self.status = GameStatus.ABORTED
         self.ended_at = occurred_at
         self.current_player_index = None
@@ -529,6 +585,7 @@ class GameState:
         self, player_id: str, position: int, *, reason: str, operator: str,
         now: datetime | None = None,
     ) -> None:
+        self._require_not_aborted()
         occurred_at = now or datetime.now(UTC)
         player = next((item for item in self.players if item.id == player_id), None)
         if player is None:
@@ -557,6 +614,7 @@ class GameState:
         now: datetime | None = None,
     ) -> None:
         """Hand the turn to another player (e.g. someone threw out of order)."""
+        self._require_not_aborted()
         occurred_at = now or datetime.now(UTC)
         previous = self.current_player
         branch_before = self.branch_id
@@ -637,6 +695,7 @@ class GameState:
         now: datetime | None = None, branch_id: str | None = None,
         confirm_invalidated_rolls: bool = False,
     ) -> None:
+        self._require_not_aborted()
         working = deepcopy(self)
         invalidated = working._correct_roll_in_place(
             turn_id, value, reason=reason, operator=operator,
@@ -651,6 +710,7 @@ class GameState:
     def preview_roll_correction(
         self, turn_id: str, value: int
     ) -> CorrectionInvalidations:
+        self._require_not_aborted()
         working = deepcopy(self)
         return working._correct_roll_in_place(
             turn_id, value, reason="dry_run", operator="dry_run"
@@ -710,6 +770,8 @@ class GameState:
                     "value": previous_value,
                     "source": payload.get("source", RollSource.MANUAL.value),
                     "confirmationId": payload.get("confirmationId"),
+                    "reason": reason,
+                    "operator": operator,
                 }
                 payload["value"] = value
                 payload["source"] = RollSource.CORRECTED.value
@@ -815,6 +877,10 @@ class GameState:
             {
                 "turnId": turn_id, "beforeValue": target_turn.roll, "value": value,
                 "reason": reason, "operator": operator,
+                "label": (
+                    f"出目訂正（{self._player_name(target_turn.player_id)}・"
+                    f"ターン{target_turn.round}: {target_turn.roll}→{value}）"
+                ),
                 "invalidatedRolls": deepcopy(invalidated_turns),
                 "invalidatedOperations": deepcopy(invalidated_operations),
             },
@@ -826,7 +892,7 @@ class GameState:
             id=audit.id,
             label=(
                 f"出目訂正（{self._player_name(target_turn.player_id)}・"
-                f"ターン{target_turn.number}: {target_turn.roll}→{value}）"
+                f"ターン{target_turn.round}: {target_turn.roll}→{value}）"
             ),
             activated_event_ids=activated,
             deactivated_event_ids=[event.id for event in suffix],
@@ -842,6 +908,7 @@ class GameState:
         self.status = other.status
         self.current_player_index = other.current_player_index
         self.turn_number = other.turn_number
+        self.round_number = other.round_number
         self.turns = other.turns
         self.started_at = other.started_at
         self.ended_at = other.ended_at
@@ -854,6 +921,7 @@ class GameState:
         self.interruption_last_saved_at = other.interruption_last_saved_at
 
     def undo(self, *, now: datetime | None = None) -> None:
+        self._require_not_aborted()
         if not self.undo_history:
             raise ValueError("取り消せる操作がありません")
         action = self.undo_history.pop()
@@ -870,6 +938,7 @@ class GameState:
         self.redo_history.append(action)
 
     def redo(self, *, now: datetime | None = None) -> None:
+        self._require_not_aborted()
         if not self.redo_history:
             raise ValueError("やり直せる操作がありません")
         action = self.redo_history.pop()
@@ -886,6 +955,7 @@ class GameState:
         self.undo_history.append(action)
 
     def restore_from(self, snapshot: GameState, *, now: datetime | None = None) -> None:
+        self._require_not_aborted()
         if snapshot.id != self.id:
             raise ValueError("別のゲームのスナップショットは復元できません")
         target_version = snapshot.state_version
@@ -900,13 +970,17 @@ class GameState:
             now=now,
         )
 
-    def resume_after_turn(self, turn_id: str | None, *, now: datetime | None = None) -> None:
+    def resume_after_turn(
+        self, turn_id: str | None, *, reason: str, operator: str,
+        now: datetime | None = None,
+    ) -> None:
         """Continue from just after one turn of the *current* history.
 
         Unlike ``restore_from`` with a version snapshot, this keeps corrections that
         were made later: it cuts the active timeline after that turn's roll. With
         ``turn_id=None`` it returns to the state before the first roll.
         """
+        self._require_not_aborted()
         active = self._active_timeline()
         rolls = [event for event in active if event.type is OperationType.ROLL]
 
@@ -929,10 +1003,10 @@ class GameState:
             if target is rolls[-1] and target is active[-1]:
                 raise ValueError("このターンが最新の状態です")
             keep = [event for event in active if position(event) <= position(target)]
-            label = f"ターン{turn.number}の後から再開（{self._player_name(turn.player_id)}）"
+            label = f"ターン{turn.round}の後から再開（{self._player_name(turn.player_id)}）"
         self._switch_timeline(
             {event.id for event in keep},
-            payload={"targetTurnId": turn_id},
+            payload={"targetTurnId": turn_id, "reason": reason, "operator": operator},
             label=label,
             now=now,
         )
@@ -950,7 +1024,7 @@ class GameState:
         self._rebuild()
         occurred_at = now or datetime.now(UTC)
         audit = self._append_record(
-            OperationType.RESTORE, payload, occurred_at,
+            OperationType.RESTORE, {**payload, "label": label}, occurred_at,
             branch_id=self.branch_id, timeline_index=None, active=False,
         )
         self.state_version += 1
@@ -1013,11 +1087,57 @@ class GameState:
                 return candidate
         raise ValueError("次のプレイヤーが見つかりません")
 
+    def timeline_entries(self) -> list[dict[str, Any]]:
+        """The effective history in order: rolls and every operation that shaped it."""
+        entries = []
+        for event in self._active_timeline():
+            payload = event.payload
+            entries.append({
+                "id": event.id,
+                "type": event.type.value,
+                "occurredAt": event.occurred_at.isoformat(),
+                "turnId": payload.get("turnId"),
+                "playerId": payload.get("playerId"),
+                "previousPlayerId": payload.get("previousPlayerId"),
+                "beforePosition": payload.get("beforePosition"),
+                "position": payload.get("position"),
+                "reason": payload.get("reason"),
+                "operator": payload.get("operator"),
+            })
+        return entries
+
+    def audit_entries(self) -> list[dict[str, Any]]:
+        """Corrections, resumes, restores and Undo/Redo, newest first."""
+        labels = {
+            OperationType.CORRECTION: "出目訂正",
+            OperationType.RESTORE: "状態復元",
+            OperationType.UNDO: "取り消し",
+            OperationType.REDO: "やり直し",
+        }
+        entries = []
+        for event in self.operation_events:
+            if event.type not in labels:
+                continue
+            payload = event.payload
+            label = payload.get("label") or labels[event.type]
+            if event.type is OperationType.CORRECTION and "label" not in payload:
+                label = f"出目訂正（{payload.get('beforeValue')}→{payload.get('value')}）"
+            entries.append({
+                "id": event.id,
+                "type": event.type.value,
+                "occurredAt": event.occurred_at.isoformat(),
+                "label": str(label),
+                "reason": payload.get("reason"),
+                "operator": payload.get("operator"),
+            })
+        return list(reversed(entries))
+
     def to_dict(self) -> dict[str, Any]:
         current_id = self.current_player.id if self.current_player else None
         return {
             "id": self.id,
             "boardId": self.board.id,
+            "board": self.board.to_dict(),
             "branchId": self.branch_id,
             "stateVersion": self.state_version,
             "canUndo": bool(self.undo_history),
@@ -1037,6 +1157,7 @@ class GameState:
             "suspensionHistory": [value.isoformat() for value in self.suspension_history],
             "status": self.status.value,
             "turnNumber": self.turn_number,
+            "roundNumber": self.round_number,
             "currentPlayerId": current_id,
             "startedAt": self.started_at.isoformat() if self.started_at else None,
             "endedAt": self.ended_at.isoformat() if self.ended_at else None,
@@ -1051,11 +1172,13 @@ class GameState:
                 for player in self.players
             ],
             "turns": [turn.to_dict() for turn in self.turns],
+            "timeline": self.timeline_entries(),
+            "auditLog": self.audit_entries(),
         }
 
     def _record(
         self, operation_type: OperationType, payload: dict[str, Any], occurred_at: datetime,
-        *, label: str, branch_before: str, branch_after: str,
+        *, label: str, branch_before: str, branch_after: str, undoable: bool = True,
     ) -> None:
         record = self._append_record(
             operation_type, payload, occurred_at, branch_id=branch_after
@@ -1063,6 +1186,8 @@ class GameState:
         self.branch_id = branch_after
         self.state_version += 1
         self.redo_history.clear()
+        if not undoable:
+            return
         self.undo_history.append(HistoryAction(
             id=record.id,
             label=label,
@@ -1138,6 +1263,7 @@ class GameState:
         self.status = rebuilt.status
         self.current_player_index = rebuilt.current_player_index
         self.turn_number = rebuilt.turn_number
+        self.round_number = rebuilt.round_number
         self.turns = rebuilt.turns
         self.started_at = rebuilt.started_at
         self.ended_at = rebuilt.ended_at
@@ -1145,6 +1271,8 @@ class GameState:
         self.suspension_history = rebuilt.suspension_history
         self.interruption_detected_at = rebuilt.interruption_detected_at
         self.interruption_last_saved_at = rebuilt.interruption_last_saved_at
+        self.status_before_abort = rebuilt.status_before_abort
+        self.player_index_before_abort = rebuilt.player_index_before_abort
 
     def _apply_record(self, event: OperationRecord) -> None:
         self.state_version = max(0, event.state_version - 1)
@@ -1166,6 +1294,8 @@ class GameState:
             self._apply_suspend(event.occurred_at)
         elif event.type is OperationType.ABORT:
             self._apply_abort(event.occurred_at)
+        elif event.type is OperationType.REOPEN:
+            self._apply_reopen()
         elif event.type is OperationType.ROLL:
             expected_player = event.payload.get("playerId")
             current_player = self.current_player
@@ -1188,10 +1318,18 @@ class GameState:
             )
             event.payload["turnId"] = turn.id
         elif event.type is OperationType.POSITION_CORRECTION:
+            corrected = next(
+                (item for item in self.players if item.id == event.payload["playerId"]), None
+            )
+            if corrected is not None:
+                # Keep "before" true after an earlier roll was corrected and replayed.
+                event.payload["beforePosition"] = corrected.position
             self._apply_position_correction(
                 str(event.payload["playerId"]), int(event.payload["position"])
             )
         elif event.type is OperationType.TURN_CHANGE:
+            previous = self.current_player
+            event.payload["previousPlayerId"] = previous.id if previous else None
             self._apply_turn_change(str(event.payload["playerId"]))
         self.state_version = event.state_version
 

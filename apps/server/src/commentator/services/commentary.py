@@ -278,7 +278,7 @@ def _build_request(game: dict[str, Any], turn_id: str) -> CommentaryRequest:
     return CommentaryRequest(
         game_id=game["id"],
         turn_id=turn["id"],
-        turn_number=turn["number"],
+        turn_number=turn["round"],  # the turn number shown on screen
         player_name=player["displayName"],
         roll=turn["roll"],
         before=turn["before"],

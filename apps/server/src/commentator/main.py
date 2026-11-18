@@ -22,15 +22,21 @@ from fastapi.openapi.utils import get_openapi
 from .api.errors import ApiError, install_error_handlers
 from .api.responses import (
     REALTIME_MESSAGE_ADAPTER,
+    BoardPresetList,
     BoardResponse,
+    BoardValidation,
     GameResponse,
     HealthResponse,
+    LoggingStatus,
     RecognitionCamerasResponse,
     RecognitionResponse,
     RollCorrectionPreview,
+    SystemStatus,
 )
 from .api.schemas import (
+    BoardDefinition,
     GameCreate,
+    LoggingSettingsUpdate,
     PositionCorrection,
     RecognitionCandidateConfirm,
     RecognitionCandidateReject,
@@ -49,9 +55,9 @@ from .domain.game import (
     GameStatus,
     PlayerState,
 )
-from .infrastructure.logging import configure_logging, load_log_config
+from .infrastructure.logging import LoggingControl
 from .infrastructure.persistence import SQLiteGameRepository
-from .presets import load_board_preset
+from .presets import BoardPresetError, BoardPresetStore, board_from_definition, load_board_preset
 from .services.commentary import CommentaryService
 from .services.game import GameService
 from .services.realtime import RealtimeClient, RealtimeHub
@@ -141,8 +147,16 @@ def create_app(
     recognition_service: RecognitionService | None = None,
     realtime_hub: RealtimeHub | None = None,
     commentary_service: CommentaryService | None = None,
+    board_store: BoardPresetStore | None = None,
+    logging_control: LoggingControl | None = None,
 ) -> FastAPI:
     board = board if board is not None else load_board_preset()
+    boards = board_store if board_store is not None else BoardPresetStore.default()
+    log_control = logging_control if logging_control is not None else LoggingControl.unmanaged()
+
+    def board_error(error: BoardPresetError) -> ApiError:
+        status = {"board_not_found": 404, "invalid_board": 422}.get(error.code, 409)
+        return ApiError(status, error.code, str(error))
     repo = repository if repository is not None else MemoryGameRepository()
     game_service = GameService(repo)
     recognition = recognition_service or _create_recognition_service(game_service)
@@ -160,6 +174,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        log_control.start()
         with game_service.lock:
             recover_interrupted_games(repo)
         try:
@@ -167,6 +182,7 @@ def create_app(
         finally:
             if recognition.running:
                 recognition.stop()
+            log_control.stop()
 
     application = FastAPI(
         title="Snakes & Ladders Commentator API", version="0.1.0", lifespan=lifespan
@@ -217,8 +233,16 @@ def create_app(
         )
         return response
 
+    def require_not_aborted(game: GameState) -> None:
+        if game.status is GameStatus.ABORTED:
+            raise ApiError(
+                409, "game_aborted",
+                "中止したゲームは、中止を取り消してから操作してください",
+            )
+
     def require_ended_confirmation(game: GameState, confirmed: bool) -> None:
-        if game.status in {GameStatus.COMPLETED, GameStatus.ABORTED} and not confirmed:
+        require_not_aborted(game)
+        if game.status is GameStatus.COMPLETED and not confirmed:
             raise ApiError(
                 409, "ended_game_confirmation_required",
                 "終了したゲームの結果を変更するには確認が必要です",
@@ -228,14 +252,58 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @application.get("/api/boards/default", response_model=BoardResponse)
-    def default_board() -> dict[str, Any]:
-        return board.to_dict()
+    @application.get("/api/boards", response_model=BoardPresetList)
+    def list_boards() -> dict[str, Any]:
+        return {"presets": [
+            {
+                "id": item.id, "name": item.name, "builtIn": item.built_in,
+                "snakeCount": item.snake_count, "ladderCount": item.ladder_count,
+            }
+            for item in boards.list()
+        ]}
+
+    @application.post("/api/boards/validate", response_model=BoardValidation)
+    def validate_board(request: BoardDefinition) -> dict[str, Any]:
+        try:
+            board_from_definition(request.to_board_dict())
+        except BoardPresetError as error:
+            return {"valid": False, "message": str(error)}
+        return {"valid": True, "message": None}
+
+    @application.get("/api/boards/{board_id}", response_model=BoardResponse)
+    def get_board(board_id: str) -> dict[str, Any]:
+        if board_id == "default":
+            return board.to_dict()
+        try:
+            return boards.get(board_id).to_dict()
+        except BoardPresetError as error:
+            raise board_error(error) from error
+
+    @application.put("/api/boards/{board_id}", response_model=BoardResponse)
+    def save_board(board_id: str, request: BoardDefinition) -> dict[str, Any]:
+        if request.id != board_id:
+            raise ApiError(422, "invalid_board", "盤面IDがURLと一致しません")
+        try:
+            return boards.save(request.to_board_dict()).to_dict()
+        except BoardPresetError as error:
+            raise board_error(error) from error
+
+    @application.delete("/api/boards/{board_id}", status_code=204, response_class=Response)
+    def delete_board(board_id: str) -> Response:
+        try:
+            boards.delete(board_id)
+        except BoardPresetError as error:
+            raise board_error(error) from error
+        return Response(status_code=204)
 
     @application.post("/api/games", status_code=201, response_model=GameResponse)
     def create_game(request: GameCreate) -> dict[str, Any]:
+        try:
+            game_board = boards.get(request.board_id) if request.board_id else board
+        except BoardPresetError as error:
+            raise board_error(error) from error
         with game_service.lock:
-            game = GameState.create(board, [
+            game = GameState.create(game_board, [
                 PlayerState(
                     id=str(uuid4()), name=item.name, color=item.color,
                     display_name=item.display_name, spoken_name=item.spoken_name,
@@ -304,6 +372,7 @@ def create_app(
         with game_service.lock:
             game = game_service.game_or_404(game_id)
             game_service.check_version(game, request.expected_state_version)
+            require_not_aborted(game)
             _apply_action(lambda: game.change_turn(
                 request.player_id, reason=request.reason, operator=request.operator,
             ))
@@ -373,7 +442,9 @@ def create_app(
             game = game_service.game_or_404(game_id)
             game_service.check_version(game, request.expected_state_version)
             require_ended_confirmation(game, request.confirm_ended_game)
-            _apply_action(lambda: game.resume_after_turn(request.turn_id))
+            _apply_action(lambda: game.resume_after_turn(
+                request.turn_id, reason=request.reason, operator=request.operator,
+            ))
             game_service.save_or_503(game)
             return game.to_dict()
 
@@ -387,7 +458,7 @@ def create_app(
             actions: dict[str, Callable[[], object]] = {
                 "start": game.start, "pause": game.pause, "resume": game.resume,
                 "suspend": game.suspend, "abort": game.abort,
-                "undo": game.undo, "redo": game.redo,
+                "undo": game.undo, "redo": game.redo, "reopen": game.reopen,
             }
             if action not in actions:
                 raise ApiError(404, "game_action_not_found", "操作が見つかりません")
@@ -451,6 +522,73 @@ def create_app(
             headers={"Cache-Control": "no-store"},
         )
 
+    def system_status() -> dict[str, Any]:
+        database: dict[str, Any]
+        health = getattr(repo, "health", None)
+        try:
+            if callable(health):
+                health()
+                database = {"status": "ok", "label": "SQLite", "detail": None}
+            else:
+                database = {
+                    "status": "warning", "label": "メモリ",
+                    "detail": "再起動するとゲームが消えます（テスト用の保存先）",
+                }
+        except Exception as error:
+            database = {"status": "error", "label": "SQLite", "detail": type(error).__name__}
+
+        snapshot = recognition.snapshot()
+        if not snapshot["available"]:
+            camera = {"status": "not_configured", "label": "利用不可",
+                      "detail": "OpenCVなどの追加パッケージがありません"}
+        elif not snapshot["running"]:
+            camera = {"status": "off", "label": "停止中", "detail": snapshot["errorCode"]}
+        elif snapshot["errorCode"] in {"camera_disconnected", "recognition_worker_failed"}:
+            camera = {"status": "error", "label": "エラー", "detail": snapshot["errorCode"]}
+        else:
+            camera = {
+                "status": "ok",
+                "label": "認識中" if snapshot["gameReady"] else "映像のみ（ゲーム進行中でない）",
+                "detail": snapshot["state"],
+            }
+
+        comment = commentary.snapshot()
+        commentary_status = {
+            "status": "error" if comment["status"] == "failed" else "ok",
+            "label": f"{commentary.provider.name}（仮の実況）"
+            if commentary.provider.name == "fake" else commentary.provider.name,
+            "detail": "直近の実況の生成に失敗しました" if comment["status"] == "failed" else None,
+        }
+        return {
+            "checkedAt": datetime.now(UTC).isoformat(),
+            "database": database,
+            "camera": camera,
+            "commentary": commentary_status,
+            "tts": {"status": "not_configured", "label": "未接続", "detail": "Phase 6 で接続予定"},
+            "recording": {
+                "status": "not_configured", "label": "未接続", "detail": "Phase 7 で接続予定",
+            },
+            "realtimeClients": hub.client_count,
+            "logging": log_control.status(),
+            "recentProblems": log_control.problems.items(),
+        }
+
+    @application.get("/api/status", response_model=SystemStatus)
+    def get_status() -> dict[str, Any]:
+        return system_status()
+
+    @application.put("/api/settings/logging", response_model=LoggingStatus)
+    def update_logging(request: LoggingSettingsUpdate) -> dict[str, Any]:
+        try:
+            log_control.set_retention(request.retention)
+        except PermissionError as error:
+            raise ApiError(409, "logging_settings_locked", str(error)) from error
+        logging.getLogger("commentator.settings").info(
+            "log retention changed",
+            extra={"event": "log_retention_changed", "retention": request.retention},
+        )
+        return log_control.status()
+
     def send_initial_state(client: RealtimeClient) -> None:
         # Each snapshot is queued under the lock that orders its later updates,
         # so a client never receives an older state after a newer one.
@@ -491,10 +629,16 @@ def create_app(
             }
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in done:
-                if not task.cancelled() and task.exception() is not None:
+                error = None if task.cancelled() else task.exception()
+                if error is not None:
+                    # Usually the browser reloaded or closed the tab mid-send. It is
+                    # not a server fault, so record the type without alarming wording.
                     request_logger.info(
-                        "websocket closed with error",
-                        extra={"event": "websocket_closed_with_error"},
+                        "websocket connection ended abruptly",
+                        extra={
+                            "event": "websocket_ended_abruptly",
+                            "errorType": type(error).__name__,
+                        },
                     )
         finally:
             hub.disconnect(client)
@@ -535,11 +679,18 @@ def add_realtime_message_schemas(schema: dict[str, Any]) -> None:
 def create_production_app() -> FastAPI:
     """Build the production app only when the ASGI server invokes its factory."""
     repository_root = Path(__file__).resolve().parents[4]
-    configure_logging(load_log_config(default_directory=repository_root / "var" / "log"))
+    log_control = LoggingControl(
+        settings_path=repository_root / "var" / "log-settings.json",
+        default_directory=repository_root / "var" / "log",
+        managed=True,
+    )
+    log_control.start()  # before anything else logs
     database_path = Path(os.environ.get(
         "COMMENTATOR_DB_PATH", str(repository_root / "var" / "commentator.sqlite3")
     ))
-    return create_app(repository=SQLiteGameRepository(database_path))
+    return create_app(
+        repository=SQLiteGameRepository(database_path), logging_control=log_control
+    )
 
 
 def _create_recognition_service(game_service: GameService) -> RecognitionService:

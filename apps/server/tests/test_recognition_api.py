@@ -449,6 +449,8 @@ def test_correcting_recognition_roll_marks_the_rebuilt_turn_corrected() -> None:
         "value": 4,
         "source": "automatic",
         "confirmationId": "session:3",
+        "reason": "誤認識",
+        "operator": "admin",
     }
     restored = game_from_snapshot(game_to_snapshot(state))
     assert restored.turns[0].corrected_from == corrected.corrected_from
@@ -460,6 +462,8 @@ def test_correcting_recognition_roll_marks_the_rebuilt_turn_corrected() -> None:
         "value": 4,
         "source": "automatic",
         "confirmationId": "session:3",
+        "reason": "誤認識",
+        "operator": "admin",
     }
 
 

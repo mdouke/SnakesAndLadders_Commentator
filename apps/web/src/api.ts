@@ -1,5 +1,9 @@
 import type {
+  LoggingStatus,
+  SystemStatus,
   Board,
+  BoardPresetList,
+  BoardValidation,
   GameState,
   RecognitionCamera,
   RecognitionState,
@@ -65,6 +69,46 @@ export function createDefaultGame(): Promise<GameState> {
 
 export function getDefaultBoard(): Promise<Board> {
   return request("/api/boards/default");
+}
+
+export function listBoards(): Promise<BoardPresetList> {
+  return request("/api/boards");
+}
+
+export function getBoard(boardId: string): Promise<Board> {
+  return request(`/api/boards/${encodeURIComponent(boardId)}`);
+}
+
+export function validateBoard(board: Board): Promise<BoardValidation> {
+  return request("/api/boards/validate", { method: "POST", body: JSON.stringify(board) });
+}
+
+export function saveBoard(board: Board): Promise<Board> {
+  return request(`/api/boards/${encodeURIComponent(board.id)}`, {
+    method: "PUT", body: JSON.stringify(board)
+  });
+}
+
+export async function deleteBoard(boardId: string): Promise<void> {
+  const response = await fetch(`/api/boards/${encodeURIComponent(boardId)}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: { message?: string } } | null;
+    throw new Error(body?.detail?.message ?? `HTTP ${response.status}`);
+  }
+}
+
+export interface NewPlayer {
+  name: string;
+  color: string;
+  displayName?: string;
+  spokenName?: string;
+}
+
+export function createGame(players: NewPlayer[], boardId: string): Promise<GameState> {
+  return request("/api/games", {
+    method: "POST",
+    body: JSON.stringify({ players, boardId })
+  });
 }
 
 export function getCurrentGame(): Promise<GameState> {
@@ -205,10 +249,21 @@ export function changeTurn(
 
 export function resumeFromTurn(
   gameId: string, turnId: string | null, expectedStateVersion: number,
-  confirmEndedGame = false
+  reason: string, operator: string, confirmEndedGame = false
 ): Promise<GameState> {
   return request(`/api/games/${gameId}/resume-from-turn`, {
     method: "POST",
-    body: JSON.stringify({ turnId, expectedStateVersion, confirmEndedGame })
+    body: JSON.stringify({ turnId, expectedStateVersion, reason, operator, confirmEndedGame })
+  });
+}
+
+export function getSystemStatus(): Promise<SystemStatus> {
+  return request("/api/status");
+}
+
+export function updateLogRetention(retention: "rotate" | "permanent"): Promise<LoggingStatus> {
+  return request("/api/settings/logging", {
+    method: "PUT",
+    body: JSON.stringify({ retention })
   });
 }

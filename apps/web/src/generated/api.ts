@@ -21,18 +21,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/boards/default": {
+    "/api/boards": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Default Board */
-        get: operations["default_board_api_boards_default_get"];
+        /** List Boards */
+        get: operations["list_boards_api_boards_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/boards/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate Board */
+        post: operations["validate_board_api_boards_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/boards/{board_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Board */
+        get: operations["get_board_api_boards__board_id__get"];
+        /** Save Board */
+        put: operations["save_board_api_boards__board_id__put"];
+        post?: never;
+        /** Delete Board */
+        delete: operations["delete_board_api_boards__board_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -345,10 +381,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Status */
+        get: operations["get_status_api_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/logging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Logging */
+        put: operations["update_logging_api_settings_logging_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AuditEntry
+         * @description A change to the history itself; newest first.
+         */
+        AuditEntry: {
+            /** Id */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "correction" | "restore" | "undo" | "redo";
+            /** Occurredat */
+            occurredAt: string;
+            /** Label */
+            label: string;
+            /** Reason */
+            reason: string | null;
+            /** Operator */
+            operator: string | null;
+        };
+        /** BoardDefinition */
+        BoardDefinition: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Goal
+             * @default 100
+             */
+            goal: number;
+            /** Jumps */
+            jumps?: components["schemas"]["BoardJumpInput"][];
+        };
         /** BoardJump */
         BoardJump: {
             /**
@@ -361,6 +466,36 @@ export interface components {
             /** To */
             to: number;
         };
+        /** BoardJumpInput */
+        BoardJumpInput: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "ladder" | "snake";
+            /** From */
+            from: number;
+            /** To */
+            to: number;
+        };
+        /** BoardPresetList */
+        BoardPresetList: {
+            /** Presets */
+            presets: components["schemas"]["BoardPresetSummary"][];
+        };
+        /** BoardPresetSummary */
+        BoardPresetSummary: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Builtin */
+            builtIn: boolean;
+            /** Snakecount */
+            snakeCount: number;
+            /** Laddercount */
+            ladderCount: number;
+        };
         /** BoardResponse */
         BoardResponse: {
             /** Id */
@@ -371,6 +506,25 @@ export interface components {
             goal: number;
             /** Jumps */
             jumps: components["schemas"]["BoardJump"][];
+        };
+        /** BoardValidation */
+        BoardValidation: {
+            /** Valid */
+            valid: boolean;
+            /** Message */
+            message: string | null;
+        };
+        /** ComponentStatus */
+        ComponentStatus: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "warning" | "error" | "off" | "not_configured";
+            /** Label */
+            label: string;
+            /** Detail */
+            detail: string | null;
         };
         /** CorrectedFrom */
         CorrectedFrom: {
@@ -383,11 +537,17 @@ export interface components {
             source: "manual" | "automatic" | "reviewed" | "corrected";
             /** Confirmationid */
             confirmationId: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Operator */
+            operator: string | null;
         };
         /** GameCreate */
         GameCreate: {
             /** Players */
             players: components["schemas"]["PlayerCreate"][];
+            /** Boardid */
+            boardId?: string | null;
         };
         /** GameResponse */
         GameResponse: {
@@ -395,6 +555,7 @@ export interface components {
             id: string;
             /** Boardid */
             boardId: string;
+            board: components["schemas"]["BoardResponse"];
             /** Branchid */
             branchId: string;
             /** Stateversion */
@@ -415,8 +576,16 @@ export interface components {
              * @enum {string}
              */
             status: "ready" | "in_progress" | "paused" | "suspended" | "completed" | "aborted";
-            /** Turnnumber */
+            /**
+             * Turnnumber
+             * @description Number of rolls so far (used for conflict checks).
+             */
             turnNumber: number;
+            /**
+             * Roundnumber
+             * @description Display turn of the next roll (0 before start).
+             */
+            roundNumber: number;
             /** Currentplayerid */
             currentPlayerId: string | null;
             /** Startedat */
@@ -429,6 +598,10 @@ export interface components {
             players: components["schemas"]["PlayerResponse"][];
             /** Turns */
             turns: components["schemas"]["TurnResponse"][];
+            /** Timeline */
+            timeline: components["schemas"]["TimelineEntry"][];
+            /** Auditlog */
+            auditLog: components["schemas"]["AuditEntry"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -485,6 +658,30 @@ export interface components {
              * @enum {string}
              */
             reason: "player_already_finished" | "game_completed" | "turn_change_not_applicable";
+        };
+        /** LoggingSettingsUpdate */
+        LoggingSettingsUpdate: {
+            /**
+             * Retention
+             * @enum {string}
+             */
+            retention: "rotate" | "permanent";
+        };
+        /** LoggingStatus */
+        LoggingStatus: {
+            /**
+             * Retention
+             * @enum {string}
+             */
+            retention: "rotate" | "permanent";
+            /** Directory */
+            directory: string;
+            /** Retentiondays */
+            retentionDays: number;
+            /** Locked */
+            locked: boolean;
+            /** Editable */
+            editable: boolean;
         };
         /** PlayerCreate */
         PlayerCreate: {
@@ -573,6 +770,21 @@ export interface components {
             reason: string;
             /** Operator */
             operator: string;
+        };
+        /** RecentProblem */
+        RecentProblem: {
+            /** At */
+            at: string;
+            /** Level */
+            level: string;
+            /** Logger */
+            logger: string;
+            /** Message */
+            message: string;
+            /** Event */
+            event: string | null;
+            /** Errorcode */
+            errorCode: string | null;
         };
         /** RecognitionCamera */
         RecognitionCamera: {
@@ -698,6 +910,10 @@ export interface components {
             confirmEndedGame: boolean;
             /** Turnid */
             turnId?: string | null;
+            /** Reason */
+            reason: string;
+            /** Operator */
+            operator: string;
         };
         /** RollCorrection */
         RollCorrection: {
@@ -742,6 +958,53 @@ export interface components {
             expectedStateVersion: number;
             /** Expectedturnnumber */
             expectedTurnNumber?: number | null;
+        };
+        /**
+         * SystemStatus
+         * @description Health of the server and its dependencies for the admin status panel.
+         */
+        SystemStatus: {
+            /** Checkedat */
+            checkedAt: string;
+            database: components["schemas"]["ComponentStatus"];
+            camera: components["schemas"]["ComponentStatus"];
+            commentary: components["schemas"]["ComponentStatus"];
+            tts: components["schemas"]["ComponentStatus"];
+            recording: components["schemas"]["ComponentStatus"];
+            /** Realtimeclients */
+            realtimeClients: number;
+            logging: components["schemas"]["LoggingStatus"];
+            /** Recentproblems */
+            recentProblems: components["schemas"]["RecentProblem"][];
+        };
+        /**
+         * TimelineEntry
+         * @description One event of the effective history (``turnId`` links a roll to its turn).
+         */
+        TimelineEntry: {
+            /** Id */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "start" | "pause" | "resume" | "suspend" | "abort" | "reopen" | "roll" | "position_correction" | "turn_change";
+            /** Occurredat */
+            occurredAt: string;
+            /** Turnid */
+            turnId: string | null;
+            /** Playerid */
+            playerId: string | null;
+            /** Previousplayerid */
+            previousPlayerId: string | null;
+            /** Beforeposition */
+            beforePosition: number | null;
+            /** Position */
+            position: number | null;
+            /** Reason */
+            reason: string | null;
+            /** Operator */
+            operator: string | null;
         };
         /** TurnChange */
         TurnChange: {
@@ -794,6 +1057,11 @@ export interface components {
             originalCandidate: number | null;
             confidence: components["schemas"]["RecognitionConfidence"] | null;
             correctedFrom: components["schemas"]["CorrectedFrom"] | null;
+            /**
+             * Round
+             * @description Display turn: increases after every player has rolled once.
+             */
+            round: number;
             /** Branchid */
             branchId: string;
             /** Stateversionbefore */
@@ -920,7 +1188,7 @@ export interface operations {
             };
         };
     };
-    default_board_api_boards_default_get: {
+    list_boards_api_boards_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -935,7 +1203,135 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["BoardPresetList"];
+                };
+            };
+        };
+    };
+    validate_board_api_boards_validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardDefinition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardValidation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_board_api_boards__board_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                board_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["BoardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_board_api_boards__board_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                board_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardDefinition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_board_api_boards__board_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                board_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1501,6 +1897,59 @@ export interface operations {
                 };
                 content: {
                     "image/jpeg": unknown;
+                };
+            };
+        };
+    };
+    get_status_api_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+        };
+    };
+    update_logging_api_settings_logging_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoggingSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoggingStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

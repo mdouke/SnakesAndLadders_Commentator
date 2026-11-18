@@ -23,10 +23,77 @@
         }
       }
     },
-    "/api/boards/default": {
+    "/api/boards": {
       "get": {
-        "summary": "Default Board",
-        "operationId": "default_board_api_boards_default_get",
+        "summary": "List Boards",
+        "operationId": "list_boards_api_boards_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardPresetList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/boards/validate": {
+      "post": {
+        "summary": "Validate Board",
+        "operationId": "validate_board_api_boards_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardValidation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/boards/{board_id}": {
+      "get": {
+        "summary": "Get Board",
+        "operationId": "get_board_api_boards__board_id__get",
+        "parameters": [
+          {
+            "name": "board_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Board Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -34,6 +101,93 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Save Board",
+        "operationId": "save_board_api_boards__board_id__put",
+        "parameters": [
+          {
+            "name": "board_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Board Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardDefinition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Board",
+        "operationId": "delete_board_api_boards__board_id__delete",
+        "parameters": [
+          {
+            "name": "board_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Board Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -755,11 +909,190 @@
           }
         }
       }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "Get Status",
+        "operationId": "get_status_api_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/logging": {
+      "put": {
+        "summary": "Update Logging",
+        "operationId": "update_logging_api_settings_logging_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoggingSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoggingStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AuditEntry": {
+        "additionalProperties": false,
+        "description": "A change to the history itself; newest first.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "correction",
+              "restore",
+              "undo",
+              "redo"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "occurredAt": {
+            "title": "Occurredat",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurredAt",
+          "label",
+          "reason",
+          "operator"
+        ],
+        "title": "AuditEntry",
+        "type": "object"
+      },
+      "BoardDefinition": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "goal": {
+            "type": "integer",
+            "title": "Goal",
+            "default": 100
+          },
+          "jumps": {
+            "items": {
+              "$ref": "#/components/schemas/BoardJumpInput"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Jumps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "BoardDefinition"
+      },
       "BoardJump": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "ladder",
+              "snake"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "from": {
+            "title": "From",
+            "type": "integer"
+          },
+          "to": {
+            "title": "To",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "from",
+          "to"
+        ],
+        "title": "BoardJump",
+        "type": "object"
+      },
+      "BoardJumpInput": {
         "properties": {
           "type": {
             "type": "string",
@@ -778,16 +1111,32 @@
             "title": "To"
           }
         },
-        "additionalProperties": false,
         "type": "object",
         "required": [
           "type",
           "from",
           "to"
         ],
-        "title": "BoardJump"
+        "title": "BoardJumpInput"
       },
-      "BoardResponse": {
+      "BoardPresetList": {
+        "properties": {
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/BoardPresetSummary"
+            },
+            "type": "array",
+            "title": "Presets"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "presets"
+        ],
+        "title": "BoardPresetList"
+      },
+      "BoardPresetSummary": {
         "properties": {
           "id": {
             "type": "string",
@@ -797,16 +1146,17 @@
             "type": "string",
             "title": "Name"
           },
-          "goal": {
-            "type": "integer",
-            "title": "Goal"
+          "builtIn": {
+            "type": "boolean",
+            "title": "Builtin"
           },
-          "jumps": {
-            "items": {
-              "$ref": "#/components/schemas/BoardJump"
-            },
-            "type": "array",
-            "title": "Jumps"
+          "snakeCount": {
+            "type": "integer",
+            "title": "Snakecount"
+          },
+          "ladderCount": {
+            "type": "integer",
+            "title": "Laddercount"
           }
         },
         "additionalProperties": false,
@@ -814,10 +1164,107 @@
         "required": [
           "id",
           "name",
+          "builtIn",
+          "snakeCount",
+          "ladderCount"
+        ],
+        "title": "BoardPresetSummary"
+      },
+      "BoardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "goal": {
+            "title": "Goal",
+            "type": "integer"
+          },
+          "jumps": {
+            "items": {
+              "$ref": "#/components/schemas/BoardJump"
+            },
+            "title": "Jumps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
           "goal",
           "jumps"
         ],
-        "title": "BoardResponse"
+        "title": "BoardResponse",
+        "type": "object"
+      },
+      "BoardValidation": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "valid",
+          "message"
+        ],
+        "title": "BoardValidation"
+      },
+      "ComponentStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "warning",
+              "error",
+              "off",
+              "not_configured"
+            ],
+            "title": "Status"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "label",
+          "detail"
+        ],
+        "title": "ComponentStatus"
       },
       "CorrectedFrom": {
         "additionalProperties": false,
@@ -846,12 +1293,36 @@
               }
             ],
             "title": "Confirmationid"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator"
           }
         },
         "required": [
           "value",
           "source",
-          "confirmationId"
+          "confirmationId",
+          "reason",
+          "operator"
         ],
         "title": "CorrectedFrom",
         "type": "object"
@@ -866,6 +1337,19 @@
             "maxItems": 6,
             "minItems": 2,
             "title": "Players"
+          },
+          "boardId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boardid"
           }
         },
         "type": "object",
@@ -884,6 +1368,9 @@
           "boardId": {
             "title": "Boardid",
             "type": "string"
+          },
+          "board": {
+            "$ref": "#/components/schemas/BoardResponse"
           },
           "branchId": {
             "title": "Branchid",
@@ -953,7 +1440,13 @@
             "type": "string"
           },
           "turnNumber": {
+            "description": "Number of rolls so far (used for conflict checks).",
             "title": "Turnnumber",
+            "type": "integer"
+          },
+          "roundNumber": {
+            "description": "Display turn of the next roll (0 before start).",
+            "title": "Roundnumber",
             "type": "integer"
           },
           "currentPlayerId": {
@@ -1013,11 +1506,26 @@
             },
             "title": "Turns",
             "type": "array"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            },
+            "title": "Timeline",
+            "type": "array"
+          },
+          "auditLog": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            },
+            "title": "Auditlog",
+            "type": "array"
           }
         },
         "required": [
           "id",
           "boardId",
+          "board",
           "branchId",
           "stateVersion",
           "canUndo",
@@ -1028,12 +1536,15 @@
           "suspensionHistory",
           "status",
           "turnNumber",
+          "roundNumber",
           "currentPlayerId",
           "startedAt",
           "endedAt",
           "suspendedAt",
           "players",
-          "turns"
+          "turns",
+          "timeline",
+          "auditLog"
         ],
         "title": "GameResponse",
         "type": "object"
@@ -1212,6 +1723,61 @@
           "reason"
         ],
         "title": "InvalidatedTurn"
+      },
+      "LoggingSettingsUpdate": {
+        "properties": {
+          "retention": {
+            "type": "string",
+            "enum": [
+              "rotate",
+              "permanent"
+            ],
+            "title": "Retention"
+          }
+        },
+        "type": "object",
+        "required": [
+          "retention"
+        ],
+        "title": "LoggingSettingsUpdate"
+      },
+      "LoggingStatus": {
+        "properties": {
+          "retention": {
+            "type": "string",
+            "enum": [
+              "rotate",
+              "permanent"
+            ],
+            "title": "Retention"
+          },
+          "directory": {
+            "type": "string",
+            "title": "Directory"
+          },
+          "retentionDays": {
+            "type": "integer",
+            "title": "Retentiondays"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "retention",
+          "directory",
+          "retentionDays",
+          "locked",
+          "editable"
+        ],
+        "title": "LoggingStatus"
       },
       "PlayerCreate": {
         "properties": {
@@ -1475,6 +2041,59 @@
           "operator"
         ],
         "title": "PositionCorrection"
+      },
+      "RecentProblem": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "logger": {
+            "type": "string",
+            "title": "Logger"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "at",
+          "level",
+          "logger",
+          "message",
+          "event",
+          "errorCode"
+        ],
+        "title": "RecentProblem"
       },
       "RecognitionCamera": {
         "properties": {
@@ -1865,11 +2484,25 @@
               }
             ],
             "title": "Turnid"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "operator": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Operator"
           }
         },
         "type": "object",
         "required": [
-          "expectedStateVersion"
+          "expectedStateVersion",
+          "reason",
+          "operator"
         ],
         "title": "ResumeFromTurn"
       },
@@ -1985,6 +2618,178 @@
           "expectedStateVersion"
         ],
         "title": "RollCreate"
+      },
+      "SystemStatus": {
+        "properties": {
+          "checkedAt": {
+            "type": "string",
+            "title": "Checkedat"
+          },
+          "database": {
+            "$ref": "#/components/schemas/ComponentStatus"
+          },
+          "camera": {
+            "$ref": "#/components/schemas/ComponentStatus"
+          },
+          "commentary": {
+            "$ref": "#/components/schemas/ComponentStatus"
+          },
+          "tts": {
+            "$ref": "#/components/schemas/ComponentStatus"
+          },
+          "recording": {
+            "$ref": "#/components/schemas/ComponentStatus"
+          },
+          "realtimeClients": {
+            "type": "integer",
+            "title": "Realtimeclients"
+          },
+          "logging": {
+            "$ref": "#/components/schemas/LoggingStatus"
+          },
+          "recentProblems": {
+            "items": {
+              "$ref": "#/components/schemas/RecentProblem"
+            },
+            "type": "array",
+            "title": "Recentproblems"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "checkedAt",
+          "database",
+          "camera",
+          "commentary",
+          "tts",
+          "recording",
+          "realtimeClients",
+          "logging",
+          "recentProblems"
+        ],
+        "title": "SystemStatus",
+        "description": "Health of the server and its dependencies for the admin status panel."
+      },
+      "TimelineEntry": {
+        "additionalProperties": false,
+        "description": "One event of the effective history (``turnId`` links a roll to its turn).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "start",
+              "pause",
+              "resume",
+              "suspend",
+              "abort",
+              "reopen",
+              "roll",
+              "position_correction",
+              "turn_change"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "occurredAt": {
+            "title": "Occurredat",
+            "type": "string"
+          },
+          "turnId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnid"
+          },
+          "playerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playerid"
+          },
+          "previousPlayerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousplayerid"
+          },
+          "beforePosition": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beforeposition"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurredAt",
+          "turnId",
+          "playerId",
+          "previousPlayerId",
+          "beforePosition",
+          "position",
+          "reason",
+          "operator"
+        ],
+        "title": "TimelineEntry",
+        "type": "object"
       },
       "TurnChange": {
         "properties": {
@@ -2138,6 +2943,11 @@
               }
             ]
           },
+          "round": {
+            "description": "Display turn: increases after every player has rolled once.",
+            "title": "Round",
+            "type": "integer"
+          },
           "branchId": {
             "title": "Branchid",
             "type": "string"
@@ -2168,6 +2978,7 @@
           "originalCandidate",
           "confidence",
           "correctedFrom",
+          "round",
           "branchId",
           "stateVersionBefore",
           "stateVersionAfter"

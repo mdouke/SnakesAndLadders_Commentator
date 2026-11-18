@@ -7,6 +7,9 @@ import type { components } from "./generated/api";
 type Schemas = components["schemas"];
 
 export type Board = Schemas["BoardResponse"];
+export type BoardPresetList = Schemas["BoardPresetList"];
+export type BoardPresetSummary = Schemas["BoardPresetSummary"];
+export type BoardValidation = Schemas["BoardValidation"];
 export type GameState = Schemas["GameResponse"];
 export type GameStatus = GameState["status"];
 export type PlayerState = Schemas["PlayerResponse"];
@@ -18,3 +21,8 @@ export type RecognitionState = Schemas["RecognitionResponse"];
 export type RecognitionCamera = Schemas["RecognitionCamera"];
 export type CommentaryState = Schemas["CommentaryResponse"];
 export type RealtimeMessage = Schemas["RealtimeMessage"];
+export type SystemStatus = Schemas["SystemStatus"];
+export type LoggingStatus = Schemas["LoggingStatus"];
+export type ComponentStatus = Schemas["ComponentStatus"];
+export type TimelineEntry = Schemas["TimelineEntry"];
+export type AuditEntry = Schemas["AuditEntry"];

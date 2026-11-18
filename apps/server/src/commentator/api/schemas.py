@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
@@ -19,6 +21,7 @@ class PlayerCreate(RequestModel):
 
 class GameCreate(RequestModel):
     players: list[PlayerCreate] = Field(min_length=2, max_length=6)
+    board_id: str | None = Field(default=None, alias="boardId", min_length=1, max_length=40)
 
     @model_validator(mode="after")
     def unique_colors(self) -> GameCreate:
@@ -78,8 +81,37 @@ class RollCorrection(VersionedRequest):
 
 class ResumeFromTurn(VersionedRequest):
     turn_id: str | None = Field(default=None, alias="turnId", min_length=1)
+    reason: str = Field(min_length=1, max_length=500)
+    operator: str = Field(min_length=1, max_length=120)
 
 
 class RestoreRequest(VersionedRequest):
     target_state_version: int = Field(alias="targetStateVersion", ge=0)
 
+
+
+class BoardJumpInput(RequestModel):
+    type: Literal["ladder", "snake"]
+    from_: int = Field(alias="from")
+    to: int
+
+
+class BoardDefinition(RequestModel):
+    id: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=80)
+    goal: int = 100
+    jumps: list[BoardJumpInput] = Field(default_factory=list, max_length=60)
+
+    def to_board_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "goal": self.goal,
+            "jumps": [
+                {"type": jump.type, "from": jump.from_, "to": jump.to} for jump in self.jumps
+            ],
+        }
+
+
+class LoggingSettingsUpdate(RequestModel):
+    retention: Literal["rotate", "permanent"]

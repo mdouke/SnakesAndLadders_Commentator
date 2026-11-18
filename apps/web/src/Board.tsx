@@ -1,7 +1,4 @@
-import { useEffect, useState } from "react";
-
-import { getDefaultBoard } from "./api";
-import type { Board, GameState } from "./types";
+import type { Board, GameState, TurnRecord } from "./types";
 
 const SIZE = 10;
 const CELL = 10;
@@ -27,66 +24,73 @@ function snakePath(from: number, to: number): string {
     + `${start.x + (2 * dx) / 3 - nx} ${start.y + (2 * dy) / 3 - ny}, ${end.x} ${end.y}`;
 }
 
-export function useDefaultBoard(): Board | null {
-  const [board, setBoard] = useState<Board | null>(null);
-  useEffect(() => {
-    getDefaultBoard().then(setBoard).catch(() => setBoard(null));
-  }, []);
-  return board;
+interface BoardSvgProps {
+  board: Board;
+  players?: GameState["players"];
+  lastTurn?: TurnRecord | null;
 }
 
-export function BoardView({ board, game }: { board: Board; game: GameState }) {
-  const lastTurn = game.turns.length > 0 ? game.turns[game.turns.length - 1] : null;
+/** The board drawing alone, used for the live game and for preset previews. */
+export function BoardSvg({ board, players = [], lastTurn = null }: BoardSvgProps) {
   const squares = Array.from({ length: SIZE * SIZE }, (_, index) => index + 1);
+  return (
+    <svg className="board" viewBox="0 0 100 100" role="img"
+      aria-label={`${board.name}：ヘビ${board.jumps.filter((jump) => jump.type === "snake").length}本、`
+        + `ハシゴ${board.jumps.filter((jump) => jump.type === "ladder").length}本`}>
+      {squares.map((square) => {
+        const { x, y } = cellCenter(square);
+        const isLastFrom = lastTurn?.before === square;
+        const isLastTo = lastTurn?.finalPosition === square;
+        const isLastNormal = lastTurn !== null && lastTurn.normalPosition === square
+          && lastTurn.normalPosition !== lastTurn.finalPosition;
+        return (
+          <g key={square}>
+            <rect x={x - CELL / 2} y={y - CELL / 2} width={CELL} height={CELL}
+              className={`cell ${square % 2 === 0 ? "even" : "odd"}`
+                + `${isLastFrom ? " last-from" : ""}${isLastNormal ? " last-normal" : ""}`
+                + `${isLastTo ? " last-to" : ""}`} />
+            <text x={x - CELL / 2 + 0.8} y={y - CELL / 2 + 2.6} className="cell-number">
+              {square}
+            </text>
+          </g>
+        );
+      })}
+      {board.jumps.map((jump) => {
+        if (jump.type === "ladder") {
+          const start = cellCenter(jump.from);
+          const end = cellCenter(jump.to);
+          return (
+            <line key={`l-${jump.from}`} className="ladder"
+              x1={start.x} y1={start.y} x2={end.x} y2={end.y} />
+          );
+        }
+        return <path key={`s-${jump.from}`} className="snake" d={snakePath(jump.from, jump.to)} />;
+      })}
+      {players.map((player, index) => {
+        if (player.position === 0) return null;
+        const { x, y } = cellCenter(player.position);
+        const shift = (index - (players.length - 1) / 2) * 2.4;
+        return (
+          <circle key={player.id} cx={x + shift} cy={y + 1.5} r={1.9}
+            className={`board-token${player.isCurrent ? " current" : ""}`}
+            style={{ fill: player.color }}>
+            <title>{`${player.displayName}: ${player.position}マス目`}</title>
+          </circle>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function BoardView({ game }: { game: GameState }) {
+  const board = game.board;
+  const lastTurn = game.turns.length > 0 ? game.turns[game.turns.length - 1] : null;
   const waiting = game.players.filter((player) => player.position === 0);
 
   return (
     <section className="panel board-panel">
-      <h2>盤面</h2>
-      <svg className="board" viewBox="0 0 100 100" role="img"
-        aria-label="ヘビとハシゴの盤面と各プレイヤーのコマ">
-        {squares.map((square) => {
-          const { x, y } = cellCenter(square);
-          const isLastFrom = lastTurn?.before === square;
-          const isLastTo = lastTurn?.finalPosition === square;
-          const isLastNormal = lastTurn !== null && lastTurn.normalPosition === square
-            && lastTurn.normalPosition !== lastTurn.finalPosition;
-          return (
-            <g key={square}>
-              <rect x={x - CELL / 2} y={y - CELL / 2} width={CELL} height={CELL}
-                className={`cell ${square % 2 === 0 ? "even" : "odd"}`
-                  + `${isLastFrom ? " last-from" : ""}${isLastNormal ? " last-normal" : ""}`
-                  + `${isLastTo ? " last-to" : ""}`} />
-              <text x={x - CELL / 2 + 0.8} y={y - CELL / 2 + 2.6} className="cell-number">
-                {square}
-              </text>
-            </g>
-          );
-        })}
-        {board.jumps.map((jump) => {
-          if (jump.type === "ladder") {
-            const start = cellCenter(jump.from);
-            const end = cellCenter(jump.to);
-            return (
-              <line key={`l-${jump.from}`} className="ladder"
-                x1={start.x} y1={start.y} x2={end.x} y2={end.y} />
-            );
-          }
-          return <path key={`s-${jump.from}`} className="snake" d={snakePath(jump.from, jump.to)} />;
-        })}
-        {game.players.map((player, index) => {
-          if (player.position === 0) return null;
-          const { x, y } = cellCenter(player.position);
-          const shift = (index - (game.players.length - 1) / 2) * 2.4;
-          return (
-            <circle key={player.id} cx={x + shift} cy={y + 1.5} r={1.9}
-              className={`board-token${player.isCurrent ? " current" : ""}`}
-              style={{ fill: player.color }}>
-              <title>{`${player.displayName}: ${player.position}マス目`}</title>
-            </circle>
-          );
-        })}
-      </svg>
+      <h2>盤面 <span className="muted board-name">{board.name}</span></h2>
+      <BoardSvg board={board} players={game.players} lastTurn={lastTurn} />
       <div className="board-legend">
         {game.currentPlayerId && (
           <span className="legend-current">

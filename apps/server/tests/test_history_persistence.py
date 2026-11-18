@@ -352,7 +352,9 @@ def test_position_correction_recalculates_goal_ranks_and_terminal_status() -> No
     aborted.start(now=NOW)
     aborted.roll(3, now=NOW)
     aborted.abort(now=NOW)
-    aborted.correct_position("a", 10, reason="physical board", operator="test", now=NOW)
+    # An aborted game is read-only until the abort is cancelled (reopen).
+    with pytest.raises(ValueError, match="中止を取り消して"):
+        aborted.correct_position("a", 10, reason="physical board", operator="test", now=NOW)
     assert aborted.status is GameStatus.ABORTED
     assert aborted.current_player is None
 
@@ -477,17 +479,20 @@ def test_ended_game_changes_require_confirmation() -> None:
             aborted = (await client.post(
                 path + "/abort", json={"expectedStateVersion": 1}
             )).json()
-            denied = await client.post(
-                path + "/undo", json={"expectedStateVersion": aborted["stateVersion"]}
+            # Abort is not an Undo target, even with confirmation.
+            for confirm in (False, True):
+                denied = await client.post(path + "/undo", json={
+                    "expectedStateVersion": aborted["stateVersion"],
+                    "confirmEndedGame": confirm,
+                })
+                assert denied.status_code == 409
+                assert denied.json()["detail"]["code"] == "game_aborted"
+            reopened = await client.post(
+                path + "/reopen", json={"expectedStateVersion": aborted["stateVersion"]}
             )
-            assert denied.status_code == 409
-            assert denied.json()["detail"]["code"] == "ended_game_confirmation_required"
-            allowed = await client.post(path + "/undo", json={
-                "expectedStateVersion": aborted["stateVersion"],
-                "confirmEndedGame": True,
-            })
-            assert allowed.status_code == 200
-            assert allowed.json()["status"] == "in_progress"
+            assert reopened.status_code == 200
+            assert reopened.json()["status"] == "in_progress"
+            assert reopened.json()["undoLabel"] == "ゲーム開始"
 
     asyncio.run(scenario())
 

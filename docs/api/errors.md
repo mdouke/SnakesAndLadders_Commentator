@@ -32,6 +32,23 @@
 
 新しいエラーを追加するときは、既存の`code`の意味を変更せず、この文書とWebの分岐・テストを同じ変更で更新する。
 
+## ゲーム操作
+
+| HTTP | code | 意味 |
+|---|---|---|
+| 409 | `ended_game_confirmation_required` | 正常終了したゲームの結果を変える操作に `confirmEndedGame: true` がない |
+| 409 | `game_aborted` | 中止したゲームへの訂正・Undo/Redo・復元・手番変更。先に `POST /api/games/{id}/reopen` で中止を取り消す |
+| 409 | `invalid_game_operation` | 現在の状態ではできない操作（メッセージに理由） |
+
+## 盤面プリセット・設定
+
+| HTTP | code | 意味 |
+|---|---|---|
+| 404 | `board_not_found` | 指定した盤面プリセットがない |
+| 422 | `invalid_board` | 盤面の規則違反（範囲外、開始マス重複、ヘビ・ハシゴの向き、移動先が別の開始マス、ゴールへ到達できない）、不正なID、URLとIDの不一致 |
+| 409 | `board_preset_read_only` | 標準の盤面（`data/boards`）を上書き・削除しようとした |
+| 409 | `logging_settings_locked` | 環境変数でログ保存方式が固定されている、またはこのサーバーでは変更できない |
+
 ## サイコロ認識
 
 | HTTP | code | 意味 |
