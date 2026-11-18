@@ -1,4 +1,8 @@
-import type { GameState } from "./types";
+import type {
+  GameState,
+  RecognitionCamera,
+  RecognitionState
+} from "./types";
 
 interface ApiErrorDetail {
   code: string;
@@ -156,6 +160,49 @@ export function restoreGame(
   return request(`/api/games/${gameId}/restore`, {
     method: "POST",
     body: JSON.stringify({ targetStateVersion, expectedStateVersion, confirmEndedGame })
+  });
+}
+
+export function getRecognition(): Promise<RecognitionState> {
+  return request("/api/recognition");
+}
+
+export function getRecognitionCameras(): Promise<{ cameras: RecognitionCamera[] }> {
+  return request("/api/recognition/cameras");
+}
+
+export function startRecognition(cameraId?: number): Promise<RecognitionState> {
+  return request("/api/recognition/start", {
+    method: "POST",
+    body: JSON.stringify({ cameraId })
+  });
+}
+
+export function stopRecognition(): Promise<RecognitionState> {
+  return request("/api/recognition/stop", { method: "POST" });
+}
+
+export function confirmRecognitionCandidate(
+  gameId: string,
+  candidateId: string,
+  expectedStateVersion: number,
+  expectedTurnNumber: number,
+  value?: number
+): Promise<GameState> {
+  return request("/api/recognition/candidate/confirm", {
+    method: "POST",
+    body: JSON.stringify({
+      gameId, candidateId, expectedStateVersion, expectedTurnNumber, value
+    })
+  });
+}
+
+export function rejectRecognitionCandidate(
+  candidateId: string
+): Promise<RecognitionState> {
+  return request("/api/recognition/candidate/reject", {
+    method: "POST",
+    body: JSON.stringify({ candidateId })
   });
 }
 

@@ -2,6 +2,274 @@
 
 > **ファイル名の変更（2026-11-13）**: ユーザーの指示により、このファイルの名前を `TOCHATGPT.md` から `TOCODEX.md` に変更した。以後、Claude から Codex への指示はこのファイルに書く。Codex からの報告と質問は、これまでどおり `TOCLAUDE.md` に書くこと。下の過去の節に出てくる `TOCHATGPT.md` は、このファイルのことを指す。
 
+## Claude引き継ぎ: Phase 4 手順1〜3 のレビュー対応を完了（2026-11-18）
+
+Codex の利用上限のため、ユーザーの指示で Claude が残りを引き継いだ。**Codex への作業指示ではない。** 次の手順4〜6の前提として読むこと。
+
+- 下の「Phase 4 手順1〜3 のレビュー」の1〜6は、Codex がほぼ実装済みだった。Claude はその内容を確認した。
+  - 認識ロックでの直列化。
+  - 認識スレッドが登録するのは自動確定だけ。
+  - 投擲サイクル開始時の `gameId`、`stateVersion`、手番を期待値にする。
+  - `gameId` の検査。
+  - カメラはワーカーだけが閉じる。
+  - 例外の分類。
+  - 開始時のセッションリセット。
+  - 確定IDの保持数の上限。
+  - 再現テスト。
+- Claude が追加で直した点:
+  - 出目訂正で `originalCandidate` を訂正前の値で上書きしていたのをやめた。認識時の候補のまま残す。
+  - 訂正前の情報 `correctedFrom` を、`TurnRecord` とAPIの応答、SQLiteの復元、`types.ts` にも出すようにした。今まではイベントのペイロードにしかなかった。
+  - ADR 0004 に「並行処理（2026-11-18 追記）」を書いた。ロックの順序と、投擲サイクル開始時の期待値の規則を含む。`docs/api/recognition.md` にも `correctedFrom` を書いた。
+- ローカル5チェック: ruff、mypy（42ファイル）、pytest（295件）、`check:web`、`build:web` はすべて成功した。
+- 変更はまだコミットしていない。ユーザーがコミットを指示した後に、**手順4〜6（下の「Phase 4 指示」）に進んでよい。** 手順4以降で WebSocket の配信を足すときも、ADR 0004 のロックの順序を守ること。購読者への通知は、どちらのロックも持たない状態で行うこと。
+
+## Phase 4 手順1〜3 のレビュー（2026-11-18）
+
+`TOCLAUDE.md` の「Phase 4 手順1〜3: 認識APIとの接続」と、作業ツリーの差分をレビューした。
+
+- ローカルでの再確認: ruff、mypy（42ファイル）、pytest（285件）はすべて成功した。
+- 全体の構成は指示どおりで、問題ない。`GameService` への切り出し、`source` と `confirmationId` の記録、`candidateId`、OpenCV がないときの `unavailable` がこれに当たる。
+- ただし、認識スレッドと HTTP の並行処理に**不具合が2件ある**。どちらもテスト用のフェイクで再現できた。**手順4〜6に進む前に、1と2を直すこと。** 3〜6は、同じ作業の中で直してよい。
+
+### 1. 確認依頼の承認と認識スレッドが、同じ確定を奪い合う（重要）
+
+`RecognitionService.confirm_candidate()` の動きは次のとおりである。
+
+1. `self._lock` の中で、セッションを `confirmed`（`reviewed` または `corrected`）にする。
+2. ロックを放してから、`register_recognition_roll()` を呼ぶ。
+3. 登録が成功した後に、`_remember_confirmation()` で `_handled_confirmation_ids` に入れる。
+
+2の間に認識スレッドがフレームを処理すると、`_handle_snapshot()` は `confirmed` かつ未処理の確定を見つけ、**自分でも同じ確定を登録しにいく**。セッションは `confirmed` の間、`observe()` で状態を変えないので、毎フレームこの条件に当たる。
+
+再現手順: `register_recognition_roll` の直前に `process_frame()` を1回挟んだ。その結果は次のとおりだった。
+
+- ターンは1件だけ登録された。
+- HTTP 側は `duplicate_confirmation` を受けて `discard_confirmation()` を呼んだ。セッションはすでに `removal_wait` なので、`ValueError("取り消せる確定結果がありません")` で **500** になった。
+- 順序が逆になると、例外は認識スレッドの側で起きる。`_run()` の `except Exception` に落ちて「カメラ切断」として扱われ、**認識が止まる**。
+- また、スレッド側が登録した場合は、管理者が送った `expectedTurnNumber` の検査が効かない。
+
+直し方:
+
+- `confirm_candidate`、`reject_candidate`、`manual_committed` と、認識スレッドの `pipeline.process()` + `_handle_snapshot()` を、同じ `self._lock` で直列にすること。今は `_run()` と `process_frame()` が、ロックなしで `pipeline.process()` を呼んでいる。セッションはスレッドセーフではないので、確認操作と `observe()` が同時に走らない形にすること。
+- ロックの順序は「認識ロック → ゲームロック」に固定すること。ゲームロックを持ったまま認識ロックを取る経路は作らない。今の `create_roll` はゲームロックを放してから `manual_committed` を呼んでいるので、この順序は守られている。
+- `_handle_snapshot()` は、`source` が `automatic` の確定だけを登録すること。`reviewed` と `corrected` は HTTP 側の責任である。
+- `discard_confirmation()` と `acknowledge_committed()` が `ValueError` を出しても、500 やスレッド停止にならないこと。
+
+### 2. 手動入力と自動確定が重なると、1回の投擲が2ターン登録される（重要）
+
+自動確定の登録は、`current_roll_context()` で**登録の直前に**状態バージョンと手番を取り、それをそのまま期待値にしている。この検査は実質的に何も防いでいない。
+
+これが問題になるのは、次の2つの場合である。
+
+- サイコロが盤上で `stationary` のときに、管理者が手動で出目を入れた場合。`create_roll` がゲームロックを放してから `manual_committed()` を呼ぶまでの間に、認識スレッドが自動確定できる。
+- セッションが `confirmed` のときに手動入力が来た場合。`enter_manual()` が `ValueError` になって警告ログだけで終わり、その後に自動確定が登録される。
+
+再現した結果: 手動の4と自動の4が、別々のターンとして2件登録された。
+
+直し方の案（別の方法でもよい）:
+
+- 投擲サイクルの始まり（`waiting` から `moving` へ移るとき）に、ゲームの `stateVersion` を記録する。自動確定では、その値を期待値として渡す。サイクルの途中で手動入力や Undo などがあれば `state_version_conflict` になり、確認依頼へ戻る。
+- 1を直して処理を直列にすれば、`manual_committed()` が `confirmed` に当たる経路はなくなる。それでも `ValueError` を警告だけで済ませず、認識側をどう扱うかを決めて ADR に書くこと。
+
+テスト: 1と2の両方について、今回の再現手順と同じように、登録の途中にフレーム処理や手動入力を差し込むテストを追加すること。
+
+### 3. 確認依頼の承認が、どのゲームに対するものかを確かめていない
+
+`register_recognition_roll()` は `repository.current()` に登録する。`stateVersion` は、ゲームごとに 0 から数える番号である。そのため、管理者が別のゲームを表示していても、番号が偶然一致すると承認が通る。
+
+`RecognitionCandidateConfirm` に `gameId` を加え、現在のゲームと一致しなければ 409 にすること。
+
+### 4. `stop()` が、別スレッドで読み込み中のカメラを閉じている
+
+`stop()` は、`stream.close()`（OpenCV の `release()`）を、`read()` 中かもしれない認識スレッドの外から呼んでいる。さらに、`_run()` の `finally` でも、もう一度閉じている。macOS の OpenCV では、読み込み中の `release()` が不安定になることがある。
+
+停止のイベントを立てて `join()` し、カメラはワーカー側で一度だけ閉じること。`join()` がタイムアウトした場合の扱いも決めること。
+
+### 5. 認識スレッドの例外を、すべてカメラ切断として扱っている
+
+`_run()` は、`pipeline.process()` やゲーム登録の中の不具合も含め、すべての例外を `camera_disconnected` にしている。原因を調べにくくなる。
+
+- カメラの読み込みの失敗（`CameraDisconnectedError` など）は `camera_disconnected` にする。
+- それ以外は、別の error code（例: `recognition_worker_failed`）にする。
+
+### 6. 軽微な指摘
+
+- `stop()` してから `start()` しても、セッションの状態が残る。止めたときに確認依頼や除去待ちだった候補が、再開後も残ってしまう。ADR 0004 の「再接続後は `waiting` から再開」に合わせ、`start()` でセッションを `waiting` に戻すこと（`camera_disconnected()` を1回通すなど）。
+- 認識由来のターンを `correct_roll` で訂正すると、新しいイベントがペイロードをそのまま写す。その結果、値だけが変わり、`source=automatic` と元の信頼度が残る。訂正後のターンは、`source` を訂正済みとわかる形にするか、`correctedFrom` などを付けて、監査で区別できるようにすること。
+- `_handled_confirmation_ids` が上限なく増える。長時間動かしても問題にならない程度に、直近の分だけ持てばよい。
+
+### 次の作業
+
+1〜6を直し、テストを追加したら `TOCLAUDE.md` に報告すること。Claude が確認してから手順4〜6に進む。ローカル5チェックの結果も書くこと。
+
+## Phase 4 指示: 認識APIとリアルタイム配信（2026-11-18）
+
+サイコロ認識の改善はいったん終える（ユーザー判断）。認識の現状と残る弱点は `docs/operations/dice-recognition.md` の最後の節「2026-11-17 時点のまとめ」を参照すること。下にある「Claude実装済み」の節は、作業の前提として読んでおくこと。
+
+次は Phase 4 の残りを進める。サービス層の認識セッション `DiceRecognitionSession` をゲームAPIにつなぎ、ゲーム状態と認識状態を WebSocket で配信する。
+
+### 作業の進め方
+
+- `main` から新しいブランチ `phase4-recognition-api` を作って作業する。
+- **コミットはしないこと。** ユーザーの指示を受けて Claude がコミットする。
+- 作業は2回に分ける。**手順1〜3が終わった時点で、いったん `TOCLAUDE.md` に報告すること。** Claude のレビューを受けてから手順4〜6に進む。
+- 仕様の判断に迷ったら、勝手に決めずに `TOCLAUDE.md` に質問を書くこと。
+- API を変更するときは `docs/api/README.md` の手順に従うこと（スキーマ、`api.ts` と `types.ts`、テスト、`errors.md`、ADR）。
+
+### 前提（変えないこと）
+
+- ADR 0004 の分離を守る。認識側は候補と根拠を出すだけにする。ゲームへの出目登録は、API 層が `stateVersion` を確かめてから行う。
+- カメラ画像、映像、ROI の画素は、通常ログに出さない（ADR 0003、0004）。
+- 認識しきい値の既定値は変えない（自動確定0.83など）。保存済みの値は `var/vision-settings.json` から読む。このファイルはユーザーが調整した値なので、テストで上書きしないこと。
+- `vision` の追加依存（OpenCV、numpy）が入っていなくても、サーバーは起動できるようにする。その場合、認識は「利用不可」の状態として返す。
+- ライブ画面 `vision_bench` とサーバーは、同じカメラを同時には開けない。サーバー側でカメラを開くのは、管理者が明示的に開始したときだけにする。
+
+### 手順1: ゲーム操作をサービスに切り出す
+
+今は、ゲーム操作が `create_app()` の中で `RLock` に守られて書かれている。カメラのスレッドからも同じ操作を呼べるようにするため、ロック、`check_version`、`save_or_503`、ログをまとめた `GameService`（名前は任意）に切り出すこと。HTTP エンドポイントと認識スレッドは、同じインスタンスと同じロックを使うこと。
+
+既存のAPIの挙動とエラーcodeは変えないこと。既存のテストは、そのまま通ること。
+
+### 手順2: 出目の出どころを記録する
+
+`GameState.roll()` に、出目の出どころを渡せるようにする。
+
+- `source`: `manual`（管理者の手動入力）、`automatic`（自動確定）、`reviewed`（確認依頼を承認）、`corrected`（確認依頼で値を直した）。
+- 認識から来た出目では、さらに `confirmationId`、元の候補値、信頼度の内訳を持たせる。
+
+これを ROLL 操作のペイロードとして、SQLite と復元に通すこと。`TurnRecord.to_dict()` にも `source` を出す。古いデータには `source` がないので、読み込み時は `manual` として扱う。
+
+同じ `confirmationId` は、一度しかゲームに登録できないようにすること。Undo の後に、同じ確定をもう一度登録できてしまわないかも確かめる。
+
+### 手順3: 認識サービスと認識API
+
+#### 認識サービス
+
+`DiceRecognitionPipeline` を持ち、バックグラウンドのスレッドでカメラのフレームを処理する `RecognitionService`（名前は任意）を作る。
+
+- カメラは `OpenCVCameraProvider` を注入する。テストでは、保存した観測列やフレームを返すフェイクを使い、実機を要求しない。
+- 時計は注入できる単調増加時計にする。
+- 状態が変わるたびに、購読者へ通知する。
+
+#### 確定したときの扱い
+
+認識セッションが `confirmed` になったら、サービスは現在のゲームに出目を登録する。
+
+1. 登録の前に、ゲームが進行中であることを確かめる。進行中でなければ（一時停止、未開始、ゲームなし）登録しない。
+2. 登録できたら `acknowledge_committed()` を呼ぶ。
+3. 登録できなかったら `discard_confirmation()` を呼んで、確認依頼に戻す。理由は error code で返す。例: `game_not_in_progress`、`state_version_conflict`。
+
+#### 確認依頼の取り違えを防ぐ
+
+今の `RecognitionSnapshot` には、候補を識別するIDがない。管理者が画面で見た候補とは別の候補を承認してしまうことがあり得る。
+
+- 確認依頼の候補に `candidateId` を付けること。
+- 承認、修正、振り直しのリクエストでは、`candidateId` が今の候補と一致しなければ 409 を返す。
+
+#### HTTP API
+
+パスと名前は一例である。変える場合は理由を報告すること。
+
+| メソッド | パス | 内容 |
+|---|---|---|
+| GET | `/api/recognition` | 認識状態を返す。状態、候補値、`candidateId`、信頼度の内訳、直近の確定、error code、カメラの接続状態を含む。 |
+| GET | `/api/recognition/cameras` | カメラの一覧を返す。 |
+| POST | `/api/recognition/start` | カメラを選んで認識を始める。 |
+| POST | `/api/recognition/stop` | 認識を止める。 |
+| POST | `/api/recognition/candidate/confirm` | 確認依頼の候補を承認する。`value` を付けると、その値に直して確定する。`candidateId`、`expectedStateVersion`、`expectedTurnNumber` を必須にする。 |
+| POST | `/api/recognition/candidate/reject` | **振り直し**にする。`reject_candidate()` を呼び、次の動きから新しい投擲として扱う。ゲーム状態は変えない。 |
+
+手動入力の扱い:
+
+- 既存の `POST /api/games/{id}/rolls` は、`source=manual` として残す。
+- 認識が動いている間に手動入力された場合は、認識セッションにも `enter_manual()` と `acknowledge_committed()` で伝えること。そうしないと、盤上に残っているサイコロを次の出目として重ねて確定してしまう。どの状態から手動入力を許すかは、ADR 0004 に従うこと。
+
+新しい error code は `errors.md` に書くこと。
+
+#### 手順1〜3のテスト
+
+- 自動確定が一度だけ登録され、`source` が記録されること。
+- 一時停止中に自動確定した場合、登録されずに確認依頼へ戻ること。
+- 確認依頼の承認、修正、振り直し。
+- 古い `candidateId`、古い `stateVersion`、手番のずれで 409 になること。
+- 同じ `confirmationId` を二重に登録できないこと。
+- 手動入力の後に、同じサイコロが再確定されないこと。
+- SQLite からの復元で `source` が残ること。
+- OpenCV がなくても、サーバーが起動して認識が「利用不可」になること。
+
+ここまでで、いったん `TOCLAUDE.md` に報告すること。
+
+### 手順4: WebSocket 配信
+
+`/ws` を追加する。ゲーム状態、認識状態、実況状態を配信する。
+
+- 接続した直後に、現在のゲーム状態と認識状態を送る。
+- 以後は、変更があるたびに送る。
+- メッセージの形式は `{ "type": "game" | "recognition" | "commentary", "sequence": n, "payload": {...} }` を基本にする。`sequence` は、サーバー内で単調に増える番号にする。ゲームの `payload` は、HTTP の `to_dict()` と同じ形にする。
+- 実況は Phase 6 まで中身がない。`commentary` は `{ "status": "idle" }` などの固定値でよい。ただし型は先に決めておくこと。
+- 認識スレッドから asyncio のループへ渡すときは、`loop.call_soon_threadsafe` などのスレッドセーフな方法を使う。遅いクライアントのために、他の配信が止まらないようにすること。
+- 認識状態は、フレームごとには送らない。状態、候補、error code、カメラの接続状態が変わったときだけ送る。
+- 切断と再接続で、サーバー側の購読者が漏れないようにすること。
+
+Web 側（`apps/web`）は、最小限の変更にとどめる。画面の作り込みは Phase 5 で行う。
+
+- `App.tsx` で、ゲーム状態を WebSocket で受け取るようにする。切れたら再接続し、再接続したら最新の状態に置き換える。
+- 認識状態と候補値を表示する。確認依頼のときだけ、「承認」「1〜6に直す」「振り直し」のボタンを出す。
+
+### 手順5: ROI プレビュー
+
+認識スレッドが最後に処理したフレームを、ROI の枠と検出結果を重ねた JPEG にして返す `GET /api/recognition/preview.jpg` を作る。管理画面では、これを1秒に数回取り直して表示すればよい（MJPEG ストリームは必須ではない）。
+
+- 画像はレスポンスとしてだけ返し、ログやディスクには残さないこと。
+- 認識が止まっているときは 404 か 409 を返すこと。
+
+### 手順6: TypeScript 型の生成と結合テスト
+
+#### 型の生成
+
+今のレスポンスは `dict[str, Any]` なので、OpenAPI にレスポンスの型が出ない。次を行うこと。
+
+- 主なレスポンス（`GameState`、`TurnRecord`、`PlayerState`、認識状態、WebSocket メッセージ）を Pydantic のレスポンスモデルにする。
+- そこから `openapi-typescript` などで `apps/web/src/` に型を生成する npm スクリプトを追加する。
+- 手書きの `types.ts` は、生成した型に置き換えるか、生成した型からの再エクスポートにする。
+- 生成物が古いままになっていないかを、ローカル5チェックか CI で検出できるようにすること（例: 生成して `git diff --exit-code`）。
+
+#### 結合テスト
+
+FastAPI の `TestClient.websocket_connect` を使い、次を確かめる。
+
+- 2つの接続が、同じ操作の結果を同じ順で受け取ること。
+- 自動確定から、ゲームの更新と認識状態の更新が配信されること。
+- 再接続した直後に、最新の状態が届くこと。
+
+### 範囲外（今回はやらないこと）
+
+- 管理者 UI の作り込み、設定画面からのしきい値調整（Phase 5、Phase 3 の P1）。
+- ヘルスチェックの拡張（Phase 4 の P1）。時間が余れば提案だけしてよい。
+- 認識アルゴリズムやしきい値の変更。
+- `dice_recognize/` の削除。
+
+### ドキュメント
+
+- ADR 0004 に、ゲーム登録との接続（登録失敗時の戻り方、`candidateId`、振り直し、手動入力とのロック）を追記するか、新しい ADR を作ること。
+- WebSocket のメッセージ形式は、`docs/api/` に書くこと。
+- `TODO.md` の該当項目にチェックを付けること。Phase 3 の「ROIプレビューをAPI・管理画面へ追加する」も含む。
+
+### 完了報告のお願い
+
+手順1〜3の後と、手順4〜6の後に、それぞれ `TOCLAUDE.md` に次を書くこと。
+
+- 実装の要点と、上の例から変えた点、その理由。
+- 追加・変更した API と error code。
+- ローカル5チェックの結果。
+  - `.venv/bin/ruff check apps/server`
+  - `.venv/bin/mypy`
+  - `.venv/bin/pytest -q`
+  - `npx -y -p node@22 -- npm run check:web`
+  - `npx -y -p node@22 -- npm run build:web`
+- 実機で確かめたかどうか。確かめていなければ、ユーザーに頼みたい確認手順を書くこと。
+- 未解決の質問。
+
 ## Claude実装済み: 外形信頼度ガードと深い再計数（2026-11-17 夜）
 
 ユーザーの指示で Claude が直接実装した。**Codexへの作業指示ではない。**

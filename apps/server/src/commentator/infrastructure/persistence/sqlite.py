@@ -19,6 +19,7 @@ from ...domain.game import (
     OperationRecord,
     OperationType,
     PlayerState,
+    RollSource,
     TurnRecord,
     compute_statistics,
 )
@@ -77,6 +78,16 @@ def _turn(value: dict[str, Any]) -> TurnRecord:
         jump_type=JumpType(jump) if jump else None,
         events=tuple(EventType(item) for item in value["events"]),
         occurred_at=datetime.fromisoformat(value["occurredAt"]),
+        source=RollSource(value.get("source", RollSource.MANUAL.value)),
+        confirmation_id=value.get("confirmationId"),
+        original_candidate=(
+            int(value["originalCandidate"])
+            if value.get("originalCandidate") is not None else None
+        ),
+        confidence=(dict(value["confidence"]) if value.get("confidence") else None),
+        corrected_from=(
+            dict(value["correctedFrom"]) if value.get("correctedFrom") else None
+        ),
         branch_id=str(value.get("branchId", "main")),
         state_version_before=int(value.get("stateVersionBefore", 0)),
         state_version_after=int(value.get("stateVersionAfter", 0)),

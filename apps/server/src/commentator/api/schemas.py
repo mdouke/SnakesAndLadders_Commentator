@@ -34,6 +34,22 @@ class RollCreate(RequestModel):
     expected_turn_number: int | None = Field(default=None, alias="expectedTurnNumber", ge=0)
 
 
+class RecognitionStart(RequestModel):
+    camera_id: int | None = Field(default=None, alias="cameraId", ge=0)
+
+
+class RecognitionCandidateConfirm(RequestModel):
+    game_id: str = Field(alias="gameId", min_length=1)
+    candidate_id: str = Field(alias="candidateId", min_length=1)
+    expected_state_version: int = Field(alias="expectedStateVersion", ge=0)
+    expected_turn_number: int = Field(alias="expectedTurnNumber", ge=0)
+    value: int | None = Field(default=None, ge=1, le=6)
+
+
+class RecognitionCandidateReject(RequestModel):
+    candidate_id: str = Field(alias="candidateId", min_length=1)
+
+
 class VersionedRequest(RequestModel):
     expected_state_version: int = Field(alias="expectedStateVersion", ge=0)
     confirm_ended_game: bool = Field(default=False, alias="confirmEndedGame")

@@ -1,5 +1,85 @@
 # Claude向け実装・レビュー報告
 
+## Phase 4 手順1〜3: 認識APIとの接続（2026-11-18）
+
+`phase4-recognition-api` ブランチで手順1〜3を実装した。指示どおりコミットせず、
+手順4〜6には進んでいない。
+
+### 実装の要点
+
+- `create_app()` 内の `RLock`、状態バージョン／手番検査、保存と構造化ログを
+  `GameService` へ切り出した。HTTPと認識ワーカーは同じインスタンスとロックを使う。
+- `GameState.roll()` と `TurnRecord` に `manual` / `automatic` / `reviewed` /
+  `corrected` の `source` を追加した。認識由来のROLLは `confirmationId`、元候補、
+  信頼度内訳をイベントペイロード、SQLiteスナップショット、復元後のターンへ通す。
+  旧データの欠落 `source` は `manual` とする。
+- `confirmationId` は active/inactive を問わず全ROLLイベントから重複検査するため、
+  Undo後も同じ確定を再登録できない。
+- `DiceRecognitionSession` の確認候補へセッション内で一意な `candidateId` を追加した。
+  登録失敗で `discard_confirmation()` した場合も同じ候補IDを維持する。
+- `RecognitionService` を追加し、注入したパイプライン、カメラProvider、単調増加時計、
+  バックグラウンドスレッド、状態変更時だけの購読通知をまとめた。自動確定では現在の
+  `stateVersion` と手番を採取してから共通ゲームサービスで再検査し、成功時は
+  `acknowledge_committed()`、失敗時は `discard_confirmation()` で確認待ちへ戻す。
+- サーバー起動時はカメラを開かない。`vision` 追加依存を遅延importし、OpenCV等がない場合は
+  サーバーを起動したまま認識を `unavailable` として返す。保存済み
+  `var/vision-settings.json` は読み込みだけ行い、テストを含めて書き換えていない。
+- 手動ROLL成功後は、認識が動作中なら `enter_manual()` と
+  `acknowledge_committed()` で除去待ちへロックする。
+- 例示されたAPIパスと命名は変更していない。WebSocket、ROIプレビュー、生成型は
+  レビュー後の手順4〜6のため未実装。
+
+### 追加・変更したAPI
+
+- `GET /api/recognition`
+- `GET /api/recognition/cameras`
+- `POST /api/recognition/start`
+- `POST /api/recognition/stop`
+- `POST /api/recognition/candidate/confirm`
+- `POST /api/recognition/candidate/reject`
+- 既存 `POST /api/games/{id}/rolls` は `source=manual` のまま維持。
+- `TurnRecord` に `source`、`confirmationId`、`originalCandidate`、`confidence` を追加。
+
+追加した主なerror code:
+
+- 409: `game_not_in_progress`、`turn_conflict`、`duplicate_confirmation`、
+  `candidate_not_pending`、`stale_candidate`、`camera_not_selected`、
+  `recognition_already_running`
+- 503: `recognition_unavailable`、`camera_enumeration_failed`、
+  `camera_connection_failed`
+- 既存の `state_version_conflict`、`game_save_failed` も認識登録で共通利用する。
+
+契約は `docs/api/recognition.md` と `docs/api/errors.md`、状態遷移判断はADR 0004へ追記した。
+手書き期間の `apps/web/src/api.ts` / `types.ts` も同期した（生成型への移行は手順6）。
+
+### テスト
+
+- 自動確定の一度だけの登録と `automatic` source
+- 一時停止中の自動確定を登録せず確認待ちへ戻すこと
+- 候補の承認、修正、振り直し
+- 古いcandidate ID、stateVersion、手番の409
+- Undo後を含むconfirmation IDの重複拒否
+- 手動入力後の認識セッションの除去待ちロック
+- SQLiteでsourceと認識メタデータを復元し、旧データはmanualへ移行
+- OpenCV import不可でもサーバー起動と `unavailable` 応答
+- 同じ公開状態のフレームでは購読者へ重複通知しないこと
+
+ローカル5チェック:
+
+- `.venv/bin/ruff check apps/server`: 成功
+- `.venv/bin/mypy`: 42 source files、成功
+- `.venv/bin/pytest -q`: 285件成功
+- `npx -y -p node@22 -- npm run check:web`: 成功
+- `npx -y -p node@22 -- npm run build:web`: 成功
+
+### 実機確認と未解決事項
+
+実機カメラでは未確認。レビュー後、ユーザーには `vision_bench` を終了した状態でサーバーを起動し、
+カメラ一覧取得→明示開始→自動確定→確認候補の承認／修正／振り直し→停止を確認してもらいたい。
+通常ログに画像・映像・ROI画素を出す経路は追加していない。
+
+未解決の仕様質問はない。Claudeレビュー待ちとして、ここで停止する。
+
 ## 1の目の中心位置で白飛び誤確定を確認依頼へ回す（2026-11-17）
 
 `TOCODEX.md` の「目サイズ均一性ガード導入後の実機60投擲」レビューに対応した。

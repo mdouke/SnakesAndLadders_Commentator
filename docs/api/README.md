@@ -2,6 +2,9 @@
 
 APIを変更するときは、実装と同じ変更で次を更新する。
 
+認識APIの契約は [recognition.md](recognition.md)、共通エラーは
+[errors.md](errors.md) を参照する。
+
 1. PydanticリクエストモデルとFastAPIエンドポイント
 2. `apps/web/src/api.ts` と `types.ts`
 3. 正常系・エラー系のAPIテスト

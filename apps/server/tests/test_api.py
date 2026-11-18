@@ -66,6 +66,7 @@ def test_create_start_and_submit_manual_roll(api: Callable[..., Response]) -> No
     assert state["turns"][0]["normalPosition"] == 1
     assert state["turns"][0]["finalPosition"] == 38
     assert state["turns"][0]["jumpType"] == "ladder"
+    assert state["turns"][0]["source"] == "manual"
 
 
 def test_rejects_game_with_fewer_than_two_players(api: Callable[..., Response]) -> None:

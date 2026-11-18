@@ -61,6 +61,51 @@ ROIをグレースケール化し、連続フレームの絶対差分の平均�
 - 認識不能時も、管理者は1〜6を手動入力できる。
 - 手動値、元候補、信頼度、操作者、理由を区別して監査できる形で後続フェーズのAPIへ渡す。
 
+### ゲームAPIとの接続
+
+- HTTPエンドポイントと認識スレッドは、同じゲームサービスと排他ロックを使う。
+- ROLLは `manual`、`automatic`、`reviewed`、`corrected` の出どころを持つ。認識由来の
+  ROLLには `confirmationId`、元候補、信頼度内訳も保存する。
+- `confirmationId` は active な履歴だけでなく、Undoで無効化された履歴も含めて一意とする。
+- 確認待ち候補にはセッション内で一意な `candidateId` を付ける。承認、修正、振り直しは
+  現在のIDと一致する場合だけ受け付ける。
+- 自動確定の登録前に現在のゲームが進行中か検査する。登録成功後は
+  `acknowledge_committed()`、失敗時は `discard_confirmation()` を呼び、元候補を保持した
+  `needs_confirmation` に戻す。失敗理由は安定したAPI error codeで公開する。
+- 振り直しは `reject_candidate()` で候補を破棄し、ゲーム状態を変更しない。
+- 認識動作中の手動ROLLは、ゲーム登録後に `enter_manual()` と
+  `acknowledge_committed()` を認識セッションへ通知し、盤上に残った同じサイコロを
+  自動確定しないよう `removal_wait` にロックする。セッションが確定済み・除去待ちなどで
+  `enter_manual()` を受け付けない場合も、ゲームへの登録は成功しているため、セッションを
+  `waiting` に戻してから手動確定としてロックする（同じサイコロから2ターン目を作らない）。
+
+#### 並行処理（2026-11-18 追記）
+
+- 認識セッションはスレッドセーフではない。認識スレッドのフレーム処理
+  （`process()` と確定の登録）と、HTTPの承認・修正・振り直し・手動ROLL通知は、
+  同じ認識ロックで直列化する。
+- ロックの順序は「認識ロック → ゲームロック」に固定する。ゲームロックを保持したまま
+  認識ロックを取得してはならない（手動ROLLはゲームロックを解放してから通知する）。
+- 認識スレッドが登録するのは `source=automatic` の確定だけとする。`reviewed` と
+  `corrected` はHTTPの承認処理が登録する。
+- 自動確定は、投擲サイクルの開始時（`waiting`、`removal_wait`、`recognition_error`、
+  `camera_error` から `moving` へ移った時点）に記録した `gameId`、`stateVersion`、
+  手番を期待値として登録する。サイクルの途中で手動入力、Undo、ゲーム切替などがあれば
+  競合となり、確認待ちへ戻る。
+- 承認の要求は `gameId` を含め、現在のゲームと一致しなければ `current_game_conflict` とする。
+- `acknowledge_committed()` や `discard_confirmation()` の状態不一致は500にせず、
+  `recognition_state_conflict` として記録・公開する。
+- カメラはワーカースレッドだけが閉じる。停止要求はイベントを立てて `join()` し、
+  時間内に終わらなければ `recognition_stop_timeout` を返す。
+- カメラ読み込みの失敗は `camera_disconnected`、それ以外のワーカー例外は
+  `recognition_worker_failed` として区別する。
+- 認識の開始時は、セッションを `waiting` に戻す（停止前の候補を持ち越さない）。
+- 認識由来のROLLを後から訂正した場合、ターンの `source` は `corrected` とし、
+  `correctedFrom`（訂正前の値、出どころ、`confirmationId`）を残す。`originalCandidate`
+  は認識時の候補のまま保持する。
+- カメラは管理者の開始操作でのみ開く。OpenCV等がない環境ではサーバーを起動したまま
+  認識状態を `unavailable` とする。
+
 ### カメラとテストの境界
 
 - カメラは列挙・接続・フレーム取得・切断を表すポートで抽象化する。

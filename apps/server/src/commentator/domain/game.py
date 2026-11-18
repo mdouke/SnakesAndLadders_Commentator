@@ -47,6 +47,13 @@ class OperationType(StrEnum):
     RESTORE = "restore"
 
 
+class RollSource(StrEnum):
+    MANUAL = "manual"
+    AUTOMATIC = "automatic"
+    REVIEWED = "reviewed"
+    CORRECTED = "corrected"
+
+
 class CorrectionConfirmationRequired(ValueError):
     def __init__(
         self,
@@ -211,6 +218,11 @@ class TurnRecord:
     jump_type: JumpType | None
     events: tuple[EventType, ...]
     occurred_at: datetime
+    source: RollSource = RollSource.MANUAL
+    confirmation_id: str | None = None
+    original_candidate: int | None = None
+    confidence: dict[str, Any] | None = None
+    corrected_from: dict[str, Any] | None = None
     branch_id: str = "main"
     state_version_before: int = 0
     state_version_after: int = 0
@@ -228,6 +240,11 @@ class TurnRecord:
             "jumpType": self.jump_type.value if self.jump_type else None,
             "events": list(self.events),
             "occurredAt": self.occurred_at.isoformat(),
+            "source": self.source.value,
+            "confirmationId": self.confirmation_id,
+            "originalCandidate": self.original_candidate,
+            "confidence": deepcopy(self.confidence),
+            "correctedFrom": deepcopy(self.corrected_from),
             "branchId": self.branch_id,
             "stateVersionBefore": self.state_version_before,
             "stateVersionAfter": self.state_version_after,
@@ -313,17 +330,52 @@ class GameState:
         self.status = GameStatus.IN_PROGRESS
         self.started_at = occurred_at
 
-    def roll(self, value: int, *, now: datetime | None = None) -> TurnRecord:
+    def roll(
+        self,
+        value: int,
+        *,
+        source: RollSource = RollSource.MANUAL,
+        confirmation_id: str | None = None,
+        original_candidate: int | None = None,
+        confidence: dict[str, Any] | None = None,
+        now: datetime | None = None,
+    ) -> TurnRecord:
+        if confirmation_id is not None and any(
+            event.type is OperationType.ROLL
+            and event.payload.get("confirmationId") == confirmation_id
+            for event in self.operation_events
+        ):
+            raise ValueError("同じ認識確定はすでに登録されています")
         occurred_at = now or datetime.now(UTC)
         branch_before = self.branch_id
         branch_after = self._next_action_branch()
         player = self.current_player
         if player is None:
             raise ValueError("現在の手番がありません")
-        turn = self._apply_roll(value, occurred_at, branch_after)
+        turn = self._apply_roll(
+            value,
+            occurred_at,
+            branch_after,
+            source=source,
+            confirmation_id=confirmation_id,
+            original_candidate=original_candidate,
+            confidence=confidence,
+        )
+        payload: dict[str, Any] = {
+            "value": value,
+            "turnId": turn.id,
+            "playerId": player.id,
+            "source": source.value,
+        }
+        if confirmation_id is not None:
+            payload["confirmationId"] = confirmation_id
+        if original_candidate is not None:
+            payload["originalCandidate"] = original_candidate
+        if confidence is not None:
+            payload["confidence"] = deepcopy(confidence)
         self._record(
             OperationType.ROLL,
-            {"value": value, "turnId": turn.id, "playerId": player.id},
+            payload,
             occurred_at,
             label=f"出目 {value}（ターン{turn.number}）",
             branch_before=branch_before,
@@ -332,7 +384,16 @@ class GameState:
         return turn
 
     def _apply_roll(
-        self, value: int, occurred_at: datetime, branch_id: str
+        self,
+        value: int,
+        occurred_at: datetime,
+        branch_id: str,
+        *,
+        source: RollSource = RollSource.MANUAL,
+        confirmation_id: str | None = None,
+        original_candidate: int | None = None,
+        confidence: dict[str, Any] | None = None,
+        corrected_from: dict[str, Any] | None = None,
     ) -> TurnRecord:
         if self.status is not GameStatus.IN_PROGRESS:
             raise ValueError("進行中のゲームでのみサイコロを確定できます")
@@ -355,6 +416,11 @@ class GameState:
             jump_type=result.jump.type if result.jump else None,
             events=events,
             occurred_at=occurred_at,
+            source=source,
+            confirmation_id=confirmation_id,
+            original_candidate=original_candidate,
+            confidence=deepcopy(confidence),
+            corrected_from=deepcopy(corrected_from),
             branch_id=branch_id,
             state_version_before=self.state_version,
             state_version_after=self.state_version + 1,
@@ -594,7 +660,15 @@ class GameState:
         for event in suffix:
             payload = deepcopy(event.payload)
             if event.id == target.id:
+                previous_value = int(payload["value"])
+                payload["correctedFrom"] = {
+                    "value": previous_value,
+                    "source": payload.get("source", RollSource.MANUAL.value),
+                    "confirmationId": payload.get("confirmationId"),
+                }
                 payload["value"] = value
+                payload["source"] = RollSource.CORRECTED.value
+                payload.pop("confidence", None)
                 payload.pop("turnId", None)
             elif self.status is GameStatus.COMPLETED:
                 if event.type is OperationType.ROLL:
@@ -979,7 +1053,16 @@ class GameState:
                 raise ValueError(
                     f"訂正後の手番と後続の出目が一致しません（ターン{turn_number}）"
                 )
-            turn = self._apply_roll(int(event.payload["value"]), event.occurred_at, event.branch_id)
+            turn = self._apply_roll(
+                int(event.payload["value"]),
+                event.occurred_at,
+                event.branch_id,
+                source=RollSource(event.payload.get("source", RollSource.MANUAL.value)),
+                confirmation_id=event.payload.get("confirmationId"),
+                original_candidate=event.payload.get("originalCandidate"),
+                confidence=event.payload.get("confidence"),
+                corrected_from=event.payload.get("correctedFrom"),
+            )
             event.payload["turnId"] = turn.id
         elif event.type is OperationType.POSITION_CORRECTION:
             self._apply_position_correction(

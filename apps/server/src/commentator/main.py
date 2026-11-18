@@ -9,7 +9,6 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import RLock
 from time import monotonic
 from typing import Any, Protocol
 from uuid import uuid4
@@ -21,6 +20,9 @@ from .api.errors import ApiError, install_error_handlers
 from .api.schemas import (
     GameCreate,
     PositionCorrection,
+    RecognitionCandidateConfirm,
+    RecognitionCandidateReject,
+    RecognitionStart,
     RestoreRequest,
     RollCorrection,
     RollCreate,
@@ -36,6 +38,8 @@ from .domain.game import (
 from .infrastructure.logging import configure_logging, load_log_config
 from .infrastructure.persistence import SQLiteGameRepository
 from .presets import load_board_preset
+from .services.game import GameService
+from .services.recognition import RecognitionRuntimeSettings, RecognitionService
 
 
 class GameRepository(Protocol):
@@ -116,22 +120,32 @@ def _apply_action(action: Callable[[], object]) -> None:
 
 
 def create_app(
-    board: Board | None = None, repository: GameRepository | None = None,
+    board: Board | None = None,
+    repository: GameRepository | None = None,
+    recognition_service: RecognitionService | None = None,
 ) -> FastAPI:
     board = board if board is not None else load_board_preset()
     repo = repository if repository is not None else MemoryGameRepository()
-    lock = RLock()
+    game_service = GameService(repo)
+    recognition = recognition_service or _create_recognition_service(game_service)
+    recognition.game_service = game_service
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        with lock:
+        with game_service.lock:
             recover_interrupted_games(repo)
-        yield
+        try:
+            yield
+        finally:
+            if recognition.running:
+                recognition.stop()
 
     application = FastAPI(
         title="Snakes & Ladders Commentator API", version="0.1.0", lifespan=lifespan
     )
     install_error_handlers(application)
+    application.state.game_service = game_service
+    application.state.recognition_service = recognition
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
@@ -173,46 +187,6 @@ def create_app(
         )
         return response
 
-    def game_or_404(game_id: str) -> GameState:
-        game = repo.get(game_id)
-        if game is None:
-            raise ApiError(404, "game_not_found", "ゲームが見つかりません")
-        return game
-
-    def check_version(game: GameState, expected: int) -> None:
-        if expected != game.state_version:
-            raise ApiError(
-                409, "state_version_conflict", "ゲーム状態が更新されています",
-                {"expectedStateVersion": expected, "actualStateVersion": game.state_version},
-            )
-
-    def save_or_503(game: GameState, *, make_current: bool = False) -> None:
-        try:
-            if make_current:
-                repo.save_and_set_current(game)
-            else:
-                repo.save(game)
-        except Exception as error:
-            logging.getLogger("commentator.persistence").exception(
-                "game save failed",
-                extra={
-                    "event": "game_save_failed", "gameId": game.id,
-                    "stateVersion": game.state_version, "errorCode": "game_save_failed",
-                },
-            )
-            raise ApiError(
-                503, "game_save_failed", "ゲーム状態を保存できませんでした"
-            ) from error
-        logging.getLogger("commentator.game").info(
-            "game state saved",
-            extra={
-                "event": "game_state_saved",
-                "gameId": game.id,
-                "stateVersion": game.state_version,
-                "turnId": game.turns[-1].id if game.turns else None,
-            },
-        )
-
     def require_ended_confirmation(game: GameState, confirmed: bool) -> None:
         if game.status in {GameStatus.COMPLETED, GameStatus.ABORTED} and not confirmed:
             raise ApiError(
@@ -230,24 +204,24 @@ def create_app(
 
     @application.post("/api/games", status_code=201)
     def create_game(request: GameCreate) -> dict[str, Any]:
-        with lock:
+        with game_service.lock:
             game = GameState.create(board, [
                 PlayerState(
                     id=str(uuid4()), name=item.name, color=item.color,
                     display_name=item.display_name, spoken_name=item.spoken_name,
                 ) for item in request.players
             ])
-            save_or_503(game, make_current=True)
+            game_service.save_or_503(game, make_current=True)
             return game.to_dict()
 
     @application.get("/api/games")
     def list_games() -> list[dict[str, Any]]:
-        with lock:
+        with game_service.lock:
             return [game.to_dict() for game in repo.list()]
 
     @application.get("/api/games/current")
     def current_game() -> dict[str, Any]:
-        with lock:
+        with game_service.lock:
             game = repo.current()
             if game is None:
                 raise ApiError(
@@ -257,51 +231,49 @@ def create_app(
 
     @application.get("/api/games/{game_id}")
     def get_game(game_id: str) -> dict[str, Any]:
-        with lock:
-            return game_or_404(game_id).to_dict()
+        with game_service.lock:
+            return game_service.game_or_404(game_id).to_dict()
 
     @application.post("/api/games/{game_id}/activate")
     def activate_game(game_id: str, request: VersionedRequest) -> dict[str, Any]:
-        with lock:
-            game = game_or_404(game_id)
-            check_version(game, request.expected_state_version)
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
             repo.set_current(game.id)
             return game.to_dict()
 
     @application.post("/api/games/{game_id}/rolls")
     def create_roll(game_id: str, request: RollCreate) -> dict[str, Any]:
-        with lock:
-            game = game_or_404(game_id)
-            check_version(game, request.expected_state_version)
-            if (
-                request.expected_turn_number is not None
-                and request.expected_turn_number != game.turn_number
-            ):
-                raise ApiError(409, "turn_conflict", "手番が更新されています")
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
+            game_service.check_turn(game, request.expected_turn_number)
             _apply_action(lambda: game.roll(request.value))
-            save_or_503(game)
-            return game.to_dict()
+            game_service.save_or_503(game)
+            result = game.to_dict()
+        recognition.manual_committed(request.value)
+        return result
 
     @application.post("/api/games/{game_id}/position-corrections")
     def correct_position(game_id: str, request: PositionCorrection) -> dict[str, Any]:
-        with lock:
-            game = game_or_404(game_id)
-            check_version(game, request.expected_state_version)
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
             require_ended_confirmation(game, request.confirm_ended_game)
             _apply_action(lambda: game.correct_position(
                 request.player_id, request.position,
                 reason=request.reason, operator=request.operator,
             ))
-            save_or_503(game)
+            game_service.save_or_503(game)
             return game.to_dict()
 
     @application.post("/api/games/{game_id}/turns/{turn_id}/correction")
     def correct_roll(
         game_id: str, turn_id: str, request: RollCorrection
     ) -> dict[str, Any]:
-        with lock:
-            game = game_or_404(game_id)
-            check_version(game, request.expected_state_version)
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
             require_ended_confirmation(game, request.confirm_ended_game)
             if request.dry_run:
                 try:
@@ -331,14 +303,14 @@ def create_app(
                 ) from error
             except (ValueError, RuntimeError) as error:
                 raise ApiError(409, "roll_correction_failed", str(error)) from error
-            save_or_503(game)
+            game_service.save_or_503(game)
             return game.to_dict()
 
     @application.post("/api/games/{game_id}/restore")
     def restore_game(game_id: str, request: RestoreRequest) -> dict[str, Any]:
-        with lock:
-            game = game_or_404(game_id)
-            check_version(game, request.expected_state_version)
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
             require_ended_confirmation(game, request.confirm_ended_game)
             snapshot = repo.snapshot(game_id, request.target_state_version)
             if snapshot is None:
@@ -346,16 +318,16 @@ def create_app(
                     404, "snapshot_not_found", "スナップショットが見つかりません"
                 )
             _apply_action(lambda: game.restore_from(snapshot))
-            save_or_503(game)
+            game_service.save_or_503(game)
             return game.to_dict()
 
     @application.post("/api/games/{game_id}/{action}")
     def change_state(
         game_id: str, action: str, request: VersionedRequest
     ) -> dict[str, Any]:
-        with lock:
-            game = game_or_404(game_id)
-            check_version(game, request.expected_state_version)
+        with game_service.lock:
+            game = game_service.game_or_404(game_id)
+            game_service.check_version(game, request.expected_state_version)
             actions: dict[str, Callable[[], object]] = {
                 "start": game.start, "pause": game.pause, "resume": game.resume,
                 "suspend": game.suspend, "abort": game.abort,
@@ -366,10 +338,44 @@ def create_app(
             if action in {"undo", "redo"}:
                 require_ended_confirmation(game, request.confirm_ended_game)
             _apply_action(actions[action])
-            save_or_503(game)
+            game_service.save_or_503(game)
             if action == "resume":
                 repo.set_current(game.id)
             return game.to_dict()
+
+    @application.get("/api/recognition")
+    def recognition_state() -> dict[str, Any]:
+        return recognition.snapshot()
+
+    @application.get("/api/recognition/cameras")
+    def recognition_cameras() -> dict[str, Any]:
+        return {"cameras": recognition.cameras()}
+
+    @application.post("/api/recognition/start")
+    def start_recognition(request: RecognitionStart) -> dict[str, Any]:
+        return recognition.start(request.camera_id)
+
+    @application.post("/api/recognition/stop")
+    def stop_recognition() -> dict[str, Any]:
+        return recognition.stop()
+
+    @application.post("/api/recognition/candidate/confirm")
+    def confirm_recognition_candidate(
+        request: RecognitionCandidateConfirm,
+    ) -> dict[str, Any]:
+        return recognition.confirm_candidate(
+            request.game_id,
+            request.candidate_id,
+            expected_state_version=request.expected_state_version,
+            expected_turn_number=request.expected_turn_number,
+            value=request.value,
+        )
+
+    @application.post("/api/recognition/candidate/reject")
+    def reject_recognition_candidate(
+        request: RecognitionCandidateReject,
+    ) -> dict[str, Any]:
+        return recognition.reject_candidate(request.candidate_id)
 
     return application
 
@@ -382,4 +388,57 @@ def create_production_app() -> FastAPI:
         "COMMENTATOR_DB_PATH", str(repository_root / "var" / "commentator.sqlite3")
     ))
     return create_app(repository=SQLiteGameRepository(database_path))
+
+
+def _create_recognition_service(game_service: GameService) -> RecognitionService:
+    """Load optional vision dependencies without making them server requirements."""
+    repository_root = Path(__file__).resolve().parents[4]
+    try:
+        from .services.vision.camera import (
+            CameraDisconnectedError,
+            OpenCVCameraProvider,
+        )
+        from .services.vision.detector import DiceDetector
+        from .services.vision.pipeline import DiceRecognitionPipeline
+        from .services.vision.recognition import DiceRecognitionSession
+        from .services.vision.settings import VisionSettingsStore
+
+        settings = VisionSettingsStore(
+            repository_root / "var" / "vision-settings.json"
+        ).load()
+        pipeline = DiceRecognitionPipeline(
+            detector=DiceDetector(
+                white_threshold=settings.white_threshold,
+                pip_threshold=settings.pip_threshold,
+            ),
+            session=DiceRecognitionSession(settings.recognition_config()),
+            roi=settings.roi,
+        )
+        return RecognitionService(
+            game_service,
+            pipeline=pipeline,
+            camera_provider=OpenCVCameraProvider(),
+            settings=RecognitionRuntimeSettings(
+                camera_id=settings.camera_id,
+                camera_width=settings.camera_width,
+                camera_height=settings.camera_height,
+                exposure=settings.exposure,
+            ),
+            camera_disconnected_errors=(CameraDisconnectedError,),
+        )
+    except Exception as error:
+        logging.getLogger("commentator.recognition").warning(
+            "recognition unavailable",
+            extra={
+                "event": "recognition_unavailable",
+                "errorCode": "recognition_unavailable",
+                "reason": type(error).__name__,
+            },
+        )
+        return RecognitionService(
+            game_service,
+            pipeline=None,
+            camera_provider=None,
+            unavailable_reason=type(error).__name__,
+        )
 

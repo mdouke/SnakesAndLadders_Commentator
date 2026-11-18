@@ -153,6 +153,7 @@ class RecognitionSnapshot:
     confidence: ConfidenceBreakdown | None
     confirmation: Confirmation | None
     discarded_candidate: DiscardedCandidate | None
+    candidate_id: str | None = None
     error_code: str | None = None
 
 
@@ -180,6 +181,8 @@ class DiceRecognitionSession:
         self._stationary_count = 0
         self._absence_count = 0
         self._candidate_value: int | None = None
+        self._candidate_id: str | None = None
+        self._candidate_counter = 0
         self._confidence: ConfidenceBreakdown | None = None
         self._confirmation: Confirmation | None = None
         self._discarded_candidate: DiscardedCandidate | None = None
@@ -306,6 +309,13 @@ class DiceRecognitionSession:
             self.state = RecognitionState.RECOGNITION_ERROR
             self._recognition_error_code = "confirmation_discarded"
 
+    def reset_to_waiting(self) -> None:
+        """Discard transient camera state before a new camera session starts."""
+        self._last_confirmed_center = None
+        self._last_observation_time = None
+        self._cycle_started_time = None
+        self._reset_cycle(RecognitionState.WAITING)
+
     def snapshot(self, *, error_code: str | None = None) -> RecognitionSnapshot:
         if error_code is None:
             if self.state is RecognitionState.CAMERA_ERROR:
@@ -315,6 +325,10 @@ class DiceRecognitionSession:
         return RecognitionSnapshot(
             state=self.state,
             candidate_value=self._candidate_value,
+            candidate_id=(
+                self._candidate_id
+                if self.state is RecognitionState.NEEDS_CONFIRMATION else None
+            ),
             confidence=self._confidence,
             confirmation=self._confirmation,
             discarded_candidate=self._discarded_candidate,
@@ -355,7 +369,13 @@ class DiceRecognitionSession:
         recent = list(self._samples)[-required:]
         values = {item.observation.value for item in recent}
         if len(values) == 1:
-            self._candidate_value = recent[-1].observation.value
+            candidate_value = recent[-1].observation.value
+            if self._candidate_value != candidate_value or self._candidate_id is None:
+                self._candidate_counter += 1
+                self._candidate_id = (
+                    f"{self.session_id}:candidate:{self._candidate_counter}"
+                )
+            self._candidate_value = candidate_value
             self.state = RecognitionState.CANDIDATE
             self._evaluate_candidate(frame.monotonic_time)
 
@@ -515,6 +535,7 @@ class DiceRecognitionSession:
         self._stationary_count = 0
         self._absence_count = 0
         self._candidate_value = None
+        self._candidate_id = None
         self._confidence = None
         self._confirmation = None
         self._discarded_candidate = None
