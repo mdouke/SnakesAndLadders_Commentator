@@ -2,6 +2,67 @@
 
 > **ファイル名の変更（2026-11-13）**: ユーザーの指示により、このファイルの名前を `TOCHATGPT.md` から `TOCODEX.md` に変更した。以後、Claude から Codex への指示はこのファイルに書く。Codex からの報告と質問は、これまでどおり `TOCLAUDE.md` に書くこと。下の過去の節に出てくる `TOCHATGPT.md` は、このファイルのことを指す。
 
+## Claude実装済み: Phase 4 手順4〜6（2026-11-18）
+
+Codex の利用上限のため、ユーザーの指示で Claude が実装した。**Codex への作業指示ではない。** 以後の作業の前提として読むこと。
+
+### 手順4: WebSocket 配信
+
+- `services/realtime.py` の `RealtimeHub` が、サーバー全体で単調に増える番号を付け、各接続のイベントループに `call_soon_threadsafe` で投入する。
+- 未送信が64件を超えた接続は、コード1013で切断する。他の接続の配信は止めない。
+- ゲームの変更は、`GameService.save_or_503()` と `set_current()` の後に、ゲームロックの中で通知する。
+  - 対象は現在のゲームだけ。
+  - `(gameId, stateVersion)` が変わらなければ送らない。
+- 認識の変更は、`RecognitionService._notify_if_changed()` が認識ロックの中で通知する。
+- ロックの順序は「認識 → ゲーム → ハブ」。ADR 0004 に追記した。
+- `/ws` は、接続直後に `game`、`recognition`、`commentary` の順で現在の状態を送る。初期状態は、それぞれのロックの中で投入する。
+- 仕様は `docs/api/realtime.md` にまとめた。
+
+### Web 側
+
+- `realtime.ts` の `useRealtime()` は、切れたら0.5〜5秒の間隔で再接続する。
+- `newerGame()` は、HTTP 応答と WebSocket のうち、同じゲームで `stateVersion` が大きい方を採用する。
+- 管理画面に認識パネルを追加した。内容は次のとおり。
+  - カメラの選択、開始、停止。
+  - 状態、候補、信頼度。
+  - 確認依頼のときだけ、「候補で確定」「1〜6に直す」「振り直し」のボタン。
+- プレイヤー画面は、1秒ごとのポーリングをやめ、WebSocket で受け取るようにした。
+- Vite に `/ws` の中継を追加した。
+
+### 手順5: ROI プレビュー
+
+- `GET /api/recognition/preview.jpg` を追加した。最新フレームに ROI の枠と検出結果を重ね、幅を最大640pxにした JPEG を返す。
+- 認識が止まっているときは409 `recognition_preview_unavailable` を返す。
+- 保持するのは最新フレームへの参照1つだけで、ログやディスクには残さない。
+- 管理画面は0.5秒ごとに取り直す。
+
+### 手順6: 型の生成と結合テスト
+
+- `api/responses.py` に、全レスポンスと WebSocket メッセージの Pydantic モデルを定義した。
+  - `extra="forbid"` なので、`to_dict()` と食い違うと API テストが失敗する。
+  - 出目訂正の確認結果も、無効になるターンと操作を型付きのモデルにした。
+- `python -m commentator.tools.export_openapi` で `apps/web/openapi.json` を作る。
+- `npm run generate:api` で、`openapi-typescript@7.13.0` により `apps/web/src/generated/api.ts` を作る。
+- `types.ts` は、生成した型の別名だけを置く形にした。
+- 生成物が古いと、次のチェックで失敗する。どちらもローカル5チェックと CI に含まれる。
+  - pytest の `test_api_contract.py`。
+  - `check:web` の中の `check:api`（`openapi-typescript --check`）。
+- 結合テスト `test_realtime.py` では、次を確かめる。受け取ったメッセージは、すべて公開したスキーマで検証している。
+  - 接続時の初期状態。
+  - 2接続が同じ更新を同じ順で受け取ること。
+  - 自動確定で認識とゲームの更新が届くこと。
+  - 再接続後に最新の状態が届くこと。
+  - ゲームを切り替えたときの配信。
+  - 遅い接続を切断すること。
+  - プレビュー。
+
+### 確認結果
+
+- ローカル5チェックはすべて成功した。pytest は304件。
+- 本物のサーバー（uvicorn と SQLite）を起動して確かめた。2つの WebSocket 接続が、HTTP 操作の更新を同じ番号と順番で受け取った。
+- 実機カメラとブラウザ2画面での確認は、まだ行っていない（ユーザーに依頼する）。
+- `npm audit` で、既存の `vite` が依存する `picomatch` の警告が出る。今回の変更とは関係ない。
+
 ## Claude引き継ぎ: Phase 4 手順1〜3 のレビュー対応を完了（2026-11-18）
 
 Codex の利用上限のため、ユーザーの指示で Claude が残りを引き継いだ。**Codex への作業指示ではない。** 次の手順4〜6の前提として読むこと。

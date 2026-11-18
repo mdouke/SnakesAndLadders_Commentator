@@ -50,6 +50,8 @@
 | 503 | `camera_enumeration_failed` | カメラ一覧を取得できない |
 | 503 | `camera_connection_failed` | 選択したカメラへ接続できない |
 | 503 | `recognition_stop_timeout` | カメラ読込スレッドが停止時間内に終了しない |
+| 409 | `recognition_preview_unavailable` | 認識が動作しておらず、プレビューのフレームがない |
+| 503 | `recognition_preview_failed` | プレビュー画像を作成できない |
 
 認識状態の `errorCode` には、予期しないワーカー障害の
 `recognition_worker_failed` と、内部状態競合の `recognition_state_conflict` も入る。

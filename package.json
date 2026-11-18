@@ -7,10 +7,10 @@
   "scripts": {
     "dev:web": "npm --workspace apps/web run dev",
     "build:web": "npm --workspace apps/web run build",
-    "check:web": "npm --workspace apps/web run check"
+    "check:web": "npm --workspace apps/web run check",
+    "generate:api": "npm --workspace apps/web run generate:api"
   },
   "engines": {
     "node": ">=22 <23"
   }
 }
-

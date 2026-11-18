@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import asdict
 from threading import RLock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..api.errors import ApiError
 from ..domain.game import GameState, GameStatus, OperationType, RollSource
@@ -21,6 +22,45 @@ class GameService:
     def __init__(self, repository: GameRepository) -> None:
         self.repository = repository
         self.lock = RLock()
+        self._listeners: list[Callable[[dict[str, Any] | None], None]] = []
+        self._last_published: tuple[str, int] | None = None
+
+    def add_listener(self, listener: Callable[[dict[str, Any] | None], None]) -> None:
+        """Receive the current game after each change, under the game lock.
+
+        Listeners must not block or take the recognition lock (lock order is
+        recognition -> game -> realtime hub).
+        """
+        with self.lock:
+            self._listeners.append(listener)
+
+    def current_payload(self) -> dict[str, Any] | None:
+        with self.lock:
+            game = self.repository.current()
+            return game.to_dict() if game is not None else None
+
+    def publish_current(self) -> None:
+        """Notify listeners when the current game or its state version changed."""
+        with self.lock:
+            game = self.repository.current()
+            key = (game.id, game.state_version) if game is not None else None
+            if key == self._last_published:
+                return
+            self._last_published = key
+            payload = game.to_dict() if game is not None else None
+            for listener in tuple(self._listeners):
+                try:
+                    listener(payload)
+                except Exception:
+                    logging.getLogger("commentator.realtime").exception(
+                        "game listener failed",
+                        extra={"event": "game_listener_failed"},
+                    )
+
+    def set_current(self, game_id: str) -> None:
+        with self.lock:
+            self.repository.set_current(game_id)
+            self.publish_current()
 
     def game_or_404(self, game_id: str) -> GameState:
         game = self.repository.get(game_id)
@@ -82,6 +122,7 @@ class GameService:
                 "turnId": game.turns[-1].id if game.turns else None,
             },
         )
+        self.publish_current()
 
     def register_recognition_roll(
         self,

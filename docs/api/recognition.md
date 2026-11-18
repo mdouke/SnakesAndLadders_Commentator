@@ -17,6 +17,16 @@ OpenCVなどの `vision` 追加依存がない場合もサーバーは起動す�
 
 `needs_confirmation` の間だけ `candidateId` が返る。候補が更新されるとIDも変わる。
 
+## ROIプレビュー
+
+`GET /api/recognition/preview.jpg` は、認識スレッドが最後に処理したフレームに、ROIの枠（緑）と
+検出したサイコロ（橙、読んだ目の数字つき）を重ねたJPEGを返す。幅は最大640px、
+`Cache-Control: no-store`。管理画面は0.5秒ごとに取り直して表示する。
+
+- 認識が止まっているときは409 `recognition_preview_unavailable`。
+- 画像はこのレスポンスとしてだけ返し、ログやディスクには残さない。サーバーが保持するのは
+  最新フレームへの参照1つだけで、認識の停止時に破棄する。
+
 ## 候補操作
 
 承認または修正:

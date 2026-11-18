@@ -1,6 +1,7 @@
 """Application factory with an injectable repository."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -13,10 +14,21 @@ from time import monotonic
 from typing import Any, Protocol
 from uuid import uuid4
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, WebSocket
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from .api.errors import ApiError, install_error_handlers
+from .api.responses import (
+    REALTIME_MESSAGE_ADAPTER,
+    BoardResponse,
+    GameResponse,
+    HealthResponse,
+    RecognitionCamerasResponse,
+    RecognitionResponse,
+    RollCorrectionPreview,
+)
 from .api.schemas import (
     GameCreate,
     PositionCorrection,
@@ -39,6 +51,7 @@ from .infrastructure.logging import configure_logging, load_log_config
 from .infrastructure.persistence import SQLiteGameRepository
 from .presets import load_board_preset
 from .services.game import GameService
+from .services.realtime import IDLE_COMMENTARY, RealtimeClient, RealtimeHub
 from .services.recognition import RecognitionRuntimeSettings, RecognitionService
 
 
@@ -123,12 +136,16 @@ def create_app(
     board: Board | None = None,
     repository: GameRepository | None = None,
     recognition_service: RecognitionService | None = None,
+    realtime_hub: RealtimeHub | None = None,
 ) -> FastAPI:
     board = board if board is not None else load_board_preset()
     repo = repository if repository is not None else MemoryGameRepository()
     game_service = GameService(repo)
     recognition = recognition_service or _create_recognition_service(game_service)
     recognition.game_service = game_service
+    hub = realtime_hub if realtime_hub is not None else RealtimeHub()
+    game_service.add_listener(lambda payload: hub.publish("game", payload))
+    recognition.subscribe(lambda payload: hub.publish("recognition", payload))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -146,6 +163,7 @@ def create_app(
     install_error_handlers(application)
     application.state.game_service = game_service
     application.state.recognition_service = recognition
+    application.state.realtime_hub = hub
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
@@ -194,15 +212,15 @@ def create_app(
                 "終了したゲームの結果を変更するには確認が必要です",
             )
 
-    @application.get("/health")
+    @application.get("/health", response_model=HealthResponse)
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @application.get("/api/boards/default")
+    @application.get("/api/boards/default", response_model=BoardResponse)
     def default_board() -> dict[str, Any]:
         return board.to_dict()
 
-    @application.post("/api/games", status_code=201)
+    @application.post("/api/games", status_code=201, response_model=GameResponse)
     def create_game(request: GameCreate) -> dict[str, Any]:
         with game_service.lock:
             game = GameState.create(board, [
@@ -214,12 +232,12 @@ def create_app(
             game_service.save_or_503(game, make_current=True)
             return game.to_dict()
 
-    @application.get("/api/games")
+    @application.get("/api/games", response_model=list[GameResponse])
     def list_games() -> list[dict[str, Any]]:
         with game_service.lock:
             return [game.to_dict() for game in repo.list()]
 
-    @application.get("/api/games/current")
+    @application.get("/api/games/current", response_model=GameResponse)
     def current_game() -> dict[str, Any]:
         with game_service.lock:
             game = repo.current()
@@ -229,20 +247,20 @@ def create_app(
                 )
             return game.to_dict()
 
-    @application.get("/api/games/{game_id}")
+    @application.get("/api/games/{game_id}", response_model=GameResponse)
     def get_game(game_id: str) -> dict[str, Any]:
         with game_service.lock:
             return game_service.game_or_404(game_id).to_dict()
 
-    @application.post("/api/games/{game_id}/activate")
+    @application.post("/api/games/{game_id}/activate", response_model=GameResponse)
     def activate_game(game_id: str, request: VersionedRequest) -> dict[str, Any]:
         with game_service.lock:
             game = game_service.game_or_404(game_id)
             game_service.check_version(game, request.expected_state_version)
-            repo.set_current(game.id)
+            game_service.set_current(game.id)
             return game.to_dict()
 
-    @application.post("/api/games/{game_id}/rolls")
+    @application.post("/api/games/{game_id}/rolls", response_model=GameResponse)
     def create_roll(game_id: str, request: RollCreate) -> dict[str, Any]:
         with game_service.lock:
             game = game_service.game_or_404(game_id)
@@ -254,7 +272,9 @@ def create_app(
         recognition.manual_committed(request.value)
         return result
 
-    @application.post("/api/games/{game_id}/position-corrections")
+    @application.post(
+        "/api/games/{game_id}/position-corrections", response_model=GameResponse
+    )
     def correct_position(game_id: str, request: PositionCorrection) -> dict[str, Any]:
         with game_service.lock:
             game = game_service.game_or_404(game_id)
@@ -267,7 +287,10 @@ def create_app(
             game_service.save_or_503(game)
             return game.to_dict()
 
-    @application.post("/api/games/{game_id}/turns/{turn_id}/correction")
+    @application.post(
+        "/api/games/{game_id}/turns/{turn_id}/correction",
+        response_model=GameResponse | RollCorrectionPreview,
+    )
     def correct_roll(
         game_id: str, turn_id: str, request: RollCorrection
     ) -> dict[str, Any]:
@@ -306,7 +329,7 @@ def create_app(
             game_service.save_or_503(game)
             return game.to_dict()
 
-    @application.post("/api/games/{game_id}/restore")
+    @application.post("/api/games/{game_id}/restore", response_model=GameResponse)
     def restore_game(game_id: str, request: RestoreRequest) -> dict[str, Any]:
         with game_service.lock:
             game = game_service.game_or_404(game_id)
@@ -321,7 +344,7 @@ def create_app(
             game_service.save_or_503(game)
             return game.to_dict()
 
-    @application.post("/api/games/{game_id}/{action}")
+    @application.post("/api/games/{game_id}/{action}", response_model=GameResponse)
     def change_state(
         game_id: str, action: str, request: VersionedRequest
     ) -> dict[str, Any]:
@@ -340,26 +363,30 @@ def create_app(
             _apply_action(actions[action])
             game_service.save_or_503(game)
             if action == "resume":
-                repo.set_current(game.id)
+                game_service.set_current(game.id)
             return game.to_dict()
 
-    @application.get("/api/recognition")
+    @application.get("/api/recognition", response_model=RecognitionResponse)
     def recognition_state() -> dict[str, Any]:
         return recognition.snapshot()
 
-    @application.get("/api/recognition/cameras")
+    @application.get(
+        "/api/recognition/cameras", response_model=RecognitionCamerasResponse
+    )
     def recognition_cameras() -> dict[str, Any]:
         return {"cameras": recognition.cameras()}
 
-    @application.post("/api/recognition/start")
+    @application.post("/api/recognition/start", response_model=RecognitionResponse)
     def start_recognition(request: RecognitionStart) -> dict[str, Any]:
         return recognition.start(request.camera_id)
 
-    @application.post("/api/recognition/stop")
+    @application.post("/api/recognition/stop", response_model=RecognitionResponse)
     def stop_recognition() -> dict[str, Any]:
         return recognition.stop()
 
-    @application.post("/api/recognition/candidate/confirm")
+    @application.post(
+        "/api/recognition/candidate/confirm", response_model=GameResponse
+    )
     def confirm_recognition_candidate(
         request: RecognitionCandidateConfirm,
     ) -> dict[str, Any]:
@@ -371,13 +398,103 @@ def create_app(
             value=request.value,
         )
 
-    @application.post("/api/recognition/candidate/reject")
+    @application.post(
+        "/api/recognition/candidate/reject", response_model=RecognitionResponse
+    )
     def reject_recognition_candidate(
         request: RecognitionCandidateReject,
     ) -> dict[str, Any]:
         return recognition.reject_candidate(request.candidate_id)
 
+    @application.get(
+        "/api/recognition/preview.jpg",
+        response_class=Response,
+        responses={200: {"content": {"image/jpeg": {}}}},
+    )
+    def recognition_preview() -> Response:
+        return Response(
+            recognition.preview_jpeg(),
+            media_type="image/jpeg",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    def send_initial_state(client: RealtimeClient) -> None:
+        # Each snapshot is queued under the lock that orders its later updates,
+        # so a client never receives an older state after a newer one.
+        with game_service.lock:
+            hub.send_to(client, "game", game_service.current_payload())
+        recognition.send_snapshot(
+            lambda payload: hub.send_to(client, "recognition", payload)
+        )
+        hub.send_to(client, "commentary", dict(IDLE_COMMENTARY))
+
+    @application.websocket("/ws")
+    async def realtime(websocket: WebSocket) -> None:
+        await websocket.accept()
+        client = hub.connect()
+
+        async def send_messages() -> None:
+            while True:
+                message = await client.queue.get()
+                if message is None:
+                    await websocket.close(code=1013)
+                    return
+                await websocket.send_json(message)
+
+        async def wait_for_disconnect() -> None:
+            while True:
+                received = await websocket.receive()
+                if received["type"] == "websocket.disconnect":
+                    return
+
+        tasks: set[asyncio.Task[None]] = set()
+        try:
+            await run_in_threadpool(send_initial_state, client)
+            tasks = {
+                asyncio.create_task(send_messages()),
+                asyncio.create_task(wait_for_disconnect()),
+            }
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                if not task.cancelled() and task.exception() is not None:
+                    request_logger.info(
+                        "websocket closed with error",
+                        extra={"event": "websocket_closed_with_error"},
+                    )
+        finally:
+            hub.disconnect(client)
+            for task in tasks:
+                task.cancel()
+
+    def openapi_with_realtime_messages() -> dict[str, Any]:
+        if application.openapi_schema is None:
+            schema = get_openapi(
+                title=application.title,
+                version=application.version,
+                routes=application.routes,
+            )
+            add_realtime_message_schemas(schema)
+            application.openapi_schema = schema
+        return application.openapi_schema
+
+    application.openapi = openapi_with_realtime_messages  # type: ignore[method-assign]
     return application
+
+
+def add_realtime_message_schemas(schema: dict[str, Any]) -> None:
+    """Publish the /ws message union, which OpenAPI cannot describe as a route."""
+    message_schema = REALTIME_MESSAGE_ADAPTER.json_schema(
+        by_alias=True,
+        mode="serialization",
+        ref_template="#/components/schemas/{model}",
+    )
+    components = schema.setdefault("components", {}).setdefault("schemas", {})
+    for name, definition in message_schema.pop("$defs", {}).items():
+        existing = components.get(name)
+        if existing is not None and existing != definition:
+            raise RuntimeError(f"OpenAPI schema conflict for {name}")
+        components[name] = definition
+    components["RealtimeMessage"] = message_schema
 
 
 def create_production_app() -> FastAPI:

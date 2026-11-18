@@ -1,0 +1,2181 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Snakes & Ladders Commentator API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/boards/default": {
+      "get": {
+        "summary": "Default Board",
+        "operationId": "default_board_api_boards_default_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games": {
+      "get": {
+        "summary": "List Games",
+        "operationId": "list_games_api_games_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GameResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Games Api Games Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Game",
+        "operationId": "create_game_api_games_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/current": {
+      "get": {
+        "summary": "Current Game",
+        "operationId": "current_game_api_games_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}": {
+      "get": {
+        "summary": "Get Game",
+        "operationId": "get_game_api_games__game_id__get",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}/activate": {
+      "post": {
+        "summary": "Activate Game",
+        "operationId": "activate_game_api_games__game_id__activate_post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}/rolls": {
+      "post": {
+        "summary": "Create Roll",
+        "operationId": "create_roll_api_games__game_id__rolls_post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}/position-corrections": {
+      "post": {
+        "summary": "Correct Position",
+        "operationId": "correct_position_api_games__game_id__position_corrections_post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PositionCorrection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}/turns/{turn_id}/correction": {
+      "post": {
+        "summary": "Correct Roll",
+        "operationId": "correct_roll_api_games__game_id__turns__turn_id__correction_post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          },
+          {
+            "name": "turn_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Turn Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollCorrection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/GameResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RollCorrectionPreview"
+                    }
+                  ],
+                  "title": "Response Correct Roll Api Games  Game Id  Turns  Turn Id  Correction Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}/restore": {
+      "post": {
+        "summary": "Restore Game",
+        "operationId": "restore_game_api_games__game_id__restore_post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/{game_id}/{action}": {
+      "post": {
+        "summary": "Change State",
+        "operationId": "change_state_api_games__game_id___action__post",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Game Id"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Action"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition": {
+      "get": {
+        "summary": "Recognition State",
+        "operationId": "recognition_state_api_recognition_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/cameras": {
+      "get": {
+        "summary": "Recognition Cameras",
+        "operationId": "recognition_cameras_api_recognition_cameras_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionCamerasResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/start": {
+      "post": {
+        "summary": "Start Recognition",
+        "operationId": "start_recognition_api_recognition_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/stop": {
+      "post": {
+        "summary": "Stop Recognition",
+        "operationId": "stop_recognition_api_recognition_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/candidate/confirm": {
+      "post": {
+        "summary": "Confirm Recognition Candidate",
+        "operationId": "confirm_recognition_candidate_api_recognition_candidate_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCandidateConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/candidate/reject": {
+      "post": {
+        "summary": "Reject Recognition Candidate",
+        "operationId": "reject_recognition_candidate_api_recognition_candidate_reject_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCandidateReject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/preview.jpg": {
+      "get": {
+        "summary": "Recognition Preview",
+        "operationId": "recognition_preview_api_recognition_preview_jpg_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {}
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BoardJump": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "ladder",
+              "snake"
+            ],
+            "title": "Type"
+          },
+          "from": {
+            "type": "integer",
+            "title": "From"
+          },
+          "to": {
+            "type": "integer",
+            "title": "To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "from",
+          "to"
+        ],
+        "title": "BoardJump"
+      },
+      "BoardResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "goal": {
+            "type": "integer",
+            "title": "Goal"
+          },
+          "jumps": {
+            "items": {
+              "$ref": "#/components/schemas/BoardJump"
+            },
+            "type": "array",
+            "title": "Jumps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "goal",
+          "jumps"
+        ],
+        "title": "BoardResponse"
+      },
+      "CorrectedFrom": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "manual",
+              "automatic",
+              "reviewed",
+              "corrected"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "confirmationId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmationid"
+          }
+        },
+        "required": [
+          "value",
+          "source",
+          "confirmationId"
+        ],
+        "title": "CorrectedFrom",
+        "type": "object"
+      },
+      "GameCreate": {
+        "properties": {
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/PlayerCreate"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 2,
+            "title": "Players"
+          }
+        },
+        "type": "object",
+        "required": [
+          "players"
+        ],
+        "title": "GameCreate"
+      },
+      "GameResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "boardId": {
+            "title": "Boardid",
+            "type": "string"
+          },
+          "branchId": {
+            "title": "Branchid",
+            "type": "string"
+          },
+          "stateVersion": {
+            "title": "Stateversion",
+            "type": "integer"
+          },
+          "canUndo": {
+            "title": "Canundo",
+            "type": "boolean"
+          },
+          "canRedo": {
+            "title": "Canredo",
+            "type": "boolean"
+          },
+          "undoLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undolabel"
+          },
+          "redoLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redolabel"
+          },
+          "interruption": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Interruption"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "suspensionHistory": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Suspensionhistory",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "in_progress",
+              "paused",
+              "suspended",
+              "completed",
+              "aborted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turnNumber": {
+            "title": "Turnnumber",
+            "type": "integer"
+          },
+          "currentPlayerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentplayerid"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "endedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endedat"
+          },
+          "suspendedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspendedat"
+          },
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/PlayerResponse"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnResponse"
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "boardId",
+          "branchId",
+          "stateVersion",
+          "canUndo",
+          "canRedo",
+          "undoLabel",
+          "redoLabel",
+          "interruption",
+          "suspensionHistory",
+          "status",
+          "turnNumber",
+          "currentPlayerId",
+          "startedAt",
+          "endedAt",
+          "suspendedAt",
+          "players",
+          "turns"
+        ],
+        "title": "GameResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "Interruption": {
+        "additionalProperties": false,
+        "properties": {
+          "detectedAt": {
+            "title": "Detectedat",
+            "type": "string"
+          },
+          "lastSavedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsavedat"
+          }
+        },
+        "required": [
+          "detectedAt",
+          "lastSavedAt"
+        ],
+        "title": "Interruption",
+        "type": "object"
+      },
+      "InvalidatedOperation": {
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "title": "Eventid"
+          },
+          "timelineIndex": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timelineindex"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "player_already_finished",
+              "game_completed"
+            ],
+            "title": "Reason"
+          },
+          "playerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playerid"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "eventId",
+          "timelineIndex",
+          "type",
+          "reason"
+        ],
+        "title": "InvalidatedOperation"
+      },
+      "InvalidatedTurn": {
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "title": "Eventid"
+          },
+          "turnId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnid"
+          },
+          "turnNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnnumber"
+          },
+          "playerId": {
+            "type": "string",
+            "title": "Playerid"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "player_already_finished",
+              "game_completed"
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "eventId",
+          "turnId",
+          "turnNumber",
+          "playerId",
+          "value",
+          "reason"
+        ],
+        "title": "InvalidatedTurn"
+      },
+      "PlayerCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "color": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Color"
+          },
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "spokenName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spokenname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "color"
+        ],
+        "title": "PlayerCreate"
+      },
+      "PlayerResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "spokenName": {
+            "title": "Spokenname",
+            "type": "string"
+          },
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "rankConfirmed": {
+            "title": "Rankconfirmed",
+            "type": "boolean"
+          },
+          "reachedGoal": {
+            "title": "Reachedgoal",
+            "type": "boolean"
+          },
+          "reachedGoalAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reachedgoalat"
+          },
+          "remainingSquares": {
+            "title": "Remainingsquares",
+            "type": "integer"
+          },
+          "winningRolls": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Winningrolls",
+            "type": "array"
+          },
+          "isCurrent": {
+            "title": "Iscurrent",
+            "type": "boolean"
+          },
+          "theoreticalMinimumRolls": {
+            "title": "Theoreticalminimumrolls",
+            "type": "integer"
+          },
+          "statistics": {
+            "$ref": "#/components/schemas/PlayerStatistics"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "displayName",
+          "spokenName",
+          "color",
+          "position",
+          "rank",
+          "rankConfirmed",
+          "reachedGoal",
+          "reachedGoalAt",
+          "remainingSquares",
+          "winningRolls",
+          "isCurrent",
+          "theoreticalMinimumRolls",
+          "statistics"
+        ],
+        "title": "PlayerResponse",
+        "type": "object"
+      },
+      "PlayerStatistics": {
+        "additionalProperties": false,
+        "properties": {
+          "rolls": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rolls",
+            "type": "array"
+          },
+          "faceCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Facecounts",
+            "type": "object"
+          },
+          "averageRoll": {
+            "title": "Averageroll",
+            "type": "number"
+          },
+          "normalMovementTotal": {
+            "title": "Normalmovementtotal",
+            "type": "integer"
+          },
+          "actualPositionChangeTotal": {
+            "title": "Actualpositionchangetotal",
+            "type": "integer"
+          },
+          "overshootCount": {
+            "title": "Overshootcount",
+            "type": "integer"
+          },
+          "ladderCount": {
+            "title": "Laddercount",
+            "type": "integer"
+          },
+          "ladderDistanceTotal": {
+            "title": "Ladderdistancetotal",
+            "type": "integer"
+          },
+          "snakeCount": {
+            "title": "Snakecount",
+            "type": "integer"
+          },
+          "snakeDistanceTotal": {
+            "title": "Snakedistancetotal",
+            "type": "integer"
+          },
+          "maximumPosition": {
+            "title": "Maximumposition",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rolls",
+          "faceCounts",
+          "averageRoll",
+          "normalMovementTotal",
+          "actualPositionChangeTotal",
+          "overshootCount",
+          "ladderCount",
+          "ladderDistanceTotal",
+          "snakeCount",
+          "snakeDistanceTotal",
+          "maximumPosition"
+        ],
+        "title": "PlayerStatistics",
+        "type": "object"
+      },
+      "PositionCorrection": {
+        "properties": {
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "confirmEndedGame": {
+            "type": "boolean",
+            "title": "Confirmendedgame",
+            "default": false
+          },
+          "playerId": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Playerid"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Position"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "operator": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Operator"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expectedStateVersion",
+          "playerId",
+          "position",
+          "reason",
+          "operator"
+        ],
+        "title": "PositionCorrection"
+      },
+      "RecognitionCamera": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "RecognitionCamera"
+      },
+      "RecognitionCamerasResponse": {
+        "properties": {
+          "cameras": {
+            "items": {
+              "$ref": "#/components/schemas/RecognitionCamera"
+            },
+            "type": "array",
+            "title": "Cameras"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cameras"
+        ],
+        "title": "RecognitionCamerasResponse"
+      },
+      "RecognitionCandidateConfirm": {
+        "properties": {
+          "gameId": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Gameid"
+          },
+          "candidateId": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Candidateid"
+          },
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "expectedTurnNumber": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedturnnumber"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gameId",
+          "candidateId",
+          "expectedStateVersion",
+          "expectedTurnNumber"
+        ],
+        "title": "RecognitionCandidateConfirm"
+      },
+      "RecognitionCandidateReject": {
+        "properties": {
+          "candidateId": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Candidateid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidateId"
+        ],
+        "title": "RecognitionCandidateReject"
+      },
+      "RecognitionConfidence": {
+        "additionalProperties": false,
+        "properties": {
+          "detector": {
+            "title": "Detector",
+            "type": "number"
+          },
+          "valueStability": {
+            "title": "Valuestability",
+            "type": "number"
+          },
+          "stillness": {
+            "title": "Stillness",
+            "type": "number"
+          },
+          "positionStability": {
+            "title": "Positionstability",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "pipSizeConsistency": {
+            "title": "Pipsizeconsistency",
+            "type": "number"
+          },
+          "singlePipCenterOffset": {
+            "title": "Singlepipcenteroffset",
+            "type": "number"
+          },
+          "pipMergeSuspected": {
+            "title": "Pipmergesuspected",
+            "type": "boolean"
+          },
+          "pipRecounted": {
+            "title": "Piprecounted",
+            "type": "boolean"
+          },
+          "pipLayoutError": {
+            "title": "Piplayouterror",
+            "type": "number"
+          }
+        },
+        "required": [
+          "detector",
+          "valueStability",
+          "stillness",
+          "positionStability",
+          "total",
+          "pipSizeConsistency",
+          "singlePipCenterOffset",
+          "pipMergeSuspected",
+          "pipRecounted",
+          "pipLayoutError"
+        ],
+        "title": "RecognitionConfidence",
+        "type": "object"
+      },
+      "RecognitionConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmationId": {
+            "title": "Confirmationid",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "manual",
+              "automatic",
+              "reviewed",
+              "corrected"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "originalCandidate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originalcandidate"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionConfidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "confirmationId",
+          "value",
+          "source",
+          "originalCandidate",
+          "confidence"
+        ],
+        "title": "RecognitionConfirmation",
+        "type": "object"
+      },
+      "RecognitionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "cameraConnected": {
+            "title": "Cameraconnected",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "unavailable",
+              "waiting",
+              "moving",
+              "stationary",
+              "candidate",
+              "confirmed",
+              "needs_confirmation",
+              "removal_wait",
+              "recognition_error",
+              "camera_error"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "candidateValue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidatevalue"
+          },
+          "candidateId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidateid"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionConfidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastConfirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          }
+        },
+        "required": [
+          "available",
+          "running",
+          "cameraConnected",
+          "state",
+          "candidateValue",
+          "candidateId",
+          "confidence",
+          "confirmation",
+          "lastConfirmation",
+          "errorCode"
+        ],
+        "title": "RecognitionResponse",
+        "type": "object"
+      },
+      "RecognitionStart": {
+        "properties": {
+          "cameraId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cameraid"
+          }
+        },
+        "type": "object",
+        "title": "RecognitionStart"
+      },
+      "RestoreRequest": {
+        "properties": {
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "confirmEndedGame": {
+            "type": "boolean",
+            "title": "Confirmendedgame",
+            "default": false
+          },
+          "targetStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Targetstateversion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expectedStateVersion",
+          "targetStateVersion"
+        ],
+        "title": "RestoreRequest"
+      },
+      "RollCorrection": {
+        "properties": {
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "confirmEndedGame": {
+            "type": "boolean",
+            "title": "Confirmendedgame",
+            "default": false
+          },
+          "value": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Value"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "operator": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Operator"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "title": "Dryrun",
+            "default": false
+          },
+          "confirmInvalidatedRolls": {
+            "type": "boolean",
+            "title": "Confirminvalidatedrolls",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "expectedStateVersion",
+          "value",
+          "reason",
+          "operator"
+        ],
+        "title": "RollCorrection"
+      },
+      "RollCorrectionPreview": {
+        "properties": {
+          "requiresConfirmation": {
+            "type": "boolean",
+            "title": "Requiresconfirmation"
+          },
+          "invalidatedTurns": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidatedTurn"
+            },
+            "type": "array",
+            "title": "Invalidatedturns"
+          },
+          "invalidatedOperations": {
+            "items": {
+              "$ref": "#/components/schemas/InvalidatedOperation"
+            },
+            "type": "array",
+            "title": "Invalidatedoperations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "requiresConfirmation",
+          "invalidatedTurns",
+          "invalidatedOperations"
+        ],
+        "title": "RollCorrectionPreview"
+      },
+      "RollCreate": {
+        "properties": {
+          "value": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Value"
+          },
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "expectedTurnNumber": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedturnnumber"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "expectedStateVersion"
+        ],
+        "title": "RollCreate"
+      },
+      "TurnResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "playerId": {
+            "title": "Playerid",
+            "type": "string"
+          },
+          "roll": {
+            "title": "Roll",
+            "type": "integer"
+          },
+          "before": {
+            "title": "Before",
+            "type": "integer"
+          },
+          "normalPosition": {
+            "title": "Normalposition",
+            "type": "integer"
+          },
+          "finalPosition": {
+            "title": "Finalposition",
+            "type": "integer"
+          },
+          "overshoot": {
+            "title": "Overshoot",
+            "type": "boolean"
+          },
+          "jumpType": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ladder",
+                  "snake"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jumptype"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "occurredAt": {
+            "title": "Occurredat",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "manual",
+              "automatic",
+              "reviewed",
+              "corrected"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "confirmationId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmationid"
+          },
+          "originalCandidate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originalcandidate"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionConfidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "correctedFrom": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrectedFrom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "branchId": {
+            "title": "Branchid",
+            "type": "string"
+          },
+          "stateVersionBefore": {
+            "title": "Stateversionbefore",
+            "type": "integer"
+          },
+          "stateVersionAfter": {
+            "title": "Stateversionafter",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "playerId",
+          "roll",
+          "before",
+          "normalPosition",
+          "finalPosition",
+          "overshoot",
+          "jumpType",
+          "events",
+          "occurredAt",
+          "source",
+          "confirmationId",
+          "originalCandidate",
+          "confidence",
+          "correctedFrom",
+          "branchId",
+          "stateVersionBefore",
+          "stateVersionAfter"
+        ],
+        "title": "TurnResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VersionedRequest": {
+        "properties": {
+          "expectedStateVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedstateversion"
+          },
+          "confirmEndedGame": {
+            "type": "boolean",
+            "title": "Confirmendedgame",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "expectedStateVersion"
+        ],
+        "title": "VersionedRequest"
+      },
+      "CommentaryMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "commentary",
+            "title": "Type",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CommentaryResponse"
+          }
+        },
+        "required": [
+          "type",
+          "sequence",
+          "payload"
+        ],
+        "title": "CommentaryMessage",
+        "type": "object"
+      },
+      "CommentaryResponse": {
+        "additionalProperties": false,
+        "description": "Placeholder until Phase 6 adds generated commentary.",
+        "properties": {
+          "status": {
+            "const": "idle",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CommentaryResponse",
+        "type": "object"
+      },
+      "GameMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "game",
+            "title": "Type",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GameResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "sequence",
+          "payload"
+        ],
+        "title": "GameMessage",
+        "type": "object"
+      },
+      "RecognitionMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "recognition",
+            "title": "Type",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/RecognitionResponse"
+          }
+        },
+        "required": [
+          "type",
+          "sequence",
+          "payload"
+        ],
+        "title": "RecognitionMessage",
+        "type": "object"
+      },
+      "RealtimeMessage": {
+        "description": "One message on the ``/ws`` stream, selected by ``type``.",
+        "discriminator": {
+          "mapping": {
+            "commentary": "#/components/schemas/CommentaryMessage",
+            "game": "#/components/schemas/GameMessage",
+            "recognition": "#/components/schemas/RecognitionMessage"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GameMessage"
+          },
+          {
+            "$ref": "#/components/schemas/RecognitionMessage"
+          },
+          {
+            "$ref": "#/components/schemas/CommentaryMessage"
+          }
+        ],
+        "title": "RealtimeMessage"
+      }
+    }
+  }
+}

@@ -3,17 +3,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ApiRequestError,
   activateGame,
+  confirmRecognitionCandidate,
   correctPosition,
   correctRoll,
   createDefaultGame,
   gameAction,
   getCurrentGame,
   getGames,
+  getRecognitionCameras,
   previewRollCorrection,
+  rejectRecognitionCandidate,
   restoreGame,
+  startRecognition,
+  stopRecognition,
   submitRoll
 } from "./api";
-import type { GameState } from "./types";
+import { newerGame, useRealtime } from "./realtime";
+import type { GameState, RecognitionCamera, RecognitionState } from "./types";
 
 const statusLabels: Record<GameState["status"], string> = {
   ready: "開始待ち",
@@ -41,6 +47,146 @@ function PlayerList({ game }: { game: GameState }) {
   );
 }
 
+const recognitionLabels: Record<RecognitionState["state"], string> = {
+  unavailable: "利用不可",
+  waiting: "投擲待ち",
+  moving: "サイコロが動いています",
+  stationary: "静止を確認中",
+  candidate: "候補を判定中",
+  confirmed: "確定",
+  needs_confirmation: "確認が必要です",
+  removal_wait: "サイコロを取り除いてください",
+  recognition_error: "認識できませんでした",
+  camera_error: "カメラエラー"
+};
+
+function errorMessage(reason: unknown, fallback: string): string {
+  return reason instanceof Error ? reason.message : fallback;
+}
+
+function RecognitionPreview({ running }: { running: boolean }) {
+  const [tick, setTick] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setTick((value) => value + 1), 500);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  if (!running) return null;
+  return (
+    <img
+      className="recognition-preview"
+      src={`/api/recognition/preview.jpg?t=${tick}`}
+      alt="カメラのROIプレビュー"
+      style={{ visibility: visible ? "visible" : "hidden" }}
+      onLoad={() => setVisible(true)}
+      onError={() => setVisible(false)}
+    />
+  );
+}
+
+function RecognitionPanel({
+  game, recognition, busy, onGame, onError
+}: {
+  game: GameState | null;
+  recognition: RecognitionState | null;
+  busy: boolean;
+  onGame: (operation: () => Promise<GameState>) => void;
+  onError: (message: string | null) => void;
+}) {
+  const [cameras, setCameras] = useState<RecognitionCamera[]>([]);
+  const [cameraId, setCameraId] = useState<number | undefined>(undefined);
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (!recognition?.available) return;
+    getRecognitionCameras()
+      .then(({ cameras: found }) => {
+        setCameras(found);
+        setCameraId((current) => current ?? found[0]?.id);
+      })
+      .catch(() => undefined);
+  }, [recognition?.available]);
+
+  if (!recognition) return null;
+  const control = async (operation: () => Promise<unknown>, fallback: string) => {
+    if (pending) return;
+    setPending(true);
+    try {
+      onError(null);
+      await operation();
+    } catch (reason) {
+      onError(errorMessage(reason, fallback));
+    } finally {
+      setPending(false);
+    }
+  };
+  const candidateId = recognition.candidateId;
+  const reviewing = recognition.state === "needs_confirmation" && candidateId && game;
+
+  return (
+    <section className="panel controls recognition-panel">
+      <h2>サイコロ認識</h2>
+      <p className="recognition-status">
+        <strong>{recognitionLabels[recognition.state]}</strong>
+        {recognition.candidateValue !== null && <span>候補 {recognition.candidateValue}</span>}
+        {recognition.confidence && <span>信頼度 {recognition.confidence.total.toFixed(2)}</span>}
+        {recognition.errorCode && <span className="muted">({recognition.errorCode})</span>}
+      </p>
+      {!recognition.available ? (
+        <p>この環境ではカメラ認識を利用できません。手動で出目を確定してください。</p>
+      ) : (
+        <div className="button-row">
+          {!recognition.running && (
+            <>
+              <select value={cameraId ?? ""} disabled={pending}
+                onChange={(event) => setCameraId(Number(event.target.value))}>
+                {cameras.map((camera) => (
+                  <option key={camera.id} value={camera.id}>{camera.label}</option>
+                ))}
+              </select>
+              <button disabled={pending} onClick={() => control(
+                () => startRecognition(cameraId), "認識を開始できませんでした"
+              )}>認識を開始</button>
+            </>
+          )}
+          {recognition.running && (
+            <button className="secondary" disabled={pending} onClick={() => control(
+              stopRecognition, "認識を停止できませんでした"
+            )}>認識を停止</button>
+          )}
+        </div>
+      )}
+      {reviewing && (
+        <div className="recognition-review">
+          <p>
+            候補 {recognition.candidateValue} を確認してください。違う場合は正しい目を、
+            サイコロが傾いているなどの場合は振り直しを選びます。
+          </p>
+          <div className="button-row">
+            <button disabled={busy} onClick={() => onGame(() => confirmRecognitionCandidate(
+              game.id, candidateId, game.stateVersion, game.turnNumber
+            ))}>{recognition.candidateValue} で確定</button>
+            <button className="secondary" disabled={pending} onClick={() => control(
+              () => rejectRecognitionCandidate(candidateId), "振り直しにできませんでした"
+            )}>振り直し</button>
+          </div>
+          <div className="dice-row compact">
+            {[1, 2, 3, 4, 5, 6].map((value) => (
+              <button key={value} disabled={busy} onClick={() => onGame(() => confirmRecognitionCandidate(
+                game.id, candidateId, game.stateVersion, game.turnNumber, value
+              ))}>{value}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      <RecognitionPreview running={recognition.running} />
+    </section>
+  );
+}
+
 function AdminView() {
   const [game, setGame] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +197,11 @@ function AdminView() {
   const [operator, setOperator] = useState("");
   const [restoreVersion, setRestoreVersion] = useState(0);
   const pending = useRef(false);
+  const realtime = useRealtime();
+
+  useEffect(() => {
+    if (realtime.gameLoaded) setGame((current) => newerGame(current, realtime.game));
+  }, [realtime.game, realtime.gameLoaded]);
 
   const run = useCallback(async (operation: () => Promise<GameState>) => {
     if (pending.current) return;
@@ -58,7 +209,8 @@ function AdminView() {
     setBusy(true);
     try {
       setError(null);
-      setGame(await operation());
+      const result = await operation();
+      setGame((current) => newerGame(current, result));
       getGames().then(setSavedGames).catch(() => undefined);
     } catch (reason) {
       if (reason instanceof ApiRequestError && reason.code === "state_version_conflict") {
@@ -135,7 +287,10 @@ function AdminView() {
           <p className="eyebrow">管理者画面</p>
           <h1>Snakes & Ladders</h1>
         </div>
-        <a href="/player" target="_blank" rel="noreferrer">プレイヤー画面を開く</a>
+        <div className="header-links">
+          {!realtime.connected && <span className="connection-warning">サーバーに再接続しています…</span>}
+          <a href="/player" target="_blank" rel="noreferrer">プレイヤー画面を開く</a>
+        </div>
       </header>
 
       <fieldset disabled={busy} className="operation-area">
@@ -170,6 +325,8 @@ function AdminView() {
             </section>
           )}
           <PlayerList game={game} />
+          <RecognitionPanel game={game} recognition={realtime.recognition} busy={busy}
+            onGame={run} onError={setError} />
           <section className="panel controls">
             <h2>ゲーム操作</h2>
             <div className="button-row">
@@ -287,19 +444,16 @@ function AdminView() {
 }
 
 function PlayerView() {
-  const [game, setGame] = useState<GameState | null>(null);
-
-  useEffect(() => {
-    const update = () => getCurrentGame().then(setGame).catch(() => setGame(null));
-    update();
-    const timer = window.setInterval(update, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const { game, recognition, connected } = useRealtime();
+  const recognizing = recognition?.running && game?.status === "in_progress"
+    && ["moving", "stationary", "candidate", "needs_confirmation"].includes(recognition.state);
 
   return (
     <main className="player-view">
       <p className="eyebrow">実況画面</p>
       <h1>{game ? statusLabels[game.status] : "ゲーム開始待ち"}</h1>
+      {recognizing && <p className="recognition-status">サイコロを読み取っています…</p>}
+      {!connected && <p className="connection-warning">サーバーに再接続しています…</p>}
       {game ? <PlayerList game={game} /> : <p>管理者がゲームを準備しています。</p>}
       <section className="commentary-placeholder">実況コメントはここに表示されます</section>
     </main>

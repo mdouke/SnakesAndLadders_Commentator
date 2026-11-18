@@ -1,7 +1,8 @@
 import type {
   GameState,
   RecognitionCamera,
-  RecognitionState
+  RecognitionState,
+  RollCorrectionPreview
 } from "./types";
 
 interface ApiErrorDetail {
@@ -119,26 +120,6 @@ export function correctRoll(
       confirmInvalidatedRolls
     })
   });
-}
-
-export interface RollCorrectionPreview {
-  requiresConfirmation: boolean;
-  invalidatedTurns: Array<{
-    eventId: string;
-    turnId: string;
-    turnNumber: number;
-    playerId: string;
-    value: number;
-    reason: "player_already_finished" | "game_completed";
-  }>;
-  invalidatedOperations: Array<{
-    eventId: string;
-    timelineIndex: number;
-    type: "start" | "pause" | "resume" | "suspend" | "abort" | "position_correction";
-    reason: "player_already_finished" | "game_completed";
-    playerId?: string;
-    position?: number;
-  }>;
 }
 
 export function previewRollCorrection(

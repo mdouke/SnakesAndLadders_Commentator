@@ -89,6 +89,8 @@ class RecognitionService:
         self._cycle_context_captured = False
         self._subscribers: set[Subscriber] = set()
         self._last_notified: dict[str, Any] | None = None
+        self._last_frame: Any = None
+        self._last_detections: tuple[Any, ...] = ()
 
     @property
     def available(self) -> bool:
@@ -98,6 +100,37 @@ class RecognitionService:
     def running(self) -> bool:
         with self._lock:
             return self._running
+
+    def send_snapshot(self, callback: Subscriber) -> None:
+        """Pass the current snapshot under the lock that orders notifications."""
+        with self._lock:
+            callback(self.snapshot())
+
+    def preview_jpeg(self) -> bytes:
+        """Render the latest processed frame with the ROI and detections."""
+        with self._lock:
+            frame = self._last_frame
+            detections = self._last_detections
+            running = self._running
+        if not running or frame is None:
+            raise ApiError(
+                409,
+                "recognition_preview_unavailable",
+                "認識が動作していないため、プレビューを表示できません",
+            )
+        roi = getattr(self.pipeline, "roi", None)
+        try:
+            from .vision.preview import render_preview_jpeg
+
+            return render_preview_jpeg(frame, roi=roi, detections=detections)
+        except Exception as error:
+            logging.getLogger("commentator.recognition").exception(
+                "recognition preview failed",
+                extra={"event": "recognition_preview_failed"},
+            )
+            raise ApiError(
+                503, "recognition_preview_failed", "プレビューを作成できません"
+            ) from error
 
     def subscribe(self, callback: Subscriber) -> Callable[[], None]:
         with self._lock:
@@ -165,6 +198,8 @@ class RecognitionService:
             self.pipeline.reset_frames()
             self._cycle_context = None
             self._cycle_context_captured = False
+            self._last_frame = None
+            self._last_detections = ()
             self._stream = stream
             self._stop.clear()
             self._running = True
@@ -280,6 +315,7 @@ class RecognitionService:
         with self._lock:
             before = self.pipeline.session.snapshot().state
             result = self.pipeline.process(frame, monotonic_time=self.clock())
+            self._remember_frame(frame, result)
             self._capture_cycle_context(before, result.snapshot.state)
             self._handle_snapshot_locked(result.snapshot)
         self._notify_if_changed()
@@ -346,6 +382,7 @@ class RecognitionService:
                         result = self.pipeline.process(
                             frame, monotonic_time=self.clock()
                         )
+                        self._remember_frame(frame, result)
                         self._capture_cycle_context(before, result.snapshot.state)
                         self._handle_snapshot_locked(result.snapshot)
                 except Exception as error:
@@ -361,9 +398,17 @@ class RecognitionService:
                 self._running = False
                 self._camera_connected = False
                 self._thread = None
+                self._last_frame = None
+                self._last_detections = ()
             if stream is not None:
                 stream.close()
             self._notify_if_changed()
+
+    def _remember_frame(self, frame: Any, result: Any) -> None:
+        # Keep only a reference to the newest frame for the preview endpoint.
+        # Frames are never logged or written to disk.
+        self._last_frame = frame
+        self._last_detections = tuple(getattr(result, "detections", ()))
 
     def _handle_snapshot_locked(self, snapshot: RecognitionSnapshot) -> None:
         confirmation = snapshot.confirmation
@@ -508,20 +553,21 @@ class RecognitionService:
             )
 
     def _notify_if_changed(self) -> None:
-        current = self.snapshot()
+        # Subscribers run under the recognition lock so that notifications from the
+        # worker and HTTP threads keep their order. They must not block.
         with self._lock:
+            current = self.snapshot()
             if current == self._last_notified:
                 return
             self._last_notified = current
-            subscribers = tuple(self._subscribers)
-        for subscriber in subscribers:
-            try:
-                subscriber(current)
-            except Exception:
-                logging.getLogger("commentator.recognition").exception(
-                    "recognition subscriber failed",
-                    extra={"event": "recognition_subscriber_failed"},
-                )
+            for subscriber in tuple(self._subscribers):
+                try:
+                    subscriber(current)
+                except Exception:
+                    logging.getLogger("commentator.recognition").exception(
+                        "recognition subscriber failed",
+                        extra={"event": "recognition_subscriber_failed"},
+                    )
 
 
 def _confidence_dict(value: ConfidenceBreakdown) -> dict[str, Any]:
