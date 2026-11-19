@@ -248,6 +248,7 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
   const [settings, setSettings] = useState<CommentarySettings | null>(null);
   const [speech, setSpeech] = useState<SpeechSettings | null>(null);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
+  const [googleVoices, setGoogleVoices] = useState<VoiceInfo[]>([]);
   const [showAllVoices, setShowAllVoices] = useState(false);
   const [sample, setSample] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
@@ -255,9 +256,14 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
   const load = useCallback(() => {
     getCommentarySettings().then(setSettings).catch(() => undefined);
     getSpeechSettings().then(setSpeech).catch(() => undefined);
-    listVoices().then(({ voices: found }) => setVoices(found)).catch(() => undefined);
+    listVoices("macos").then(({ voices: found }) => setVoices(found)).catch(() => undefined);
   }, []);
   useEffect(load, [load]);
+  const googleReady = speech?.providers.google ?? false;
+  useEffect(() => {
+    if (!googleReady) return;
+    listVoices("google").then(({ voices: found }) => setGoogleVoices(found)).catch(() => undefined);
+  }, [googleReady]);
 
   const save = async (change: CommentarySettingsChange) => {
     try {
@@ -289,7 +295,9 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
     <details className="panel settings-panel">
       <summary>実況・読み上げの設定<span className="muted">
         {settings.enabled ? providerLabels[settings.provider] : "実況オフ"}
-        ・{speech.enabled ? speech.voice ?? "標準の音声" : "読み上げオフ"}
+        ・{!speech.enabled ? "読み上げオフ"
+          : speech.provider === "google" ? `Google（${speech.googleVoice}）`
+          : speech.voice ?? "標準の音声"}
       </span></summary>
 
       <h3>実況</h3>
@@ -367,7 +375,22 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
       </p>
 
       <h3>読み上げ</h3>
-      {!speech.available ? (
+      <div className="settings-grid">
+        <label>読み上げの方法
+          <select value={speech.provider}
+            onChange={(event) => saveSpeech({ provider: event.target.value as SpeechSettings["provider"] })}>
+            <option value="macos">macOS の音声（無料・オフライン）</option>
+            <option value="google">Google Cloud Text-to-Speech</option>
+          </select>
+        </label>
+      </div>
+      {speech.provider === "google" && !speech.providers.googleKeyConfigured && (
+        <p className="error">
+          Google の APIキー（GOOGLE_TTS_API_KEY）が見つかりません。var/secrets.env に書いてサーバーを起動し直してください。
+          それまでは macOS の音声で読み上げます。
+        </p>
+      )}
+      {!speech.available && speech.provider === "macos" ? (
         <p className="muted">この環境では読み上げを利用できません（macOS の say コマンドが必要です）。</p>
       ) : (
         <>
@@ -377,6 +400,28 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
                 onChange={(event) => saveSpeech({ enabled: event.target.checked })} />
               実況を読み上げる
             </label>
+            {speech.provider === "google" ? (
+              <>
+                <label>Google の音声
+                  <select value={speech.googleVoice}
+                    onChange={(event) => saveSpeech({ googleVoice: event.target.value })}>
+                    {!googleVoices.some((voice) => voice.name === speech.googleVoice) && (
+                      <option value={speech.googleVoice}>{speech.googleVoice}</option>
+                    )}
+                    {googleVoices.map((voice) => (
+                      <option key={voice.name} value={voice.name}>{voice.name}（{voice.sample}）</option>
+                    ))}
+                  </select>
+                </label>
+                <label>速さ（{speech.googleSpeakingRate.toFixed(2)}倍）
+                  <input type="range" min={0.5} max={2} step={0.05} value={speech.googleSpeakingRate}
+                    onChange={(event) => setSpeech({ ...speech, googleSpeakingRate: Number(event.target.value) })}
+                    onPointerUp={() => saveSpeech({ googleSpeakingRate: speech.googleSpeakingRate })}
+                    onKeyUp={() => saveSpeech({ googleSpeakingRate: speech.googleSpeakingRate })} />
+                </label>
+              </>
+            ) : (
+            <>
             <label>音声
               <select value={speech.voice ?? ""}
                 onChange={(event) => saveSpeech({ voice: event.target.value || null })}>
@@ -401,6 +446,8 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
                   onClick={() => saveSpeech({ rate: null })}>標準に戻す</button>
               </span>
             </label>
+            </>
+            )}
             <label>音量（{Math.round(speech.volume * 100)}%）
               <input type="range" min={0} max={1} step={0.05} value={speech.volume}
                 onChange={(event) => setSpeech({ ...speech, volume: Number(event.target.value) })}
@@ -413,12 +460,20 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
               placeholder="試聴する文（空欄なら定型文）" aria-label="試聴する文"
               onChange={(event) => setSample(event.target.value)} />
             <button className="secondary" onClick={() => previewSpeech({
-              text: sample || undefined, voice: speech.voice, rate: speech.rate, volume: speech.volume
+              text: sample || undefined, voice: speech.voice, rate: speech.rate, volume: speech.volume,
+              provider: speech.provider, googleVoice: speech.googleVoice,
+              googleSpeakingRate: speech.googleSpeakingRate
             }).catch((reason) => onError(reason instanceof Error ? reason.message : "試聴できませんでした"))}>
               試聴
             </button>
             <button className="secondary" onClick={() => stopSpeech().catch(() => undefined)}>止める</button>
           </div>
+          {speech.provider === "google" && (
+            <p className="muted">
+              Google では文を「。」「！」ごとに区切り、1文目ができたらすぐ読み始めます（次の文は読んでいる間に作ります）。
+              Google が使えない時は macOS の音声で読みます。料金は文字数に応じてかかります（WaveNet・Standard は毎月400万文字まで無料）。
+            </p>
+          )}
           <p className="muted">
             プレイヤー名の読み方は、ゲーム作成時の「読み方」が読み上げに使われます。
             声の高さは標準の音声では調整できないため、Phase 8 の試聴で扱いを決めます。

@@ -151,6 +151,9 @@ class SpeechSettingsUpdate(RequestModel):
     voice: str | None = Field(default=None, max_length=100)
     rate: int | None = Field(default=None, ge=80, le=400)
     volume: float | None = Field(default=None, ge=0, le=1)
+    provider: Literal["macos", "google"] | None = None
+    google_voice: str | None = Field(default=None, min_length=1, max_length=100)
+    google_speaking_rate: float | None = Field(default=None, ge=0.5, le=2.0)
 
 
 class SpeechPreview(RequestModel):
@@ -160,6 +163,9 @@ class SpeechPreview(RequestModel):
     voice: str | None = Field(default=None, max_length=100)
     rate: int | None = Field(default=None, ge=80, le=400)
     volume: float | None = Field(default=None, ge=0, le=1)
+    provider: Literal["macos", "google"] | None = None
+    google_voice: str | None = Field(default=None, min_length=1, max_length=100)
+    google_speaking_rate: float | None = Field(default=None, ge=0.5, le=2.0)
 
 
 class VisionRoiUpdate(RequestModel):

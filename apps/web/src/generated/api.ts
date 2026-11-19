@@ -1523,6 +1523,30 @@ export interface components {
             rate?: number | null;
             /** Volume */
             volume?: number | null;
+            /** Provider */
+            provider?: ("macos" | "google") | null;
+            /** Googlevoice */
+            googleVoice?: string | null;
+            /** Googlespeakingrate */
+            googleSpeakingRate?: number | null;
+        };
+        /** SpeechProviders */
+        SpeechProviders: {
+            /**
+             * Macos
+             * @description macOS voices can be used on this computer
+             */
+            macos: boolean;
+            /**
+             * Google
+             * @description Google Cloud TTS can be used (API key set)
+             */
+            google: boolean;
+            /**
+             * Googlekeyconfigured
+             * @description GOOGLE_TTS_API_KEY is set (never shown)
+             */
+            googleKeyConfigured: boolean;
         };
         /**
          * SpeechResponse
@@ -1549,16 +1573,35 @@ export interface components {
         SpeechSettingsResponse: {
             /** Enabled */
             enabled: boolean;
-            /** Voice */
+            /**
+             * Voice
+             * @description macOS voice; null: the system default
+             */
             voice: string | null;
-            /** Rate */
+            /**
+             * Rate
+             * @description macOS speaking rate (words per minute)
+             */
             rate: number | null;
             /** Volume */
             volume: number;
-            /** Available */
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "macos" | "google";
+            /** Googlevoice */
+            googleVoice: string;
+            /** Googlespeakingrate */
+            googleSpeakingRate: number;
+            /**
+             * Available
+             * @description The selected provider can be used
+             */
             available: boolean;
             /** Engine */
             engine: string;
+            providers: components["schemas"]["SpeechProviders"];
         };
         /**
          * SpeechSettingsUpdate
@@ -1573,6 +1616,12 @@ export interface components {
             rate?: number | null;
             /** Volume */
             volume?: number | null;
+            /** Provider */
+            provider?: ("macos" | "google") | null;
+            /** Googlevoice */
+            googleVoice?: string | null;
+            /** Googlespeakingrate */
+            googleSpeakingRate?: number | null;
         };
         /**
          * SystemStatus
@@ -3251,7 +3300,9 @@ export interface operations {
     };
     list_voices_api_speech_voices_get: {
         parameters: {
-            query?: never;
+            query?: {
+                provider?: ("macos" | "google") | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3265,6 +3316,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

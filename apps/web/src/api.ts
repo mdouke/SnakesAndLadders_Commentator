@@ -308,14 +308,15 @@ export function getSpeechSettings(): Promise<SpeechSettings> {
   return request("/api/settings/speech");
 }
 
-export type SpeechSettingsChange = Partial<Pick<SpeechSettings, "enabled" | "voice" | "rate" | "volume">>;
+export type SpeechSettingsChange = Partial<Pick<SpeechSettings,
+  "enabled" | "voice" | "rate" | "volume" | "provider" | "googleVoice" | "googleSpeakingRate">>;
 
 export function updateSpeechSettings(changes: SpeechSettingsChange): Promise<SpeechSettings> {
   return request("/api/settings/speech", { method: "PUT", body: JSON.stringify(changes) });
 }
 
-export function listVoices(): Promise<{ voices: VoiceInfo[] }> {
-  return request("/api/speech/voices");
+export function listVoices(provider?: SpeechSettings["provider"]): Promise<{ voices: VoiceInfo[] }> {
+  return request(`/api/speech/voices${provider ? `?provider=${provider}` : ""}`);
 }
 
 export function previewSpeech(

@@ -80,6 +80,7 @@ from .infrastructure.secrets import default_secrets_path, load_secrets
 from .presets import BoardPresetError, BoardPresetStore, board_from_definition, load_board_preset
 from .services.commentary import CommentaryError, CommentaryService
 from .services.game import GameService
+from .services.google_tts import GoogleTtsEngine
 from .services.llm.providers import provider_availability
 from .services.llm.settings import CommentarySettingsStore
 from .services.realtime import RealtimeClient, RealtimeHub
@@ -687,7 +688,11 @@ def create_app(
             tts_status = {
                 "status": "ok",
                 "label": "読み上げ中" if speech_state["status"] == "speaking" else "待機中",
-                "detail": speech_settings.voice or "標準の音声",
+                "detail": (
+                    f"Google（{speech_settings.google_voice}）"
+                    if speech_settings.provider == "google"
+                    else speech_settings.voice or "標準の音声"
+                ),
             }
         return {
             "checkedAt": datetime.now(UTC).isoformat(),
@@ -761,10 +766,18 @@ def create_app(
         return commentary_settings_payload()
 
     def speech_settings_payload() -> dict[str, Any]:
+        google = speech.engine_for("google")
+        key_configured = getattr(google, "key_configured", None)
         return {
             **speech.settings.get().to_dict(),
             "available": speech.engine.available(),
             "engine": speech.engine.name,
+            "providers": {
+                "macos": speech.engine_for("macos").available(),
+                "google": "google" in speech.engines and google.available(),
+                "googleKeyConfigured": bool(key_configured()) if callable(key_configured)
+                else False,
+            },
         }
 
     @application.get("/api/speech", response_model=SpeechResponse)
@@ -772,8 +785,9 @@ def create_app(
         return speech.snapshot()
 
     @application.get("/api/speech/voices", response_model=VoiceList)
-    def list_voices() -> dict[str, Any]:
-        return {"voices": [voice.to_dict() for voice in speech.engine.voices()]}
+    def list_voices(provider: Literal["macos", "google"] | None = None) -> dict[str, Any]:
+        engine = speech.engine_for(provider) if provider else speech.engine
+        return {"voices": [voice.to_dict() for voice in engine.voices()]}
 
     @application.get("/api/settings/speech", response_model=SpeechSettingsResponse)
     def get_speech_settings() -> dict[str, Any]:
@@ -782,8 +796,10 @@ def create_app(
     @application.put("/api/settings/speech", response_model=SpeechSettingsResponse)
     def update_speech_settings(request: SpeechSettingsUpdate) -> dict[str, Any]:
         changes = request.model_dump(by_alias=True, exclude_unset=True)
-        if changes.get("enabled", True) is None or changes.get("volume", 0) is None:
-            raise ApiError(422, "invalid_settings", "enabled と volume に null は指定できません")
+        not_nullable = ("enabled", "volume", "provider", "googleVoice", "googleSpeakingRate")
+        if any(key in changes and changes[key] is None for key in not_nullable):
+            raise ApiError(422, "invalid_settings",
+                           "voice と rate 以外の設定に null は指定できません")
         try:
             speech.settings.update(changes)
         except ValueError as error:
@@ -801,6 +817,10 @@ def create_app(
                 voice=given["voice"] if "voice" in given else base.voice,
                 rate=given["rate"] if "rate" in given else base.rate,
                 volume=given["volume"] if given.get("volume") is not None else base.volume,
+                provider=given.get("provider") or base.provider,
+                google_voice=given.get("google_voice") or base.google_voice,
+                google_speaking_rate=given.get("google_speaking_rate")
+                or base.google_speaking_rate,
             ).validated()
             speech.preview(request.text, settings)
         except ValueError as error:
@@ -924,7 +944,7 @@ def create_production_app() -> FastAPI:
         log=SQLiteCommentaryLog(database_path),
     )
     speech = SpeechService(
-        engine=MacSayEngine(),
+        engines={"macos": MacSayEngine(), "google": GoogleTtsEngine()},
         settings=SpeechSettingsStore(repository_root / "var" / "speech-settings.json"),
     )
     return create_app(

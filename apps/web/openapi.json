@@ -1399,6 +1399,28 @@
       "get": {
         "summary": "List Voices",
         "operationId": "list_voices_api_speech_voices_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "macos",
+                    "google"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1406,6 +1428,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VoiceList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -4233,11 +4265,79 @@
               }
             ],
             "title": "Volume"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "macos",
+                  "google"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "googleVoice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Googlevoice"
+          },
+          "googleSpeakingRate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 2.0,
+                "minimum": 0.5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Googlespeakingrate"
           }
         },
         "type": "object",
         "title": "SpeechPreview",
         "description": "Try a voice; settings given here are used for this preview only."
+      },
+      "SpeechProviders": {
+        "properties": {
+          "macos": {
+            "type": "boolean",
+            "title": "Macos",
+            "description": "macOS voices can be used on this computer"
+          },
+          "google": {
+            "type": "boolean",
+            "title": "Google",
+            "description": "Google Cloud TTS can be used (API key set)"
+          },
+          "googleKeyConfigured": {
+            "type": "boolean",
+            "title": "Googlekeyconfigured",
+            "description": "GOOGLE_TTS_API_KEY is set (never shown)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "macos",
+          "google",
+          "googleKeyConfigured"
+        ],
+        "title": "SpeechProviders"
       },
       "SpeechResponse": {
         "additionalProperties": false,
@@ -4338,7 +4438,8 @@
                 "type": "null"
               }
             ],
-            "title": "Voice"
+            "title": "Voice",
+            "description": "macOS voice; null: the system default"
           },
           "rate": {
             "anyOf": [
@@ -4349,19 +4450,40 @@
                 "type": "null"
               }
             ],
-            "title": "Rate"
+            "title": "Rate",
+            "description": "macOS speaking rate (words per minute)"
           },
           "volume": {
             "type": "number",
             "title": "Volume"
           },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "macos",
+              "google"
+            ],
+            "title": "Provider"
+          },
+          "googleVoice": {
+            "type": "string",
+            "title": "Googlevoice"
+          },
+          "googleSpeakingRate": {
+            "type": "number",
+            "title": "Googlespeakingrate"
+          },
           "available": {
             "type": "boolean",
-            "title": "Available"
+            "title": "Available",
+            "description": "The selected provider can be used"
           },
           "engine": {
             "type": "string",
             "title": "Engine"
+          },
+          "providers": {
+            "$ref": "#/components/schemas/SpeechProviders"
           }
         },
         "additionalProperties": false,
@@ -4371,8 +4493,12 @@
           "voice",
           "rate",
           "volume",
+          "provider",
+          "googleVoice",
+          "googleSpeakingRate",
           "available",
-          "engine"
+          "engine",
+          "providers"
         ],
         "title": "SpeechSettingsResponse"
       },
@@ -4426,6 +4552,47 @@
               }
             ],
             "title": "Volume"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "macos",
+                  "google"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "googleVoice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Googlevoice"
+          },
+          "googleSpeakingRate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 2.0,
+                "minimum": 0.5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Googlespeakingrate"
           }
         },
         "additionalProperties": false,

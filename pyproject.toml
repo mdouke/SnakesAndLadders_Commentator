@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Game state and live commentary system for a physical Snakes & Ladders game"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+  "certifi>=2024.2",  # CA bundle for HTTPS calls (python.org Python has none)
   "fastapi>=0.115,<1",
   "pydantic>=2.9,<3",
   "uvicorn[standard]>=0.34,<1",

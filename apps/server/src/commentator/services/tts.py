@@ -1,4 +1,4 @@
-"""Reading commentary aloud with the macOS voices, with cancellation.
+"""Reading commentary aloud (macOS voices or Google Cloud), with cancellation.
 
 Only the newest comment is ever spoken. When the commentary changes (a newer turn,
 undo, correction, regeneration, a different game, the game being aborted), the
@@ -26,6 +26,9 @@ from typing import Any, Literal, Protocol
 from .llm.settings import SettingsFile
 
 SpeechStatus = Literal["idle", "speaking", "error"]
+SpeechProvider = Literal["macos", "google"]
+SPEECH_PROVIDERS: tuple[SpeechProvider, ...] = ("macos", "google")
+DEFAULT_GOOGLE_VOICE = "ja-JP-Wavenet-B"
 SpeechSubscriber = Callable[[dict[str, Any]], None]
 
 PREVIEW_TEXT_JA = "こんにちは。ヘビとハシゴの実況を担当します。よろしくお願いします。"
@@ -48,8 +51,17 @@ class SpeechSettings:
     voice: str | None = None  # None: the system default voice
     rate: int | None = None  # words per minute for `say`; None: the voice default
     volume: float = 1.0
+    provider: SpeechProvider = "macos"
+    google_voice: str = DEFAULT_GOOGLE_VOICE
+    google_speaking_rate: float = 1.0  # Google's speakingRate (1.0 = normal)
 
     def validated(self) -> SpeechSettings:
+        if self.provider not in SPEECH_PROVIDERS:
+            raise ValueError("読み上げの方法は macos または google です")
+        if not self.google_voice.startswith(("ja-", "en-")) or len(self.google_voice) > 100:
+            raise ValueError("Google の音声名が正しくありません")
+        if not 0.5 <= self.google_speaking_rate <= 2.0:
+            raise ValueError("Google の読み上げ速度は0.5〜2.0にしてください")
         if self.rate is not None and not 80 <= self.rate <= 400:
             raise ValueError("読み上げ速度は80〜400にしてください")
         if not 0 <= self.volume <= 1:
@@ -61,7 +73,8 @@ class SpeechSettings:
     def to_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled, "voice": self.voice, "rate": self.rate,
-            "volume": self.volume,
+            "volume": self.volume, "provider": self.provider,
+            "googleVoice": self.google_voice, "googleSpeakingRate": self.google_speaking_rate,
         }
 
     @classmethod
@@ -73,6 +86,9 @@ class SpeechSettings:
             voice=str(voice) if voice else None,
             rate=int(rate) if rate is not None else None,
             volume=float(value.get("volume", 1.0)),
+            provider=value.get("provider", "macos"),
+            google_voice=str(value.get("googleVoice") or DEFAULT_GOOGLE_VOICE),
+            google_speaking_rate=float(value.get("googleSpeakingRate", 1.0)),
         ).validated()
 
 
@@ -225,12 +241,15 @@ class SpeechService:
         self,
         *,
         engine: TtsEngine | None = None,
+        engines: dict[str, TtsEngine] | None = None,
         settings: SpeechSettingsStore | None = None,
         is_current: Callable[[str | None], bool] = lambda _request_id: False,
         readings: Callable[[], dict[str, str]] = dict,
         language: Callable[[], str] = lambda: "ja",
     ) -> None:
-        self.engine: TtsEngine = engine or SilentTtsEngine()
+        # ``engine`` serves every provider (tests); ``engines`` maps provider names.
+        self._default_engine: TtsEngine = engine or SilentTtsEngine()
+        self.engines: dict[str, TtsEngine] = dict(engines or {})
         self.settings = settings or SpeechSettingsStore()
         self.is_current = is_current
         self.readings = readings
@@ -243,6 +262,14 @@ class SpeechService:
         self._subscribers: list[SpeechSubscriber] = []
         self._stopped = False
         self._worker: Thread | None = None
+
+    def engine_for(self, provider: str) -> TtsEngine:
+        return self.engines.get(provider, self._default_engine)
+
+    @property
+    def engine(self) -> TtsEngine:
+        """The engine of the selected provider."""
+        return self.engine_for(self.settings.get().provider)
 
     # -- lifecycle -------------------------------------------------------------
 
@@ -357,13 +384,30 @@ class SpeechService:
             })
         error: str | None = None
         completed = False
+        engine = self.engine_for(settings.provider)
         try:
-            completed = self.engine.speak(text, settings, cancel)
+            completed = engine.speak(text, settings, cancel)
         except Exception as caught:
             error = str(caught)[:300] or type(caught).__name__
             logger.error("speech failed", exc_info=caught,
                          extra={"event": "speech_failed", "errorCode": "speech_failed",
-                                "requestId": job.request_id})
+                                "requestId": job.request_id, "provider": settings.provider,
+                                "reason": error})
+            fallback = self.engine_for("macos")
+            if (
+                settings.provider != "macos" and fallback is not engine
+                and fallback.available() and not cancel.is_set()
+            ):
+                # The game goes on: read this comment with the macOS voice instead.
+                try:
+                    completed = fallback.speak(text, settings, cancel)
+                    logger.warning("speech fell back to macOS",
+                                   extra={"event": "speech_fallback",
+                                          "requestId": job.request_id})
+                    error = None
+                except Exception as second:
+                    logger.error("fallback speech failed", exc_info=second,
+                                 extra={"event": "speech_failed", "errorCode": "speech_failed"})
         logger.info(
             "speech finished" if completed else "speech stopped",
             extra={"event": "speech_finished" if completed else "speech_cancelled",

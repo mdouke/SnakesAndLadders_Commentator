@@ -563,13 +563,23 @@ class CommentaryRequestList(ResponseModel):
     requests: list[CommentaryRequestRecord]
 
 
+class SpeechProviders(ResponseModel):
+    macos: bool = Field(description="macOS voices can be used on this computer")
+    google: bool = Field(description="Google Cloud TTS can be used (API key set)")
+    google_key_configured: bool = Field(description="GOOGLE_TTS_API_KEY is set (never shown)")
+
+
 class SpeechSettingsResponse(ResponseModel):
     enabled: bool
-    voice: str | None
-    rate: int | None
+    voice: str | None = Field(description="macOS voice; null: the system default")
+    rate: int | None = Field(description="macOS speaking rate (words per minute)")
     volume: float
-    available: bool
+    provider: Literal["macos", "google"]
+    google_voice: str
+    google_speaking_rate: float
+    available: bool = Field(description="The selected provider can be used")
     engine: str
+    providers: SpeechProviders
 
 
 class VoiceInfo(ResponseModel):
