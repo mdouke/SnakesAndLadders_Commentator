@@ -23,6 +23,7 @@ import { GameSetupPanel } from "./Setup";
 import { StatsPanel } from "./Stats";
 import { StatusPanel } from "./StatusPanel";
 import type { GameState, RecognitionCamera, RecognitionState } from "./types";
+import { VisionTuningDialog } from "./VisionTuning";
 
 const statusLabels: Record<GameState["status"], string> = {
   ready: "開始待ち",
@@ -192,6 +193,7 @@ function RecognitionPanel({
   const [cameras, setCameras] = useState<RecognitionCamera[]>([]);
   const [cameraId, setCameraId] = useState<number | undefined>(undefined);
   const [pending, setPending] = useState(false);
+  const [tuning, setTuning] = useState(false);
 
   useEffect(() => {
     if (!recognition?.available) return;
@@ -256,7 +258,13 @@ function RecognitionPanel({
               stopRecognition, "認識を停止できませんでした"
             )}>認識を停止</button>
           )}
+          <button className="secondary" onClick={() => setTuning(true)}>認識の調整…</button>
         </div>
+      )}
+      {tuning && (
+        <VisionTuningDialog running={recognition.running} available={recognition.available}
+          stateLabel={recognitionLabels[recognition.state]} cameras={cameras}
+          onClose={() => setTuning(false)} />
       )}
       {reviewing && (
         <div className="recognition-review">
@@ -372,6 +380,8 @@ function AdminView() {
             <button className="secondary" onClick={openPastGames}>過去のゲームを選択</button>
           </div>
           <GameSetupPanel onCreate={run} />
+          <RecognitionPanel game={null} recognition={realtime.recognition} busy={busy}
+            onGame={run} onError={setError} />
         </>
       ) : (
         <>

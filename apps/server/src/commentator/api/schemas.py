@@ -160,3 +160,49 @@ class SpeechPreview(RequestModel):
     voice: str | None = Field(default=None, max_length=100)
     rate: int | None = Field(default=None, ge=80, le=400)
     volume: float | None = Field(default=None, ge=0, le=1)
+
+
+class VisionRoiUpdate(RequestModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
+
+    x: float | None = Field(default=None, ge=0, le=1)
+    y: float | None = Field(default=None, ge=0, le=1)
+    width: float | None = Field(default=None, gt=0, le=1)
+    height: float | None = Field(default=None, gt=0, le=1)
+
+
+class VisionResolutionUpdate(RequestModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
+
+    width: int
+    height: int
+
+
+class VisionSettingsUpdate(RequestModel):
+    """Only the given fields change.
+
+    ``null`` means automatic for ``whiteThreshold``, ``pipThreshold`` and
+    ``exposure``. Changes apply to the running recognition at once; they are
+    written to the settings file only by ``POST /api/settings/vision/save``.
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
+
+    camera_id: int | None = Field(default=None, ge=0, le=15)
+    roi: VisionRoiUpdate | None = None
+    white_threshold: int | None = Field(default=None, ge=0, le=255)
+    pip_threshold: int | None = Field(default=None, ge=0, le=255)
+    camera_resolution: VisionResolutionUpdate | None = None
+    exposure: float | None = Field(default=None, ge=-13, le=0)
+    automatic_threshold: float | None = Field(default=None, ge=0.5, le=1)
+    confirmation_threshold: float | None = Field(default=None, ge=0.5, le=1)
+    stationary_frames: int | None = Field(default=None, ge=1, le=15)
+    consecutive_value_frames: int | None = Field(default=None, ge=1, le=5)
+    min_pip_size_consistency: float | None = Field(default=None, ge=0, le=1)
+    max_single_pip_center_offset: float | None = Field(default=None, ge=0, le=0.5)
+    max_pip_layout_error: float | None = Field(default=None, ge=0, le=1)
+    min_detector_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class VisionSettingsRevert(RequestModel):
+    target: Literal["saved", "defaults"] = "saved"

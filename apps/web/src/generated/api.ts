@@ -381,6 +381,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recognition/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recognition Diagnostics */
+        get: operations["recognition_diagnostics_api_recognition_diagnostics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/vision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Vision Settings */
+        get: operations["get_vision_settings_api_settings_vision_get"];
+        /** Update Vision Settings */
+        put: operations["update_vision_settings_api_settings_vision_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/vision/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Vision Settings */
+        post: operations["save_vision_settings_api_settings_vision_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/vision/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert Vision Settings */
+        post: operations["revert_vision_settings_api_settings_vision_revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/status": {
         parameters: {
             query?: never;
@@ -880,6 +949,22 @@ export interface components {
             /** Operator */
             operator: string | null;
         };
+        /** DiagnosticDetection */
+        DiagnosticDetection: {
+            /** Value */
+            value: number;
+            /** Confidence */
+            confidence: number;
+            /** Pipsizeconsistency */
+            pipSizeConsistency: number;
+            /** Piplayouterror */
+            pipLayoutError: number;
+        };
+        /** DiagnosticRejection */
+        DiagnosticRejection: {
+            /** Reason */
+            reason: string;
+        };
         /** GameCreate */
         GameCreate: {
             /** Players */
@@ -1204,6 +1289,31 @@ export interface components {
             originalCandidate: number | null;
             confidence: components["schemas"]["RecognitionConfidence"] | null;
         };
+        /** RecognitionDiagnostics */
+        RecognitionDiagnostics: {
+            /** Running */
+            running: boolean;
+            /** Framewidth */
+            frameWidth: number | null;
+            /** Frameheight */
+            frameHeight: number | null;
+            /** Fps */
+            fps: number | null;
+            /** Motionscore */
+            motionScore: number | null;
+            roiBrightness: components["schemas"]["RoiBrightness"] | null;
+            whiteThreshold: components["schemas"]["WhiteThresholdInfo"] | null;
+            /** Whitearearatio */
+            whiteAreaRatio: number | null;
+            /** Detections */
+            detections: components["schemas"]["DiagnosticDetection"][];
+            /** Rejected */
+            rejected: components["schemas"]["DiagnosticRejection"][];
+            /** Pendingrecognitionsettings */
+            pendingRecognitionSettings: boolean;
+            /** Hints */
+            hints: string[];
+        };
         /** RecognitionResponse */
         RecognitionResponse: {
             /** Available */
@@ -1264,6 +1374,13 @@ export interface components {
             reason: string;
             /** Operator */
             operator: string;
+        };
+        /** RoiBrightness */
+        RoiBrightness: {
+            /** Mean */
+            mean: number;
+            /** P99 */
+            p99: number;
         };
         /** RollCorrection */
         RollCorrection: {
@@ -1506,6 +1623,142 @@ export interface components {
              */
             confirmEndedGame: boolean;
         };
+        /** VisionResolution */
+        VisionResolution: {
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+        };
+        /** VisionResolutionUpdate */
+        VisionResolutionUpdate: {
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+        };
+        /** VisionRoi */
+        VisionRoi: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+        };
+        /** VisionRoiUpdate */
+        VisionRoiUpdate: {
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+            /** Width */
+            width?: number | null;
+            /** Height */
+            height?: number | null;
+        };
+        /** VisionSettingsModel */
+        VisionSettingsModel: {
+            /** Cameraid */
+            cameraId: number | null;
+            roi: components["schemas"]["VisionRoi"];
+            /**
+             * Whitethreshold
+             * @description null: automatic (Otsu)
+             */
+            whiteThreshold: number | null;
+            /**
+             * Pipthreshold
+             * @description null: automatic per face
+             */
+            pipThreshold: number | null;
+            cameraResolution: components["schemas"]["VisionResolution"];
+            /**
+             * Exposure
+             * @description null: automatic exposure
+             */
+            exposure: number | null;
+            /** Automaticthreshold */
+            automaticThreshold: number;
+            /** Confirmationthreshold */
+            confirmationThreshold: number;
+            /** Stationaryframes */
+            stationaryFrames: number;
+            /** Consecutivevalueframes */
+            consecutiveValueFrames: number;
+            /** Minpipsizeconsistency */
+            minPipSizeConsistency: number;
+            /** Maxsinglepipcenteroffset */
+            maxSinglePipCenterOffset: number;
+            /** Maxpiplayouterror */
+            maxPipLayoutError: number;
+            /** Mindetectorconfidence */
+            minDetectorConfidence: number;
+        };
+        /** VisionSettingsResponse */
+        VisionSettingsResponse: {
+            /** @description Values the recognition uses now */
+            settings: components["schemas"]["VisionSettingsModel"];
+            /** @description Values in the settings file; null when it cannot be read */
+            saved: components["schemas"]["VisionSettingsModel"] | null;
+            defaults: components["schemas"]["VisionSettingsModel"];
+            /** Unsaved */
+            unsaved: boolean;
+            /**
+             * Pendingrecognitionsettings
+             * @description Decision thresholds wait for the current throw to finish
+             */
+            pendingRecognitionSettings: boolean;
+            /** Settingspath */
+            settingsPath: string | null;
+        };
+        /** VisionSettingsRevert */
+        VisionSettingsRevert: {
+            /**
+             * Target
+             * @default saved
+             * @enum {string}
+             */
+            target: "saved" | "defaults";
+        };
+        /**
+         * VisionSettingsUpdate
+         * @description Only the given fields change.
+         *
+         *     ``null`` means automatic for ``whiteThreshold``, ``pipThreshold`` and
+         *     ``exposure``. Changes apply to the running recognition at once; they are
+         *     written to the settings file only by ``POST /api/settings/vision/save``.
+         */
+        VisionSettingsUpdate: {
+            /** Cameraid */
+            cameraId?: number | null;
+            roi?: components["schemas"]["VisionRoiUpdate"] | null;
+            /** Whitethreshold */
+            whiteThreshold?: number | null;
+            /** Pipthreshold */
+            pipThreshold?: number | null;
+            cameraResolution?: components["schemas"]["VisionResolutionUpdate"] | null;
+            /** Exposure */
+            exposure?: number | null;
+            /** Automaticthreshold */
+            automaticThreshold?: number | null;
+            /** Confirmationthreshold */
+            confirmationThreshold?: number | null;
+            /** Stationaryframes */
+            stationaryFrames?: number | null;
+            /** Consecutivevalueframes */
+            consecutiveValueFrames?: number | null;
+            /** Minpipsizeconsistency */
+            minPipSizeConsistency?: number | null;
+            /** Maxsinglepipcenteroffset */
+            maxSinglePipCenterOffset?: number | null;
+            /** Maxpiplayouterror */
+            maxPipLayoutError?: number | null;
+            /** Mindetectorconfidence */
+            minDetectorConfidence?: number | null;
+        };
         /** VoiceInfo */
         VoiceInfo: {
             /** Name */
@@ -1519,6 +1772,16 @@ export interface components {
         VoiceList: {
             /** Voices */
             voices: components["schemas"]["VoiceInfo"][];
+        };
+        /** WhiteThresholdInfo */
+        WhiteThresholdInfo: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "auto" | "fixed";
+            /** Applied */
+            applied: number | null;
         };
         /** CommentaryMessage */
         CommentaryMessage: {
@@ -2293,7 +2556,9 @@ export interface operations {
     };
     recognition_preview_api_recognition_preview_jpg_get: {
         parameters: {
-            query?: never;
+            query?: {
+                view?: "overlay" | "mask" | "pips";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2307,6 +2572,141 @@ export interface operations {
                 };
                 content: {
                     "image/jpeg": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recognition_diagnostics_api_recognition_diagnostics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecognitionDiagnostics"];
+                };
+            };
+        };
+    };
+    get_vision_settings_api_settings_vision_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisionSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_vision_settings_api_settings_vision_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisionSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisionSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_vision_settings_api_settings_vision_save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisionSettingsResponse"];
+                };
+            };
+        };
+    };
+    revert_vision_settings_api_settings_vision_revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisionSettingsRevert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisionSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

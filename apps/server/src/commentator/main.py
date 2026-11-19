@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response, WebSocket
@@ -32,11 +32,13 @@ from .api.responses import (
     HealthResponse,
     LoggingStatus,
     RecognitionCamerasResponse,
+    RecognitionDiagnostics,
     RecognitionResponse,
     RollCorrectionPreview,
     SpeechResponse,
     SpeechSettingsResponse,
     SystemStatus,
+    VisionSettingsResponse,
     VoiceList,
 )
 from .api.schemas import (
@@ -57,6 +59,8 @@ from .api.schemas import (
     SpeechSettingsUpdate,
     TurnChange,
     VersionedRequest,
+    VisionSettingsRevert,
+    VisionSettingsUpdate,
 )
 from .domain.board import Board
 from .domain.game import (
@@ -552,12 +556,49 @@ def create_app(
         response_class=Response,
         responses={200: {"content": {"image/jpeg": {}}}},
     )
-    def recognition_preview() -> Response:
+    def recognition_preview(
+        view: Literal["overlay", "mask", "pips"] = "overlay",
+    ) -> Response:
         return Response(
-            recognition.preview_jpeg(),
+            recognition.preview_jpeg(view),
             media_type="image/jpeg",
             headers={"Cache-Control": "no-store"},
         )
+
+    @application.get(
+        "/api/recognition/diagnostics", response_model=RecognitionDiagnostics
+    )
+    def recognition_diagnostics() -> dict[str, Any]:
+        return recognition.diagnostics()
+
+    @application.get("/api/settings/vision", response_model=VisionSettingsResponse)
+    def get_vision_settings() -> dict[str, Any]:
+        return recognition.vision_settings_payload()
+
+    @application.put("/api/settings/vision", response_model=VisionSettingsResponse)
+    def update_vision_settings(request: VisionSettingsUpdate) -> dict[str, Any]:
+        changes = request.model_dump(exclude_unset=True, by_alias=True)
+        for key in ("roi", "cameraResolution"):
+            if key in changes and changes[key] is None:
+                raise ApiError(422, "invalid_settings", f"{key} に null は指定できません")
+            if isinstance(changes.get(key), dict):
+                changes[key] = {k: v for k, v in changes[key].items() if v is not None}
+        nullable = {"cameraId", "whiteThreshold", "pipThreshold", "exposure", "roi",
+                    "cameraResolution"}
+        for key, value in changes.items():
+            if value is None and key not in nullable:
+                raise ApiError(422, "invalid_settings", f"{key} に null は指定できません")
+        return recognition.update_vision_settings(changes)
+
+    @application.post("/api/settings/vision/save", response_model=VisionSettingsResponse)
+    def save_vision_settings() -> dict[str, Any]:
+        return recognition.save_vision_settings()
+
+    @application.post(
+        "/api/settings/vision/revert", response_model=VisionSettingsResponse
+    )
+    def revert_vision_settings(request: VisionSettingsRevert) -> dict[str, Any]:
+        return recognition.revert_vision_settings(defaults=request.target == "defaults")
 
     def system_status() -> dict[str, Any]:
         database: dict[str, Any]
@@ -884,13 +925,13 @@ def _create_recognition_service(game_service: GameService) -> RecognitionService
         from .services.vision.recognition import DiceRecognitionSession
         from .services.vision.settings import VisionSettingsStore
 
-        settings = VisionSettingsStore(
-            repository_root / "var" / "vision-settings.json"
-        ).load()
+        store = VisionSettingsStore(repository_root / "var" / "vision-settings.json")
+        settings = store.load()
         pipeline = DiceRecognitionPipeline(
             detector=DiceDetector(
                 white_threshold=settings.white_threshold,
                 pip_threshold=settings.pip_threshold,
+                debug_pips=True,  # for the "pips" view of the tuning dialog
             ),
             session=DiceRecognitionSession(settings.recognition_config()),
             roi=settings.roi,
@@ -906,6 +947,8 @@ def _create_recognition_service(game_service: GameService) -> RecognitionService
                 exposure=settings.exposure,
             ),
             camera_disconnected_errors=(CameraDisconnectedError,),
+            vision_settings=settings,
+            settings_store=store,
         )
     except Exception as error:
         logging.getLogger("commentator.recognition").warning(

@@ -85,18 +85,31 @@ class VisionSettings:
             min_detector_confidence=self.min_detector_confidence,
         )
 
+    def to_dict(self) -> dict[str, Any]:
+        """The camelCase JSON shape used by the settings file and the API."""
+        return {
+            "cameraId": self.camera_id,
+            "roi": asdict(self.roi),
+            "whiteThreshold": self.white_threshold,
+            "pipThreshold": self.pip_threshold,
+            "cameraResolution": {
+                "width": self.camera_width,
+                "height": self.camera_height,
+            },
+            "exposure": self.exposure,
+            "automaticThreshold": self.automatic_threshold,
+            "confirmationThreshold": self.confirmation_threshold,
+            "stationaryFrames": self.stationary_frames,
+            "consecutiveValueFrames": self.consecutive_value_frames,
+            "minPipSizeConsistency": self.min_pip_size_consistency,
+            "maxSinglePipCenterOffset": self.max_single_pip_center_offset,
+            "maxPipLayoutError": self.max_pip_layout_error,
+            "minDetectorConfidence": self.min_detector_confidence,
+        }
 
-class VisionSettingsStore:
-    def __init__(self, path: Path) -> None:
-        self.path = path
-
-    def load(self) -> VisionSettings:
-        if not self.path.exists():
-            return VisionSettings()
-        try:
-            value = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            raise ValueError("サイコロ認識設定を読み込めません") from error
+    @classmethod
+    def from_dict(cls, value: Any) -> VisionSettings:
+        """Build settings from the JSON shape; missing keys use the defaults."""
         if not isinstance(value, dict):
             raise ValueError("サイコロ認識設定の形式が不正です")
         try:
@@ -105,7 +118,7 @@ class VisionSettingsStore:
             resolution = value.get("cameraResolution", {})
             if not isinstance(roi, dict) or not isinstance(resolution, dict):
                 raise TypeError
-            return VisionSettings(
+            return cls(
                 camera_id=int(camera_id) if camera_id is not None else None,
                 roi=NormalizedRoi(
                     x=float(roi.get("x", 0.0)),
@@ -124,50 +137,56 @@ class VisionSettingsStore:
                 automatic_threshold=float(value.get("automaticThreshold", 0.83)),
                 confirmation_threshold=float(value.get("confirmationThreshold", 0.60)),
                 stationary_frames=int(value.get("stationaryFrames", 10)),
-                consecutive_value_frames=int(
-                    value.get("consecutiveValueFrames", 3)
-                ),
-                min_pip_size_consistency=float(
-                    value.get("minPipSizeConsistency", 0.50)
-                ),
+                consecutive_value_frames=int(value.get("consecutiveValueFrames", 3)),
+                min_pip_size_consistency=float(value.get("minPipSizeConsistency", 0.50)),
                 max_single_pip_center_offset=float(
                     value.get("maxSinglePipCenterOffset", 0.22)
                 ),
-                max_pip_layout_error=float(
-                    value.get("maxPipLayoutError", 0.15)
-                ),
-                min_detector_confidence=float(
-                    value.get("minDetectorConfidence", 0.78)
-                ),
+                max_pip_layout_error=float(value.get("maxPipLayoutError", 0.15)),
+                min_detector_confidence=float(value.get("minDetectorConfidence", 0.78)),
             )
         except (TypeError, ValueError) as error:
+            raise ValueError(f"サイコロ認識設定の値が不正です: {error}") from error
+
+    def with_changes(self, changes: dict[str, Any]) -> VisionSettings:
+        """Apply a partial update; ``roi`` and ``cameraResolution`` merge by key."""
+        merged = self.to_dict()
+        for key, value in changes.items():
+            if key not in merged:
+                raise ValueError(f"不明な設定項目です: {key}")
+            if key in {"roi", "cameraResolution"}:
+                if not isinstance(value, dict):
+                    raise ValueError(f"{key} の形式が不正です")
+                unknown = set(value) - set(merged[key])
+                if unknown:
+                    raise ValueError(f"不明な設定項目です: {key}.{sorted(unknown)[0]}")
+                merged[key] = {**merged[key], **value}
+            else:
+                merged[key] = value
+        return VisionSettings.from_dict(merged)
+
+
+class VisionSettingsStore:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def load(self) -> VisionSettings:
+        if not self.path.exists():
+            return VisionSettings()
+        try:
+            value = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError("サイコロ認識設定を読み込めません") from error
+        try:
+            return VisionSettings.from_dict(value)
+        except ValueError as error:
             raise ValueError("サイコロ認識設定の値が不正です") from error
 
     def save(self, settings: VisionSettings) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-        roi: dict[str, Any] = asdict(settings.roi)
-        payload = {
-            "cameraId": settings.camera_id,
-            "roi": roi,
-            "whiteThreshold": settings.white_threshold,
-            "pipThreshold": settings.pip_threshold,
-            "cameraResolution": {
-                "width": settings.camera_width,
-                "height": settings.camera_height,
-            },
-            "exposure": settings.exposure,
-            "automaticThreshold": settings.automatic_threshold,
-            "confirmationThreshold": settings.confirmation_threshold,
-            "stationaryFrames": settings.stationary_frames,
-            "consecutiveValueFrames": settings.consecutive_value_frames,
-            "minPipSizeConsistency": settings.min_pip_size_consistency,
-            "maxSinglePipCenterOffset": settings.max_single_pip_center_offset,
-            "maxPipLayoutError": settings.max_pip_layout_error,
-            "minDetectorConfidence": settings.min_detector_confidence,
-        }
         temporary.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            json.dumps(settings.to_dict(), ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
         temporary.replace(self.path)

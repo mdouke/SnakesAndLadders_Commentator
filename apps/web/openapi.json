@@ -900,11 +900,166 @@
       "get": {
         "summary": "Recognition Preview",
         "operationId": "recognition_preview_api_recognition_preview_jpg_get",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "overlay",
+                "mask",
+                "pips"
+              ],
+              "type": "string",
+              "default": "overlay",
+              "title": "View"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "image/jpeg": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/diagnostics": {
+      "get": {
+        "summary": "Recognition Diagnostics",
+        "operationId": "recognition_diagnostics_api_recognition_diagnostics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionDiagnostics"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/vision": {
+      "get": {
+        "summary": "Get Vision Settings",
+        "operationId": "get_vision_settings_api_settings_vision_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisionSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Vision Settings",
+        "operationId": "update_vision_settings_api_settings_vision_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisionSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisionSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/vision/save": {
+      "post": {
+        "summary": "Save Vision Settings",
+        "operationId": "save_vision_settings_api_settings_vision_save_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisionSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/vision/revert": {
+      "post": {
+        "summary": "Revert Vision Settings",
+        "operationId": "revert_vision_settings_api_settings_vision_revert_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisionSettingsRevert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisionSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
             }
           }
         }
@@ -2308,6 +2463,49 @@
         "title": "CorrectedFrom",
         "type": "object"
       },
+      "DiagnosticDetection": {
+        "properties": {
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "pipSizeConsistency": {
+            "type": "number",
+            "title": "Pipsizeconsistency"
+          },
+          "pipLayoutError": {
+            "type": "number",
+            "title": "Piplayouterror"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "confidence",
+          "pipSizeConsistency",
+          "pipLayoutError"
+        ],
+        "title": "DiagnosticDetection"
+      },
+      "DiagnosticRejection": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "DiagnosticRejection"
+      },
       "GameCreate": {
         "properties": {
           "players": {
@@ -3315,6 +3513,131 @@
         "title": "RecognitionConfirmation",
         "type": "object"
       },
+      "RecognitionDiagnostics": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "frameWidth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Framewidth"
+          },
+          "frameHeight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frameheight"
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "motionScore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motionscore"
+          },
+          "roiBrightness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoiBrightness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "whiteThreshold": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WhiteThresholdInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "whiteAreaRatio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whitearearatio"
+          },
+          "detections": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticDetection"
+            },
+            "type": "array",
+            "title": "Detections"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticRejection"
+            },
+            "type": "array",
+            "title": "Rejected"
+          },
+          "pendingRecognitionSettings": {
+            "type": "boolean",
+            "title": "Pendingrecognitionsettings"
+          },
+          "hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hints"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "running",
+          "frameWidth",
+          "frameHeight",
+          "fps",
+          "motionScore",
+          "roiBrightness",
+          "whiteThreshold",
+          "whiteAreaRatio",
+          "detections",
+          "rejected",
+          "pendingRecognitionSettings",
+          "hints"
+        ],
+        "title": "RecognitionDiagnostics"
+      },
       "RecognitionResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3518,6 +3841,25 @@
           "operator"
         ],
         "title": "ResumeFromTurn"
+      },
+      "RoiBrightness": {
+        "properties": {
+          "mean": {
+            "type": "number",
+            "title": "Mean"
+          },
+          "p99": {
+            "type": "number",
+            "title": "P99"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mean",
+          "p99"
+        ],
+        "title": "RoiBrightness"
       },
       "RollCorrection": {
         "properties": {
@@ -4309,6 +4651,492 @@
         ],
         "title": "VersionedRequest"
       },
+      "VisionResolution": {
+        "properties": {
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "width",
+          "height"
+        ],
+        "title": "VisionResolution"
+      },
+      "VisionResolutionUpdate": {
+        "properties": {
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "width",
+          "height"
+        ],
+        "title": "VisionResolutionUpdate"
+      },
+      "VisionRoi": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "width": {
+            "type": "number",
+            "title": "Width"
+          },
+          "height": {
+            "type": "number",
+            "title": "Height"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height"
+        ],
+        "title": "VisionRoi"
+      },
+      "VisionRoiUpdate": {
+        "properties": {
+          "x": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VisionRoiUpdate"
+      },
+      "VisionSettingsModel": {
+        "properties": {
+          "cameraId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cameraid"
+          },
+          "roi": {
+            "$ref": "#/components/schemas/VisionRoi"
+          },
+          "whiteThreshold": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whitethreshold",
+            "description": "null: automatic (Otsu)"
+          },
+          "pipThreshold": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pipthreshold",
+            "description": "null: automatic per face"
+          },
+          "cameraResolution": {
+            "$ref": "#/components/schemas/VisionResolution"
+          },
+          "exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure",
+            "description": "null: automatic exposure"
+          },
+          "automaticThreshold": {
+            "type": "number",
+            "title": "Automaticthreshold"
+          },
+          "confirmationThreshold": {
+            "type": "number",
+            "title": "Confirmationthreshold"
+          },
+          "stationaryFrames": {
+            "type": "integer",
+            "title": "Stationaryframes"
+          },
+          "consecutiveValueFrames": {
+            "type": "integer",
+            "title": "Consecutivevalueframes"
+          },
+          "minPipSizeConsistency": {
+            "type": "number",
+            "title": "Minpipsizeconsistency"
+          },
+          "maxSinglePipCenterOffset": {
+            "type": "number",
+            "title": "Maxsinglepipcenteroffset"
+          },
+          "maxPipLayoutError": {
+            "type": "number",
+            "title": "Maxpiplayouterror"
+          },
+          "minDetectorConfidence": {
+            "type": "number",
+            "title": "Mindetectorconfidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cameraId",
+          "roi",
+          "whiteThreshold",
+          "pipThreshold",
+          "cameraResolution",
+          "exposure",
+          "automaticThreshold",
+          "confirmationThreshold",
+          "stationaryFrames",
+          "consecutiveValueFrames",
+          "minPipSizeConsistency",
+          "maxSinglePipCenterOffset",
+          "maxPipLayoutError",
+          "minDetectorConfidence"
+        ],
+        "title": "VisionSettingsModel"
+      },
+      "VisionSettingsResponse": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/VisionSettingsModel",
+            "description": "Values the recognition uses now"
+          },
+          "saved": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisionSettingsModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Values in the settings file; null when it cannot be read"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/VisionSettingsModel"
+          },
+          "unsaved": {
+            "type": "boolean",
+            "title": "Unsaved"
+          },
+          "pendingRecognitionSettings": {
+            "type": "boolean",
+            "title": "Pendingrecognitionsettings",
+            "description": "Decision thresholds wait for the current throw to finish"
+          },
+          "settingsPath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settingspath"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "settings",
+          "saved",
+          "defaults",
+          "unsaved",
+          "pendingRecognitionSettings",
+          "settingsPath"
+        ],
+        "title": "VisionSettingsResponse"
+      },
+      "VisionSettingsRevert": {
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "saved",
+              "defaults"
+            ],
+            "title": "Target",
+            "default": "saved"
+          }
+        },
+        "type": "object",
+        "title": "VisionSettingsRevert"
+      },
+      "VisionSettingsUpdate": {
+        "properties": {
+          "cameraId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 15.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cameraid"
+          },
+          "roi": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisionRoiUpdate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "whiteThreshold": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 255.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whitethreshold"
+          },
+          "pipThreshold": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 255.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pipthreshold"
+          },
+          "cameraResolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisionResolutionUpdate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exposure": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 0.0,
+                "minimum": -13.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure"
+          },
+          "automaticThreshold": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automaticthreshold"
+          },
+          "confirmationThreshold": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.5
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmationthreshold"
+          },
+          "stationaryFrames": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 15.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stationaryframes"
+          },
+          "consecutiveValueFrames": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consecutivevalueframes"
+          },
+          "minPipSizeConsistency": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minpipsizeconsistency"
+          },
+          "maxSinglePipCenterOffset": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 0.5,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxsinglepipcenteroffset"
+          },
+          "maxPipLayoutError": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxpiplayouterror"
+          },
+          "minDetectorConfidence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mindetectorconfidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VisionSettingsUpdate",
+        "description": "Only the given fields change.\n\n``null`` means automatic for ``whiteThreshold``, ``pipThreshold`` and\n``exposure``. Changes apply to the running recognition at once; they are\nwritten to the settings file only by ``POST /api/settings/vision/save``."
+      },
       "VoiceInfo": {
         "properties": {
           "name": {
@@ -4349,6 +5177,36 @@
           "voices"
         ],
         "title": "VoiceList"
+      },
+      "WhiteThresholdInfo": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "fixed"
+            ],
+            "title": "Mode"
+          },
+          "applied": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "applied"
+        ],
+        "title": "WhiteThresholdInfo"
       },
       "CommentaryMessage": {
         "additionalProperties": false,

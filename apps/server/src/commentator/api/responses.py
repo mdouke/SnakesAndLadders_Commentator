@@ -274,6 +274,84 @@ class RecognitionCamerasResponse(ResponseModel):
     cameras: list[RecognitionCamera]
 
 
+class VisionRoi(ResponseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class VisionResolution(ResponseModel):
+    width: int
+    height: int
+
+
+class VisionSettingsModel(ResponseModel):
+    camera_id: int | None
+    roi: VisionRoi
+    white_threshold: int | None = Field(description="null: automatic (Otsu)")
+    pip_threshold: int | None = Field(description="null: automatic per face")
+    camera_resolution: VisionResolution
+    exposure: float | None = Field(description="null: automatic exposure")
+    automatic_threshold: float
+    confirmation_threshold: float
+    stationary_frames: int
+    consecutive_value_frames: int
+    min_pip_size_consistency: float
+    max_single_pip_center_offset: float
+    max_pip_layout_error: float
+    min_detector_confidence: float
+
+
+class VisionSettingsResponse(ResponseModel):
+    settings: VisionSettingsModel = Field(description="Values the recognition uses now")
+    saved: VisionSettingsModel | None = Field(
+        description="Values in the settings file; null when it cannot be read"
+    )
+    defaults: VisionSettingsModel
+    unsaved: bool
+    pending_recognition_settings: bool = Field(
+        description="Decision thresholds wait for the current throw to finish"
+    )
+    settings_path: str | None
+
+
+class RoiBrightness(ResponseModel):
+    mean: float
+    p99: float
+
+
+class WhiteThresholdInfo(ResponseModel):
+    mode: Literal["auto", "fixed"]
+    applied: float | None
+
+
+class DiagnosticDetection(ResponseModel):
+    value: int
+    confidence: float
+    pip_size_consistency: float
+    pip_layout_error: float
+
+
+class DiagnosticRejection(ResponseModel):
+    reason: str
+
+
+class RecognitionDiagnostics(ResponseModel):
+    running: bool
+    frame_width: int | None
+    frame_height: int | None
+    fps: float | None
+    motion_score: float | None
+    roi_brightness: RoiBrightness | None
+    white_threshold: WhiteThresholdInfo | None
+    white_area_ratio: float | None
+    detections: list[DiagnosticDetection]
+    rejected: list[DiagnosticRejection]
+    pending_recognition_settings: bool
+    hints: list[str]
+
+
 ComponentStatusValue = Literal["ok", "warning", "error", "off", "not_configured"]
 
 

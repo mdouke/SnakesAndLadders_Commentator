@@ -2,13 +2,16 @@
 
 実物の Snakes & Ladders と連動し、カメラで認識したサイコロの出目をもとにゲーム状態を管理し、LLM が実況コメントを生成・表示・読み上げるシステムです。
 
-現在はゲームエンジン、SQLite永続化、履歴の訂正・Undo/Redo・復元、手動入力API、管理者・プレイヤー画面に加え、サイコロの単フレーム検出と時間方向の確定状態機械が動作する段階です。既存のサイコロ認識プロトタイプは比較検証が終わるまで `dice_recognize/` に残します。
+現在はゲームエンジン、SQLite永続化、履歴の訂正・Undo/Redo・復元、手動入力API、管理者・プレイヤー画面、OpenCV によるサイコロ認識、LLM 実況と読み上げが動作する段階です。既存のサイコロ認識プロトタイプは比較検証が終わるまで `dice_recognize/` に残します。
+
+次は、サイコロの出目を Claude の画像認識（VLM）でも読めるようにします（設計: [ADR 0006](docs/decisions/0006-vlm-dice-reading.md)）。今の OpenCV 方式は残し、`opencv` / `vlm` / `hybrid`（両方が一致したら自動確定）を設定で切り替えられるようにする予定です。録音は来週のユーザースタディでは使わないため後回しにしています。
 
 ## ドキュメント
 
 - [全体構成・設計方針](docs/ARCHITECTURE.md)
 - [開発 ToDo](TODO.md)
-- [サイコロ認識の実機確認](docs/operations/dice-recognition.md)
+- [サイコロ認識の実機確認・調整](docs/operations/dice-recognition.md)（新しい環境で読み取れない時は管理画面の「認識の調整…」）
+- [Claude の画像認識によるサイコロの読み取り（設計案）](docs/decisions/0006-vlm-dice-reading.md)
 
 ## 初期方針
 
@@ -18,10 +21,10 @@
 - 管理者・プレイヤー UI: TypeScript / React
 - 永続化: SQLite（抽象化し、必要なら PostgreSQL に移行可能にする）
 - リアルタイム通知: WebSocket
-- サイコロ認識: USBカメラ / OpenCV
+- サイコロ認識: USBカメラ / OpenCV（Claude の画像認識による読み取りを追加予定）
 - LLM: Claude API / OpenAI API を共通インターフェースで切り替え
 - 読み上げ: macOS標準TTS（音声、速度、音量などを設定可能にする）
-- 録音: DJI Mic Mini受信機から2チャンネル音声のみを収録
+- 録音: DJI Mic Mini受信機から2チャンネル音声のみを収録（後回し）
 
 この技術構成は暫定です。実装開始時に `docs/decisions/` の ADR で確定事項を記録します。
 
@@ -39,16 +42,20 @@ python3 -m venv .venv
 .venv/bin/pip install -e '.[dev,vision,llm]'
 npm install
 
-# ターミナル1: API
-.venv/bin/uvicorn commentator.main:create_production_app --factory \
-  --app-dir apps/server/src --reload --no-access-log
-
-# ターミナル2: Web UI
-npm run dev:web
+# 起動（API と画面をまとめて起動し、管理者画面とプレイヤー画面を開く）
+npm start
 
 # 実機調整用ライブプレビュー（API・Web UIとは独立して起動可能）
 .venv/bin/python -m commentator.tools.vision_bench
 ```
+
+普段の起動は次のどれかで行えます。どれも API と Web UI をまとめて起動し、準備ができたら管理者画面とプレイヤー画面をブラウザで開きます。終了は、そのターミナルで Ctrl+C を押すか、ウィンドウを閉じます。すでに起動している場合は画面だけを開きます。
+
+- Finder でリポジトリ直下の `start.command` をダブルクリックする（初回だけ macOS に止められた場合は、右クリック →「開く」）
+- ターミナルで `npm start`（または `./scripts/start.sh`）
+- Python のコードを書き換えながら試す場合は `npm run start:dev`（変更すると API が自動で再起動する）
+
+ポートは `COMMENTATOR_API_PORT`（既定8000）と `COMMENTATOR_WEB_PORT`（既定5173）で変えられます。API と画面を別々に起動したい場合は、従来どおり `uvicorn commentator.main:create_production_app --factory --app-dir apps/server/src --no-access-log` と `npm run dev:web` を使います。
 
 Claude や OpenAI で実況する場合は、`var/secrets.env` に API キーを書いてから API を起動し、管理者画面の「実況・読み上げの設定」で生成方法を選びます。`var/` は Git の管理対象外です。ファイルは起動時に一度だけ読み込むので、書き換えたら API を起動し直してください。
 

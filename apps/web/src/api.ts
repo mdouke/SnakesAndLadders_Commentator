@@ -12,8 +12,11 @@ import type {
   BoardValidation,
   GameState,
   RecognitionCamera,
+  RecognitionDiagnostics,
   RecognitionState,
-  RollCorrectionPreview
+  RollCorrectionPreview,
+  VisionSettings,
+  VisionSettingsState
 } from "./types";
 
 interface ApiErrorDetail {
@@ -321,4 +324,34 @@ export function previewSpeech(
 
 export function stopSpeech(): Promise<SpeechState> {
   return request("/api/speech/stop", { method: "POST", body: "{}" });
+}
+
+// Partial update: nested roi / cameraResolution merge by key on the server.
+export type VisionSettingsChange = Partial<Omit<VisionSettings, "roi" | "cameraResolution">> & {
+  roi?: Partial<VisionSettings["roi"]>;
+  cameraResolution?: VisionSettings["cameraResolution"];
+};
+
+export function getVisionSettings(): Promise<VisionSettingsState> {
+  return request<VisionSettingsState>("/api/settings/vision");
+}
+
+export function updateVisionSettings(changes: VisionSettingsChange): Promise<VisionSettingsState> {
+  return request<VisionSettingsState>("/api/settings/vision", {
+    method: "PUT", body: JSON.stringify(changes)
+  });
+}
+
+export function saveVisionSettings(): Promise<VisionSettingsState> {
+  return request<VisionSettingsState>("/api/settings/vision/save", { method: "POST" });
+}
+
+export function revertVisionSettings(target: "saved" | "defaults"): Promise<VisionSettingsState> {
+  return request<VisionSettingsState>("/api/settings/vision/revert", {
+    method: "POST", body: JSON.stringify({ target })
+  });
+}
+
+export function getRecognitionDiagnostics(): Promise<RecognitionDiagnostics> {
+  return request<RecognitionDiagnostics>("/api/recognition/diagnostics");
 }

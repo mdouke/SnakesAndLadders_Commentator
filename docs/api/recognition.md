@@ -27,6 +27,33 @@ OpenCVなどの `vision` 追加依存がない場合もサーバーは起動す�
 - 画像はこのレスポンスとしてだけ返し、ログやディスクには残さない。サーバーが保持するのは
   最新フレームへの参照1つだけで、認識の停止時に破棄する。
 
+`?view=` で表示を切り替えられる（調整ダイアログ用）。
+
+- `overlay`（既定）: 全体映像にROI、検出したサイコロ（橙）、目を読めなかった候補（赤、理由つき）
+- `mask`: ROI内の外形マスク。白い部分がサイコロの面として扱われる
+- `pips`: 候補ごとの補正後の面と目の計数マスク（ライブプレビューツールと同じ表示）
+
+## 調整用の診断と設定
+
+- `GET /api/recognition/diagnostics`: 最新フレームの数値と、よくある失敗へのヒント。
+  映像サイズ、実測FPS、動き量、ROI内の明るさ（平均と99パーセンタイル）、外形しきい値の
+  実際の値、白い部分の割合、検出したサイコロと読めなかった候補、`hints`（日本語の文）。
+  認識が止まっているときは `running: false` で数値は `null`。
+- `GET /api/settings/vision`: 今使っている値（`settings`）、ファイルに保存された値（`saved`）、
+  既定値（`defaults`）、`unsaved`、`pendingRecognitionSettings`。
+- `PUT /api/settings/vision`: 一部の項目だけを変更し、動作中の認識へすぐ反映する。
+  ファイルには保存しない。形は `var/vision-settings.json` と同じ（`roi` と
+  `cameraResolution` はキーごとに上書き）。`whiteThreshold`、`pipThreshold`、`exposure` は
+  `null` で自動。範囲外や不明な項目、自動確定より高い確認しきい値などは422 `invalid_settings`。
+  - ROI、画像しきい値: 次のフレームから使う（ROIを変えると動きの基準をリセットする）。
+  - 判定のしきい値・フレーム数: 投擲の途中では変えず、待機または除去待ちに入った時点で使う。
+  - 解像度・露出: 認識スレッドが次のフレームを読む前にカメラへ設定する。
+  - カメラ: 認識中に変えた場合は、カメラをつなぎ直す。
+- `POST /api/settings/vision/save`: 今の値を `var/vision-settings.json` へ保存する。
+- `POST /api/settings/vision/revert`: `{ "target": "saved" }` で保存した値、
+  `{ "target": "defaults" }` で既定値へ戻す（保存はしない）。
+- 認識を利用できない環境では、設定APIは503 `recognition_unavailable`。
+
 ## 候補操作
 
 承認または修正:

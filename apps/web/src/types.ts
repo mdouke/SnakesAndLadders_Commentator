@@ -31,3 +31,6 @@ export type CommentarySettings = Schemas["CommentarySettingsResponse"];
 export type CommentaryRequestRecord = Schemas["CommentaryRequestRecord"];
 export type SpeechSettings = Schemas["SpeechSettingsResponse"];
 export type VoiceInfo = Schemas["VoiceInfo"];
+export type VisionSettings = Schemas["VisionSettingsModel"];
+export type VisionSettingsState = Schemas["VisionSettingsResponse"];
+export type RecognitionDiagnostics = Schemas["RecognitionDiagnostics"];

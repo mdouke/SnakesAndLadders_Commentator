@@ -5,6 +5,8 @@
     "apps/web"
   ],
   "scripts": {
+    "start": "./scripts/start.sh",
+    "start:dev": "./scripts/start.sh --dev",
     "dev:web": "npm --workspace apps/web run dev",
     "build:web": "npm --workspace apps/web run build",
     "check:web": "npm --workspace apps/web run check",

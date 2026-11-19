@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import deque
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from time import monotonic
@@ -18,16 +18,13 @@ from commentator.services.vision.camera import (
     CameraStream,
     OpenCVCameraProvider,
 )
-from commentator.services.vision.detector import (
-    DiceDetector,
-    PipContourDebug,
-    PipDetectionDebug,
-)
+from commentator.services.vision.detector import DiceDetector
 from commentator.services.vision.motion import Frame
 from commentator.services.vision.pipeline import (
     DiceRecognitionPipeline,
     RecognitionFrameResult,
 )
+from commentator.services.vision.preview import render_pip_debug
 from commentator.services.vision.recognition import (
     DiceRecognitionSession,
     RecognitionConfig,
@@ -55,25 +52,7 @@ def _opencv_writer(path: Path, fps: float, size: tuple[int, int]) -> VideoWriter
 
 
 def _settings_payload(settings: VisionSettings) -> dict[str, Any]:
-    return {
-        "cameraId": settings.camera_id,
-        "roi": asdict(settings.roi),
-        "whiteThreshold": settings.white_threshold,
-        "pipThreshold": settings.pip_threshold,
-        "cameraResolution": {
-            "width": settings.camera_width,
-            "height": settings.camera_height,
-        },
-        "exposure": settings.exposure,
-        "automaticThreshold": settings.automatic_threshold,
-        "confirmationThreshold": settings.confirmation_threshold,
-        "stationaryFrames": settings.stationary_frames,
-        "consecutiveValueFrames": settings.consecutive_value_frames,
-        "minPipSizeConsistency": settings.min_pip_size_consistency,
-        "maxSinglePipCenterOffset": settings.max_single_pip_center_offset,
-        "maxPipLayoutError": settings.max_pip_layout_error,
-        "minDetectorConfidence": settings.min_detector_confidence,
-    }
+    return settings.to_dict()
 
 
 def _confidence_payload(snapshot: RecognitionSnapshot) -> dict[str, float] | None:
@@ -340,80 +319,6 @@ class BenchFrame:
     pip_debug_preview: Frame | None
     result: RecognitionFrameResult
     fps: float
-
-
-def _pip_rejection_label(contour: PipContourDebug) -> str:
-    reason = contour.rejection_reason
-    if reason == "area_small":
-        return f"area< {contour.area_ratio:.3f}"
-    if reason == "area_large":
-        return f"area> {contour.area_ratio:.3f}"
-    if reason == "circularity":
-        return f"circ {contour.circularity:.2f}"
-    if reason == "solidity":
-        return f"solid {contour.solidity:.2f}"
-    if reason == "aspect":
-        return f"aspect {contour.aspect_ratio:.2f}"
-    return "rejected"
-
-
-def _merge_label(item: PipDetectionDebug) -> str:
-    if item.pip_recounted:
-        return "recount"
-    return "yes" if item.pip_merge_suspected else "no"
-
-
-def render_pip_debug(items: tuple[PipDetectionDebug, ...]) -> Frame | None:
-    """Render the exact pip-counting inputs and decisions for the live GUI."""
-    rows: list[Frame] = []
-    for item in items:
-        face = cv2.cvtColor(item.warped_gray, cv2.COLOR_GRAY2BGR)
-        mask_gray = np.full(item.warped_gray.shape, 192, dtype=np.uint8)
-        inner_height, inner_width = item.pip_mask.shape[:2]
-        margin = item.margin
-        mask_gray[
-            margin : margin + inner_height,
-            margin : margin + inner_width,
-        ] = 255 - item.pip_mask
-        mask = cv2.cvtColor(mask_gray, cv2.COLOR_GRAY2BGR)
-        for contour in item.contours:
-            color = (0, 190, 0) if contour.accepted else (0, 0, 255)
-            cv2.polylines(face, [contour.contour], True, color, 2, cv2.LINE_AA)
-            cv2.polylines(mask, [contour.contour], True, color, 2, cv2.LINE_AA)
-            if not contour.accepted:
-                x, y, _, _ = cv2.boundingRect(contour.contour)
-                cv2.putText(
-                    face,
-                    _pip_rejection_label(contour),
-                    (max(0, x - 3), max(12, y - 4)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.34,
-                    color,
-                    1,
-                    cv2.LINE_AA,
-                )
-        header = np.zeros((28, 360, 3), dtype=np.uint8)
-        cv2.putText(
-            header,
-            (
-                f"#{item.candidate_index}  pips={item.counted_pips}  "
-                f"PipThr={item.threshold_value:.0f} "
-                f"{'auto' if item.threshold_is_automatic else 'fixed'}   "
-                f"PipSize={item.pip_size_consistency:.2f}   "
-                f"PipCenter={item.single_pip_center_offset:.2f}   "
-                f"Merge={_merge_label(item)}   "
-                f"Layout={item.pip_layout_error:.2f}   "
-                "face / count mask"
-            ),
-            (5, 19),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.48,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA,
-        )
-        rows.append(np.vstack((header, np.hstack((face, mask)))))
-    return np.vstack(rows) if rows else None
 
 
 class VisionBenchEngine:
