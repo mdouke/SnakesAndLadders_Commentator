@@ -52,7 +52,28 @@ OpenCVなどの `vision` 追加依存がない場合もサーバーは起動す�
 - `POST /api/settings/vision/save`: 今の値を `var/vision-settings.json` へ保存する。
 - `POST /api/settings/vision/revert`: `{ "target": "saved" }` で保存した値、
   `{ "target": "defaults" }` で既定値へ戻す（保存はしない）。
+- `trayDetection: true` で、ROI の中からトレー（一番大きい暗い部分）を探し、その形の内側だけを
+  認識と Claude への画像に使う。診断の `tray`（`enabled`、`found`、`lastAttemptFound`、`vertices`、
+  `areaRatio`、`secondsSinceUpdate`）で状態が分かる。プレビューにはトレーの形を水色で描き、外側を暗くする。
 - 認識を利用できない環境では、設定APIは503 `recognition_unavailable`。
+
+## 読み取り方式（OpenCV / Claude）
+
+ADR 0006。動きと静止は常に OpenCV で判定し、出目の読み方を切り替える。
+
+- `GET /api/settings/vlm`: `readingMode`（`opencv` / `vlm` / `hybrid`）、`model`、
+  `timeoutSeconds`、`maxRetries`、`saveImages`、`installed`、`credentialsConfigured`
+  （キーの値は返さない）、`activeReadingMode`（今使っている方式）、`pendingReadingMode`。
+- `PUT /api/settings/vlm`: 一部の項目だけ変更して `var/vlm-settings.json` に保存する。
+  方式の変更は投擲の途中では行わず、次の待機または除去待ちで反映する。
+- `POST /api/recognition/vlm/test`: 最新フレームを今すぐ Claude で読む。結果を返すだけで
+  ゲームには登録しない。認識が止まっていれば409、読み取りに失敗すれば503 `vlm_<理由>`。
+- `GET /api/recognition/vlm/readings`: 直近30件の読み取り（`status` は `used`、`discarded`
+  （呼び出し中にサイコロが動いた）、`failed`、`test`）。
+
+`GET /api/recognition` には `readingMode`、読み取り中の `readingId`（状態 `reading`）、
+今の投擲の `recognition`（OpenCV の候補と Claude の答え）が入る。読み取りに失敗した時の
+`errorCode` は `vlm_unreadable`、`vlm_timeout`、`vlm_auth` などになる。
 
 ## 候補操作
 
@@ -91,6 +112,8 @@ Content-Type: application/json
 
 `TurnRecord` は `source`（`manual`、`automatic`、`reviewed`、`corrected`）を返す。
 認識由来の場合は `confirmationId`、`originalCandidate`、`confidence` も保持する。
+`recognition` には読み取り方式（`opencv` / `vlm` / `hybrid`）、`readingId`、OpenCV の候補、
+Claude の答え（`diceCount`、`value`、`confidence`、`note`、`model`、`durationMs`）、`vlmError` が入る。
 出目訂正APIで訂正したターンは `source: "corrected"` となり、`correctedFrom`
 （訂正前の `value`、`source`、`confirmationId`）を返す。訂正していないターンでは `null`。
 古い保存データで `source` がない出目は `manual` として読み込む。同じ

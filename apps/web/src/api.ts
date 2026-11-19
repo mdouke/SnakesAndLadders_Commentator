@@ -16,7 +16,9 @@ import type {
   RecognitionState,
   RollCorrectionPreview,
   VisionSettings,
-  VisionSettingsState
+  VisionSettingsState,
+  VlmReadingRecord,
+  VlmSettings
 } from "./types";
 
 interface ApiErrorDetail {
@@ -354,4 +356,23 @@ export function revertVisionSettings(target: "saved" | "defaults"): Promise<Visi
 
 export function getRecognitionDiagnostics(): Promise<RecognitionDiagnostics> {
   return request<RecognitionDiagnostics>("/api/recognition/diagnostics");
+}
+
+export type VlmSettingsChange = Partial<Pick<VlmSettings,
+  "readingMode" | "model" | "timeoutSeconds" | "maxRetries" | "saveImages">>;
+
+export function getVlmSettings(): Promise<VlmSettings> {
+  return request<VlmSettings>("/api/settings/vlm");
+}
+
+export function updateVlmSettings(changes: VlmSettingsChange): Promise<VlmSettings> {
+  return request<VlmSettings>("/api/settings/vlm", { method: "PUT", body: JSON.stringify(changes) });
+}
+
+export function testVlmReading(): Promise<VlmReadingRecord> {
+  return request<VlmReadingRecord>("/api/recognition/vlm/test", { method: "POST" });
+}
+
+export function getVlmReadings(): Promise<{ readings: VlmReadingRecord[] }> {
+  return request<{ readings: VlmReadingRecord[] }>("/api/recognition/vlm/readings");
 }

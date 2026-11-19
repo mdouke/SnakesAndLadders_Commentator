@@ -398,6 +398,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/vlm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Vlm Settings */
+        get: operations["get_vlm_settings_api_settings_vlm_get"];
+        /** Update Vlm Settings */
+        put: operations["update_vlm_settings_api_settings_vlm_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recognition/vlm/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Vlm Reading */
+        post: operations["test_vlm_reading_api_recognition_vlm_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recognition/vlm/readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vlm Readings */
+        get: operations["vlm_readings_api_recognition_vlm_readings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/vision": {
         parameters: {
             query?: never;
@@ -1288,6 +1340,7 @@ export interface components {
             /** Originalcandidate */
             originalCandidate: number | null;
             confidence: components["schemas"]["RecognitionConfidence"] | null;
+            recognition: components["schemas"]["RecognitionInfo"] | null;
         };
         /** RecognitionDiagnostics */
         RecognitionDiagnostics: {
@@ -1311,8 +1364,27 @@ export interface components {
             rejected: components["schemas"]["DiagnosticRejection"][];
             /** Pendingrecognitionsettings */
             pendingRecognitionSettings: boolean;
+            tray: components["schemas"]["TrayInfo"];
             /** Hints */
             hints: string[];
+        };
+        /**
+         * RecognitionInfo
+         * @description How a recognized value was read (ADR 0006).
+         */
+        RecognitionInfo: {
+            /**
+             * Recognizer
+             * @enum {string}
+             */
+            recognizer: "opencv" | "vlm" | "hybrid";
+            /** Readingid */
+            readingId: string | null;
+            /** Opencvcandidate */
+            opencvCandidate: number | null;
+            vlm: components["schemas"]["VlmAnswer"] | null;
+            /** Vlmerror */
+            vlmError: string | null;
         };
         /** RecognitionResponse */
         RecognitionResponse: {
@@ -1331,11 +1403,23 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "unavailable" | "waiting" | "moving" | "stationary" | "candidate" | "confirmed" | "needs_confirmation" | "removal_wait" | "recognition_error" | "camera_error";
+            state: "unavailable" | "waiting" | "moving" | "stationary" | "reading" | "candidate" | "confirmed" | "needs_confirmation" | "removal_wait" | "recognition_error" | "camera_error";
             /** Candidatevalue */
             candidateValue: number | null;
             /** Candidateid */
             candidateId: string | null;
+            /**
+             * Readingmode
+             * @enum {string}
+             */
+            readingMode: "opencv" | "vlm" | "hybrid";
+            /**
+             * Readingid
+             * @description Set while the vision model is reading
+             */
+            readingId: string | null;
+            /** @description OpenCV candidate and the model's answer for the current throw */
+            recognition: components["schemas"]["RecognitionInfo"] | null;
             confidence: components["schemas"]["RecognitionConfidence"] | null;
             confirmation: components["schemas"]["RecognitionConfirmation"] | null;
             lastConfirmation: components["schemas"]["RecognitionConfirmation"] | null;
@@ -1537,6 +1621,27 @@ export interface components {
             /** Operator */
             operator: string | null;
         };
+        /** TrayInfo */
+        TrayInfo: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Found
+             * @description An outline is in use
+             */
+            found: boolean;
+            /** Lastattemptfound */
+            lastAttemptFound: boolean | null;
+            /** Vertices */
+            vertices: number | null;
+            /**
+             * Arearatio
+             * @description Share of the search area
+             */
+            areaRatio: number | null;
+            /** Secondssinceupdate */
+            secondsSinceUpdate: number | null;
+        };
         /** TurnChange */
         TurnChange: {
             /** Expectedstateversion */
@@ -1587,6 +1692,7 @@ export interface components {
             /** Originalcandidate */
             originalCandidate: number | null;
             confidence: components["schemas"]["RecognitionConfidence"] | null;
+            recognition: components["schemas"]["RecognitionInfo"] | null;
             correctedFrom: components["schemas"]["CorrectedFrom"] | null;
             /**
              * Round
@@ -1696,6 +1802,11 @@ export interface components {
             maxPipLayoutError: number;
             /** Mindetectorconfidence */
             minDetectorConfidence: number;
+            /**
+             * Traydetection
+             * @description Find the tray inside the ROI and use its outline
+             */
+            trayDetection: boolean;
         };
         /** VisionSettingsResponse */
         VisionSettingsResponse: {
@@ -1758,6 +1869,129 @@ export interface components {
             maxPipLayoutError?: number | null;
             /** Mindetectorconfidence */
             minDetectorConfidence?: number | null;
+            /** Traydetection */
+            trayDetection?: boolean | null;
+        };
+        /** VlmAnswer */
+        VlmAnswer: {
+            /** Dicecount */
+            diceCount: number;
+            /**
+             * Value
+             * @description null: the top face could not be read
+             */
+            value: number | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /** Note */
+            note: string;
+            /** Model */
+            model: string;
+            /** Durationms */
+            durationMs: number;
+        };
+        /** VlmReadingList */
+        VlmReadingList: {
+            /** Readings */
+            readings: components["schemas"]["VlmReadingRecord"][];
+        };
+        /** VlmReadingRecord */
+        VlmReadingRecord: {
+            /** Readingid */
+            readingId: string | null;
+            /** At */
+            at: string;
+            /** Mode */
+            mode: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "used" | "discarded" | "failed" | "test";
+            /** Model */
+            model: string;
+            /** Promptversion */
+            promptVersion: string;
+            /** Attempts */
+            attempts: number;
+            result: components["schemas"]["VlmReadingResult"] | null;
+            /** Error */
+            error: string | null;
+            /** Durationms */
+            durationMs: number | null;
+        };
+        /** VlmReadingResult */
+        VlmReadingResult: {
+            /** Dicecount */
+            diceCount: number;
+            /** Value */
+            value: number | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /** Note */
+            note: string;
+        };
+        /** VlmSettingsResponse */
+        VlmSettingsResponse: {
+            /**
+             * Readingmode
+             * @enum {string}
+             */
+            readingMode: "opencv" | "vlm" | "hybrid";
+            /** Model */
+            model: string;
+            /** Timeoutseconds */
+            timeoutSeconds: number;
+            /** Maxretries */
+            maxRetries: number;
+            /**
+             * Saveimages
+             * @description Save sent images under recordings/vlm/
+             */
+            saveImages: boolean;
+            /**
+             * Installed
+             * @description The anthropic package is installed
+             */
+            installed: boolean;
+            /**
+             * Credentialsconfigured
+             * @description An API key is set (value never shown)
+             */
+            credentialsConfigured: boolean;
+            /** Readerconfigured */
+            readerConfigured: boolean;
+            /**
+             * Activereadingmode
+             * @description Mode the recognition uses now; changes wait for the current throw
+             */
+            activeReadingMode: ("opencv" | "vlm" | "hybrid") | null;
+            /** Pendingreadingmode */
+            pendingReadingMode: boolean;
+            /** Promptversion */
+            promptVersion: string;
+        };
+        /**
+         * VlmSettingsUpdate
+         * @description Only the given fields change. The API key is never accepted here.
+         */
+        VlmSettingsUpdate: {
+            /** Readingmode */
+            readingMode?: ("opencv" | "vlm" | "hybrid") | null;
+            /** Model */
+            model?: string | null;
+            /** Timeoutseconds */
+            timeoutSeconds?: number | null;
+            /** Maxretries */
+            maxRetries?: number | null;
+            /** Saveimages */
+            saveImages?: boolean | null;
         };
         /** VoiceInfo */
         VoiceInfo: {
@@ -2601,6 +2835,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecognitionDiagnostics"];
+                };
+            };
+        };
+    };
+    get_vlm_settings_api_settings_vlm_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VlmSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_vlm_settings_api_settings_vlm_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VlmSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VlmSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_vlm_reading_api_recognition_vlm_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VlmReadingRecord"];
+                };
+            };
+        };
+    };
+    vlm_readings_api_recognition_vlm_readings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VlmReadingList"];
                 };
             };
         };

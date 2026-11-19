@@ -88,6 +88,7 @@ def _turn(value: dict[str, Any]) -> TurnRecord:
         corrected_from=(
             dict(value["correctedFrom"]) if value.get("correctedFrom") else None
         ),
+        recognition=(dict(value["recognition"]) if value.get("recognition") else None),
         round=int(value.get("round", 0)),
         branch_id=str(value.get("branchId", "main")),
         state_version_before=int(value.get("stateVersionBefore", 0)),

@@ -139,7 +139,7 @@ export function playerPhase(
   if (current?.status === "generating") return "generating";
   if (game.status !== "in_progress") return "idle";
   if (recognition?.running && recognition.gameReady
-    && ["moving", "stationary", "candidate", "needs_confirmation"].includes(recognition.state)) {
+    && ["moving", "stationary", "reading", "candidate", "needs_confirmation"].includes(recognition.state)) {
     return "recognizing";
   }
   return "waiting";

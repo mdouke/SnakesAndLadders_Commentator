@@ -228,6 +228,8 @@ class TurnRecord:
     original_candidate: int | None = None
     confidence: dict[str, Any] | None = None
     corrected_from: dict[str, Any] | None = None
+    # How a recognized value was read (OpenCV / vision model); None for manual rolls.
+    recognition: dict[str, Any] | None = None
     # Display turn: increases each time play has gone around all players once.
     round: int = 0
     branch_id: str = "main"
@@ -251,6 +253,7 @@ class TurnRecord:
             "confirmationId": self.confirmation_id,
             "originalCandidate": self.original_candidate,
             "confidence": deepcopy(self.confidence),
+            "recognition": deepcopy(self.recognition),
             # Corrections saved before who/why was recorded lack those keys.
             "correctedFrom": (
                 {"reason": None, "operator": None, **deepcopy(self.corrected_from)}
@@ -356,6 +359,7 @@ class GameState:
         confirmation_id: str | None = None,
         original_candidate: int | None = None,
         confidence: dict[str, Any] | None = None,
+        recognition: dict[str, Any] | None = None,
         now: datetime | None = None,
     ) -> TurnRecord:
         if confirmation_id is not None and any(
@@ -378,6 +382,7 @@ class GameState:
             confirmation_id=confirmation_id,
             original_candidate=original_candidate,
             confidence=confidence,
+            recognition=recognition,
         )
         payload: dict[str, Any] = {
             "value": value,
@@ -391,6 +396,8 @@ class GameState:
             payload["originalCandidate"] = original_candidate
         if confidence is not None:
             payload["confidence"] = deepcopy(confidence)
+        if recognition is not None:
+            payload["recognition"] = deepcopy(recognition)
         self._record(
             OperationType.ROLL,
             payload,
@@ -412,6 +419,7 @@ class GameState:
         original_candidate: int | None = None,
         confidence: dict[str, Any] | None = None,
         corrected_from: dict[str, Any] | None = None,
+        recognition: dict[str, Any] | None = None,
     ) -> TurnRecord:
         if self.status is not GameStatus.IN_PROGRESS:
             raise ValueError("進行中のゲームでのみサイコロを確定できます")
@@ -439,6 +447,7 @@ class GameState:
             original_candidate=original_candidate,
             confidence=deepcopy(confidence),
             corrected_from=deepcopy(corrected_from),
+            recognition=deepcopy(recognition),
             round=self.round_number,
             branch_id=branch_id,
             state_version_before=self.state_version,
@@ -1371,6 +1380,7 @@ class GameState:
                 original_candidate=event.payload.get("originalCandidate"),
                 confidence=event.payload.get("confidence"),
                 corrected_from=event.payload.get("correctedFrom"),
+                recognition=event.payload.get("recognition"),
             )
             event.payload["turnId"] = turn.id
         elif event.type is OperationType.POSITION_CORRECTION:

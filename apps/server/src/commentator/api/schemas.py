@@ -202,7 +202,22 @@ class VisionSettingsUpdate(RequestModel):
     max_single_pip_center_offset: float | None = Field(default=None, ge=0, le=0.5)
     max_pip_layout_error: float | None = Field(default=None, ge=0, le=1)
     min_detector_confidence: float | None = Field(default=None, ge=0, le=1)
+    tray_detection: bool | None = None
 
 
 class VisionSettingsRevert(RequestModel):
     target: Literal["saved", "defaults"] = "saved"
+
+
+class VlmSettingsUpdate(RequestModel):
+    """Only the given fields change. The API key is never accepted here."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, str_strip_whitespace=True, extra="forbid"
+    )
+
+    reading_mode: Literal["opencv", "vlm", "hybrid"] | None = None
+    model: str | None = Field(default=None, min_length=1, max_length=100)
+    timeout_seconds: float | None = Field(default=None, ge=2, le=30)
+    max_retries: int | None = Field(default=None, ge=0, le=2)
+    save_images: bool | None = None

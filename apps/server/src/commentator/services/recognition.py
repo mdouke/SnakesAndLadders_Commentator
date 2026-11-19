@@ -5,9 +5,12 @@ from __future__ import annotations
 import logging
 from collections import deque
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from pathlib import Path
 from threading import Event, RLock, Thread, current_thread
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any, Protocol
 
 from ..api.errors import ApiError
@@ -19,6 +22,13 @@ from .vision.recognition import (
     DiceRecognitionSession,
     RecognitionSnapshot,
     RecognitionState,
+)
+from .vision.vlm import (
+    VLM_PROMPT_VERSION,
+    DiceReader,
+    VlmError,
+    VlmSettingsStore,
+    vlm_availability,
 )
 
 
@@ -69,6 +79,11 @@ class RecognitionService:
         stop_join_timeout: float = 2.0,
         vision_settings: Any = None,
         settings_store: Any = None,
+        dice_reader: DiceReader | None = None,
+        vlm_settings: VlmSettingsStore | None = None,
+        image_encoder: Callable[[Any], bytes] | None = None,
+        image_dir: Path | None = None,
+        retry_delay_seconds: float = 0.5,
     ) -> None:
         if stop_join_timeout <= 0:
             raise ValueError("停止待機時間は正の値にしてください")
@@ -114,6 +129,17 @@ class RecognitionService:
         self._camera_configure_pending = False
         self._last_result: Any = None
         self._frame_times: deque[float] = deque(maxlen=30)
+        # Reading the value with the vision model (ADR 0006).
+        self.dice_reader = dice_reader
+        self.vlm_settings = vlm_settings or VlmSettingsStore()
+        self.image_encoder = image_encoder
+        self.image_dir = image_dir
+        self.retry_delay_seconds = retry_delay_seconds
+        self._pending_mode: str | None = self.vlm_settings.get().reading_mode
+        self._submitted_reading: str | None = None
+        self._readings: deque[dict[str, Any]] = deque(maxlen=30)
+        self._reader_pool: ThreadPoolExecutor | None = None
+        self._apply_pending_config_locked()
 
     @property
     def available(self) -> bool:
@@ -161,8 +187,19 @@ class RecognitionService:
                 )
             if view == "pips":
                 return render_pips_jpeg(tuple(getattr(result, "pip_debug", ())))
+            region = getattr(self.pipeline, "region", None)
+            crop_origin = None
+            tray_points = None
+            if callable(region):
+                bounds, mask = region(frame)
+                crop_origin = (bounds.x, bounds.y)
+                tray = getattr(self.pipeline, "tray", None)
+                if mask is not None and tray is not None and tray.shape is not None:
+                    height, width = frame.shape[:2]
+                    tray_points = tray.shape.pixels(width, height)
             return render_preview_jpeg(
-                frame, roi=roi, detections=detections, rejected=rejected
+                frame, roi=roi, detections=detections, rejected=rejected,
+                crop_origin=crop_origin, tray=tray_points,
             )
         except Exception as error:
             logging.getLogger("commentator.recognition").exception(
@@ -263,6 +300,9 @@ class RecognitionService:
                 if detector is not None:
                     detector.white_threshold = updated.white_threshold
                     detector.pip_threshold = updated.pip_threshold
+                set_tray = getattr(pipeline, "set_tray_detection", None)
+                if callable(set_tray):
+                    set_tray(updated.tray_detection)
                 config = updated.recognition_config()
                 if config != pipeline.session.config:
                     self._pending_config = config
@@ -294,7 +334,9 @@ class RecognitionService:
 
     def _apply_pending_config_locked(self) -> None:
         """Change thresholds only between throws, never in the middle of one."""
-        if self._pending_config is None or self.pipeline is None:
+        if self.pipeline is None or (
+            self._pending_config is None and self._pending_mode is None
+        ):
             return
         session = self.pipeline.session
         if session.state in {
@@ -303,8 +345,12 @@ class RecognitionService:
             RecognitionState.RECOGNITION_ERROR,
             RecognitionState.CAMERA_ERROR,
         }:
-            session.config = self._pending_config
-            self._pending_config = None
+            if self._pending_config is not None:
+                session.config = self._pending_config
+                self._pending_config = None
+            if self._pending_mode is not None:
+                session.reading_mode = self._pending_mode  # type: ignore[assignment]
+                self._pending_mode = None
 
     def _configure_camera_if_pending(self, stream: CameraStream) -> None:
         with self._lock:
@@ -352,6 +398,7 @@ class RecognitionService:
             "detections": [],
             "rejected": [],
             "pendingRecognitionSettings": pending,
+            "tray": _tray_info(pipeline),
             "hints": [],
         }
         if not running or frame is None or result is None or pipeline is None:
@@ -364,8 +411,16 @@ class RecognitionService:
         if len(times) >= 2 and times[-1] > times[0]:
             payload["fps"] = round((len(times) - 1) / (times[-1] - times[0]), 1)
         payload["motionScore"] = round(float(result.motion_score), 4)
-        cropped = pipeline.roi.crop(frame) if hasattr(pipeline, "roi") else frame
+        region = getattr(pipeline, "region", None)
+        if callable(region):
+            bounds, mask = region(frame)
+            cropped = bounds.crop(frame)
+        else:
+            cropped = pipeline.roi.crop(frame) if hasattr(pipeline, "roi") else frame
+            mask = None
         gray = cropped.mean(axis=2) if cropped.ndim == 3 else cropped
+        if mask is not None:
+            gray = gray[mask > 0]  # inside the tray only
         brightness = {
             "mean": round(float(gray.mean()), 1),
             "p99": round(float(np.percentile(gray, 99)), 1),
@@ -613,7 +668,215 @@ class RecognitionService:
         if observe:
             self._capture_cycle_context(before, result.snapshot.state)
             self._handle_snapshot_locked(result.snapshot)
+            self._start_reading_if_needed_locked(frame, result.snapshot)
         self._apply_pending_config_locked()
+
+    # --- vision model ------------------------------------------------------
+
+    def vlm_settings_payload(self) -> dict[str, Any]:
+        with self._lock:
+            active = self.pipeline.session.reading_mode if self.pipeline else None
+            pending = self._pending_mode is not None
+        return {
+            **self.vlm_settings.get().to_dict(),
+            **vlm_availability(),
+            "readerConfigured": self.dice_reader is not None,
+            "activeReadingMode": active,
+            "pendingReadingMode": pending,
+            "promptVersion": VLM_PROMPT_VERSION,
+        }
+
+    def update_vlm_settings(self, changes: dict[str, Any]) -> dict[str, Any]:
+        try:
+            settings = self.vlm_settings.update(changes)
+        except (ValueError, TypeError) as error:
+            raise ApiError(422, "invalid_settings", str(error)) from error
+        with self._lock:
+            # A mode change waits for the current throw, like the decision thresholds.
+            self._pending_mode = settings.reading_mode
+            self._apply_pending_config_locked()
+        logging.getLogger("commentator.settings").info(
+            "vlm settings changed",
+            extra={"event": "vlm_settings_changed", "fields": sorted(changes)},
+        )
+        self._notify_if_changed()
+        return self.vlm_settings_payload()
+
+    def recent_readings(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return list(self._readings)
+
+    def test_reading(self) -> dict[str, Any]:
+        """Read the newest frame now; the result is shown only, never registered."""
+        with self._lock:
+            frame = self._last_frame
+            running = self._running
+        if not running or frame is None:
+            raise ApiError(409, "recognition_preview_unavailable",
+                           "認識を開始してから試してください")
+        settings = self.vlm_settings.get()
+        reading, error, attempts = self._call_reader(self._crop(frame), settings, None)
+        record = self._record_reading(
+            reading_id=None, reading=reading, error=error, attempts=attempts,
+            status="test" if reading is not None else "failed", mode="test",
+            model=settings.model,
+        )
+        if reading is None:
+            raise ApiError(503, f"vlm_{error}", "画像認識で読み取れませんでした",
+                           {"reading": record})
+        return record
+
+    def _crop(self, frame: Any) -> Any:
+        crop = getattr(self.pipeline, "crop", None)
+        if callable(crop):
+            cropped = crop(frame)  # the tray outline when it is detected
+        else:
+            roi = getattr(self.pipeline, "roi", None)
+            cropped = roi.crop(frame) if roi is not None else frame
+        copy = getattr(cropped, "copy", None)
+        return copy() if callable(copy) else cropped
+
+    def _start_reading_if_needed_locked(self, frame: Any, snapshot: RecognitionSnapshot) -> None:
+        reading_id = snapshot.reading_id
+        if (
+            snapshot.state is not RecognitionState.READING
+            or reading_id is None
+            or reading_id == self._submitted_reading
+        ):
+            return
+        self._submitted_reading = reading_id
+        if self._reader_pool is None:
+            self._reader_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="vlm")
+        self._reader_pool.submit(
+            self._read_and_apply, reading_id, self._crop(frame), self.vlm_settings.get()
+        )
+
+    def _reading_is_current(self, reading_id: str | None) -> bool:
+        if reading_id is None:
+            return True
+        with self._lock:
+            return (
+                self.pipeline is not None
+                and self.pipeline.session.snapshot().reading_id == reading_id
+            )
+
+    def _call_reader(
+        self, image: Any, settings: Any, reading_id: str | None
+    ) -> tuple[Any, str | None, int]:
+        """Encode and read with retries; returns (reading, error code, attempts)."""
+        if self.dice_reader is None:
+            return None, "unavailable", 0
+        try:
+            encode = self.image_encoder
+            if encode is None:
+                from .vision.vlm import encode_jpeg
+
+                encode = encode_jpeg
+            jpeg = encode(image)
+        except Exception:
+            logging.getLogger("commentator.recognition").exception(
+                "vlm image encoding failed", extra={"event": "vlm_encode_failed"}
+            )
+            return None, "encode_failed", 0
+        if settings.save_images and self.image_dir is not None:
+            self._save_image(jpeg, reading_id)
+        error: str | None = None
+        attempts = 0
+        for attempt in range(settings.max_retries + 1):
+            if not self._reading_is_current(reading_id):
+                return None, "stale", attempts
+            attempts += 1
+            try:
+                return (
+                    self.dice_reader.read(
+                        jpeg, model=settings.model, timeout=settings.timeout_seconds
+                    ),
+                    None,
+                    attempts,
+                )
+            except VlmError as failure:
+                error = failure.code
+                if not failure.retryable or attempt == settings.max_retries:
+                    break
+                sleep(self.retry_delay_seconds * 2**attempt)
+            except Exception:
+                logging.getLogger("commentator.recognition").exception(
+                    "vlm reader failed", extra={"event": "vlm_reader_failed"}
+                )
+                error = "error"
+                break
+        return None, error, attempts
+
+    def _read_and_apply(self, reading_id: str, image: Any, settings: Any) -> None:
+        try:
+            reading, error, attempts = self._call_reader(image, settings, reading_id)
+            with self._lock:
+                session = self.pipeline.session if self.pipeline is not None else None
+                accepted = session is not None and error != "stale" and session.complete_reading(
+                    reading_id, reading, monotonic_time=self.clock(), error_code=error
+                )
+                status = (
+                    "used" if accepted and reading is not None
+                    else "failed" if accepted
+                    else "discarded"
+                )
+                self._record_reading(
+                    reading_id=reading_id, reading=reading, error=error, attempts=attempts,
+                    status=status, mode=settings.reading_mode, model=settings.model,
+                )
+                if accepted and session is not None:
+                    self._handle_snapshot_locked(session.snapshot())
+            self._notify_if_changed()
+        except Exception:
+            logging.getLogger("commentator.recognition").exception(
+                "vlm reading failed", extra={"event": "vlm_reading_failed"}
+            )
+
+    def _record_reading(
+        self, *, reading_id: str | None, reading: Any, error: str | None, attempts: int,
+        status: str, mode: str, model: str,
+    ) -> dict[str, Any]:
+        record = {
+            "readingId": reading_id,
+            "at": datetime.now(UTC).isoformat(),
+            "mode": mode,
+            "status": status,
+            "model": reading.model if reading is not None else model,
+            "promptVersion": VLM_PROMPT_VERSION,
+            "attempts": attempts,
+            "result": (
+                {
+                    "diceCount": reading.dice_count,
+                    "value": reading.value,
+                    "confidence": reading.confidence,
+                    "note": reading.note,
+                }
+                if reading is not None else None
+            ),
+            "error": error,
+            "durationMs": reading.duration_ms if reading is not None else None,
+        }
+        with self._lock:
+            self._readings.appendleft(record)
+        logging.getLogger("commentator.recognition").info(
+            "vlm reading", extra={"event": "vlm_reading", **{
+                key: value for key, value in record.items() if key != "at"
+            }},
+        )
+        return record
+
+    def _save_image(self, jpeg: bytes, reading_id: str | None) -> None:
+        assert self.image_dir is not None
+        try:
+            now = datetime.now(UTC)
+            folder = self.image_dir / now.strftime("%Y%m%d")
+            folder.mkdir(parents=True, exist_ok=True)
+            name = (reading_id or "test").replace(":", "_")
+            (folder / f"{now.strftime('%H%M%S%f')}-{name}.jpg").write_bytes(jpeg)
+        except OSError:
+            logging.getLogger("commentator.recognition").exception(
+                "vlm image save failed", extra={"event": "vlm_image_save_failed"}
+            )
 
     def _apply_gate_locked(self) -> None:
         if not self._gate_enabled or self.pipeline is None:
@@ -658,6 +921,11 @@ class RecognitionService:
                 ),
                 "candidateValue": recognition.candidate_value if recognition else None,
                 "candidateId": recognition.candidate_id if recognition else None,
+                "readingMode": (
+                    self.pipeline.session.reading_mode if self.pipeline else "opencv"
+                ),
+                "readingId": recognition.reading_id if recognition else None,
+                "recognition": recognition.recognition if recognition else None,
                 "confidence": confidence,
                 "confirmation": confirmation,
                 "lastConfirmation": self._last_confirmation,
@@ -883,6 +1151,24 @@ class RecognitionService:
                     )
 
 
+def _tray_info(pipeline: Any) -> dict[str, Any]:
+    tray = getattr(pipeline, "tray", None)
+    enabled = bool(getattr(pipeline, "tray_detection", False))
+    shape = tray.shape if tray is not None and enabled else None
+    updated = tray.updated_at if tray is not None else None
+    return {
+        "enabled": enabled,
+        "found": shape is not None,
+        "lastAttemptFound": tray.last_attempt_found if tray is not None and enabled else None,
+        "vertices": len(shape.points) if shape is not None else None,
+        "areaRatio": shape.area_ratio if shape is not None else None,
+        "secondsSinceUpdate": (
+            round(monotonic() - updated, 1) if shape is not None and updated is not None
+            else None
+        ),
+    }
+
+
 def _tuning_hints(payload: dict[str, Any], settings: Any) -> list[str]:
     """Plain-language advice for the most common failures in a new environment."""
     hints: list[str] = []
@@ -939,6 +1225,14 @@ def _tuning_hints(payload: dict[str, Any], settings: Any) -> list[str]:
         hints.append(
             "サイコロが2個以上見えています。枠の中にサイコロ以外の白い物がないか確認してください。"
         )
+    tray = payload["tray"]
+    if tray["enabled"] and not tray["found"]:
+        hints.insert(0,
+            "トレーを検出できていません。緑の枠をトレー全体が入る大きさにし、"
+            "トレーの上から手やサイコロ以外の物をどけてください（投擲待ちで動きがない時に探します）。"
+        )
+    elif tray["enabled"] and tray["lastAttemptFound"] is False:
+        hints.append("最新の映像ではトレーが見つかりませんでした。前に見つけた形を使っています。")
     if payload["pendingRecognitionSettings"]:
         hints.append("判定の設定は、今の投擲が終わってから反映されます。")
     return hints
@@ -965,5 +1259,6 @@ def _confirmation_dict(value: Confirmation) -> dict[str, Any]:
         "value": value.value,
         "source": value.source.value,
         "originalCandidate": value.original_candidate,
+        "recognition": value.recognition,
         "confidence": _confidence_dict(value.confidence) if value.confidence else None,
     }

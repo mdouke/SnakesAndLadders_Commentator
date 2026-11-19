@@ -955,6 +955,96 @@
         }
       }
     },
+    "/api/settings/vlm": {
+      "get": {
+        "summary": "Get Vlm Settings",
+        "operationId": "get_vlm_settings_api_settings_vlm_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VlmSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Vlm Settings",
+        "operationId": "update_vlm_settings_api_settings_vlm_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VlmSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VlmSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/vlm/test": {
+      "post": {
+        "summary": "Test Vlm Reading",
+        "operationId": "test_vlm_reading_api_recognition_vlm_test_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VlmReadingRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recognition/vlm/readings": {
+      "get": {
+        "summary": "Vlm Readings",
+        "operationId": "vlm_readings_api_recognition_vlm_readings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VlmReadingList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/vision": {
       "get": {
         "summary": "Get Vision Settings",
@@ -3501,6 +3591,16 @@
                 "type": "null"
               }
             ]
+          },
+          "recognition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -3508,7 +3608,8 @@
           "value",
           "source",
           "originalCandidate",
-          "confidence"
+          "confidence",
+          "recognition"
         ],
         "title": "RecognitionConfirmation",
         "type": "object"
@@ -3612,6 +3713,9 @@
             "type": "boolean",
             "title": "Pendingrecognitionsettings"
           },
+          "tray": {
+            "$ref": "#/components/schemas/TrayInfo"
+          },
           "hints": {
             "items": {
               "type": "string"
@@ -3634,9 +3738,77 @@
           "detections",
           "rejected",
           "pendingRecognitionSettings",
+          "tray",
           "hints"
         ],
         "title": "RecognitionDiagnostics"
+      },
+      "RecognitionInfo": {
+        "additionalProperties": false,
+        "description": "How a recognized value was read (ADR 0006).",
+        "properties": {
+          "recognizer": {
+            "enum": [
+              "opencv",
+              "vlm",
+              "hybrid"
+            ],
+            "title": "Recognizer",
+            "type": "string"
+          },
+          "readingId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readingid"
+          },
+          "opencvCandidate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opencvcandidate"
+          },
+          "vlm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VlmAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vlmError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vlmerror"
+          }
+        },
+        "required": [
+          "recognizer",
+          "readingId",
+          "opencvCandidate",
+          "vlm",
+          "vlmError"
+        ],
+        "title": "RecognitionInfo",
+        "type": "object"
       },
       "RecognitionResponse": {
         "additionalProperties": false,
@@ -3664,6 +3836,7 @@
               "waiting",
               "moving",
               "stationary",
+              "reading",
               "candidate",
               "confirmed",
               "needs_confirmation",
@@ -3695,6 +3868,38 @@
               }
             ],
             "title": "Candidateid"
+          },
+          "readingMode": {
+            "enum": [
+              "opencv",
+              "vlm",
+              "hybrid"
+            ],
+            "title": "Readingmode",
+            "type": "string"
+          },
+          "readingId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set while the vision model is reading",
+            "title": "Readingid"
+          },
+          "recognition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "OpenCV candidate and the model's answer for the current throw"
           },
           "confidence": {
             "anyOf": [
@@ -3746,6 +3951,9 @@
           "state",
           "candidateValue",
           "candidateId",
+          "readingMode",
+          "readingId",
+          "recognition",
           "confidence",
           "confirmation",
           "lastConfirmation",
@@ -4397,6 +4605,75 @@
         "title": "TimelineEntry",
         "type": "object"
       },
+      "TrayInfo": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "found": {
+            "type": "boolean",
+            "title": "Found",
+            "description": "An outline is in use"
+          },
+          "lastAttemptFound": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastattemptfound"
+          },
+          "vertices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vertices"
+          },
+          "areaRatio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arearatio",
+            "description": "Share of the search area"
+          },
+          "secondsSinceUpdate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondssinceupdate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "found",
+          "lastAttemptFound",
+          "vertices",
+          "areaRatio",
+          "secondsSinceUpdate"
+        ],
+        "title": "TrayInfo"
+      },
       "TurnChange": {
         "properties": {
           "expectedStateVersion": {
@@ -4539,6 +4816,16 @@
               }
             ]
           },
+          "recognition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "correctedFrom": {
             "anyOf": [
               {
@@ -4583,6 +4870,7 @@
           "confirmationId",
           "originalCandidate",
           "confidence",
+          "recognition",
           "correctedFrom",
           "round",
           "branchId",
@@ -4863,6 +5151,11 @@
           "minDetectorConfidence": {
             "type": "number",
             "title": "Mindetectorconfidence"
+          },
+          "trayDetection": {
+            "type": "boolean",
+            "title": "Traydetection",
+            "description": "Find the tray inside the ROI and use its outline"
           }
         },
         "additionalProperties": false,
@@ -4881,7 +5174,8 @@
           "minPipSizeConsistency",
           "maxSinglePipCenterOffset",
           "maxPipLayoutError",
-          "minDetectorConfidence"
+          "minDetectorConfidence",
+          "trayDetection"
         ],
         "title": "VisionSettingsModel"
       },
@@ -5130,12 +5424,384 @@
               }
             ],
             "title": "Mindetectorconfidence"
+          },
+          "trayDetection": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Traydetection"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "VisionSettingsUpdate",
         "description": "Only the given fields change.\n\n``null`` means automatic for ``whiteThreshold``, ``pipThreshold`` and\n``exposure``. Changes apply to the running recognition at once; they are\nwritten to the settings file only by ``POST /api/settings/vision/save``."
+      },
+      "VlmAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "diceCount": {
+            "title": "Dicecount",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: the top face could not be read",
+            "title": "Value"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "durationMs": {
+            "title": "Durationms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "diceCount",
+          "value",
+          "confidence",
+          "note",
+          "model",
+          "durationMs"
+        ],
+        "title": "VlmAnswer",
+        "type": "object"
+      },
+      "VlmReadingList": {
+        "properties": {
+          "readings": {
+            "items": {
+              "$ref": "#/components/schemas/VlmReadingRecord"
+            },
+            "type": "array",
+            "title": "Readings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "readings"
+        ],
+        "title": "VlmReadingList"
+      },
+      "VlmReadingRecord": {
+        "properties": {
+          "readingId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readingid"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "used",
+              "discarded",
+              "failed",
+              "test"
+            ],
+            "title": "Status"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "promptVersion": {
+            "type": "string",
+            "title": "Promptversion"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VlmReadingResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "readingId",
+          "at",
+          "mode",
+          "status",
+          "model",
+          "promptVersion",
+          "attempts",
+          "result",
+          "error",
+          "durationMs"
+        ],
+        "title": "VlmReadingRecord"
+      },
+      "VlmReadingResult": {
+        "properties": {
+          "diceCount": {
+            "type": "integer",
+            "title": "Dicecount"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "diceCount",
+          "value",
+          "confidence",
+          "note"
+        ],
+        "title": "VlmReadingResult"
+      },
+      "VlmSettingsResponse": {
+        "properties": {
+          "readingMode": {
+            "type": "string",
+            "enum": [
+              "opencv",
+              "vlm",
+              "hybrid"
+            ],
+            "title": "Readingmode"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "title": "Timeoutseconds"
+          },
+          "maxRetries": {
+            "type": "integer",
+            "title": "Maxretries"
+          },
+          "saveImages": {
+            "type": "boolean",
+            "title": "Saveimages",
+            "description": "Save sent images under recordings/vlm/"
+          },
+          "installed": {
+            "type": "boolean",
+            "title": "Installed",
+            "description": "The anthropic package is installed"
+          },
+          "credentialsConfigured": {
+            "type": "boolean",
+            "title": "Credentialsconfigured",
+            "description": "An API key is set (value never shown)"
+          },
+          "readerConfigured": {
+            "type": "boolean",
+            "title": "Readerconfigured"
+          },
+          "activeReadingMode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "opencv",
+                  "vlm",
+                  "hybrid"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activereadingmode",
+            "description": "Mode the recognition uses now; changes wait for the current throw"
+          },
+          "pendingReadingMode": {
+            "type": "boolean",
+            "title": "Pendingreadingmode"
+          },
+          "promptVersion": {
+            "type": "string",
+            "title": "Promptversion"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "readingMode",
+          "model",
+          "timeoutSeconds",
+          "maxRetries",
+          "saveImages",
+          "installed",
+          "credentialsConfigured",
+          "readerConfigured",
+          "activeReadingMode",
+          "pendingReadingMode",
+          "promptVersion"
+        ],
+        "title": "VlmSettingsResponse"
+      },
+      "VlmSettingsUpdate": {
+        "properties": {
+          "readingMode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "opencv",
+                  "vlm",
+                  "hybrid"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readingmode"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "timeoutSeconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 30.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeoutseconds"
+          },
+          "maxRetries": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxretries"
+          },
+          "saveImages": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saveimages"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VlmSettingsUpdate",
+        "description": "Only the given fields change. The API key is never accepted here."
       },
       "VoiceInfo": {
         "properties": {

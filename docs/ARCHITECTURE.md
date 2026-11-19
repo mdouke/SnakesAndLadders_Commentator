@@ -168,7 +168,7 @@ Undo は対象以降のイベントを無効化して直前スナップショッ
 
 検出結果とゲームへの確定入力を分離し、カメラの誤検出だけでゲーム状態を更新しない設計にします。
 
-出目の読み取りには、OpenCV に加えて Claude の画像認識（VLM）も使えるようにします（[ADR 0006](decisions/0006-vlm-dice-reading.md)、Proposed）。動きと静止の判定は OpenCV のまま行い、サイコロが止まった時に ROI の画像を1回だけ Claude へ送ります。読み取り方式は `opencv` / `vlm` / `hybrid` から選び、API が使えない時は OpenCV と手動入力で続けます。
+出目の読み取りには、OpenCV に加えて Claude の画像認識（VLM）も使えるようにします（[ADR 0006](decisions/0006-vlm-dice-reading.md)）。動きと静止の判定は OpenCV のまま行い、サイコロが止まった時に ROI の画像を1回だけ Claude へ送ります。読み取り方式は `opencv` / `vlm` / `hybrid` から選び、API が使えない時は OpenCV と手動入力で続けます。
 
 ### LLM実況とTTS
 

@@ -34,3 +34,7 @@ export type VoiceInfo = Schemas["VoiceInfo"];
 export type VisionSettings = Schemas["VisionSettingsModel"];
 export type VisionSettingsState = Schemas["VisionSettingsResponse"];
 export type RecognitionDiagnostics = Schemas["RecognitionDiagnostics"];
+export type VlmSettings = Schemas["VlmSettingsResponse"];
+export type VlmReadingRecord = Schemas["VlmReadingRecord"];
+export type RecognitionInfo = Schemas["RecognitionInfo"];
+export type ReadingMode = VlmSettings["readingMode"];

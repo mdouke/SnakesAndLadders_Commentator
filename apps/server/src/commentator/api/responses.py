@@ -28,6 +28,7 @@ RecognitionStateValue = Literal[
     "waiting",
     "moving",
     "stationary",
+    "reading",
     "candidate",
     "confirmed",
     "needs_confirmation",
@@ -116,6 +117,25 @@ class RecognitionConfidence(ResponseModel):
     pip_layout_error: float
 
 
+class VlmAnswer(ResponseModel):
+    dice_count: int
+    value: int | None = Field(description="null: the top face could not be read")
+    confidence: Literal["high", "medium", "low"]
+    note: str
+    model: str
+    duration_ms: int
+
+
+class RecognitionInfo(ResponseModel):
+    """How a recognized value was read (ADR 0006)."""
+
+    recognizer: Literal["opencv", "vlm", "hybrid"]
+    reading_id: str | None
+    opencv_candidate: int | None
+    vlm: VlmAnswer | None
+    vlm_error: str | None
+
+
 class CorrectedFrom(ResponseModel):
     value: int
     source: RollSourceValue
@@ -140,6 +160,7 @@ class TurnResponse(ResponseModel):
     confirmation_id: str | None
     original_candidate: int | None
     confidence: RecognitionConfidence | None
+    recognition: RecognitionInfo | None
     corrected_from: CorrectedFrom | None
     round: int = Field(description="Display turn: increases after every player has rolled once.")
     branch_id: str
@@ -247,6 +268,7 @@ class RecognitionConfirmation(ResponseModel):
     source: RollSourceValue
     original_candidate: int | None
     confidence: RecognitionConfidence | None
+    recognition: RecognitionInfo | None
 
 
 class RecognitionResponse(ResponseModel):
@@ -259,6 +281,11 @@ class RecognitionResponse(ResponseModel):
     state: RecognitionStateValue
     candidate_value: int | None
     candidate_id: str | None
+    reading_mode: Literal["opencv", "vlm", "hybrid"]
+    reading_id: str | None = Field(description="Set while the vision model is reading")
+    recognition: RecognitionInfo | None = Field(
+        description="OpenCV candidate and the model's answer for the current throw"
+    )
     confidence: RecognitionConfidence | None
     confirmation: RecognitionConfirmation | None
     last_confirmation: RecognitionConfirmation | None
@@ -301,6 +328,7 @@ class VisionSettingsModel(ResponseModel):
     max_single_pip_center_offset: float
     max_pip_layout_error: float
     min_detector_confidence: float
+    tray_detection: bool = Field(description="Find the tray inside the ROI and use its outline")
 
 
 class VisionSettingsResponse(ResponseModel):
@@ -314,6 +342,46 @@ class VisionSettingsResponse(ResponseModel):
         description="Decision thresholds wait for the current throw to finish"
     )
     settings_path: str | None
+
+
+class VlmSettingsResponse(ResponseModel):
+    reading_mode: Literal["opencv", "vlm", "hybrid"]
+    model: str
+    timeout_seconds: float
+    max_retries: int
+    save_images: bool = Field(description="Save sent images under recordings/vlm/")
+    installed: bool = Field(description="The anthropic package is installed")
+    credentials_configured: bool = Field(description="An API key is set (value never shown)")
+    reader_configured: bool
+    active_reading_mode: Literal["opencv", "vlm", "hybrid"] | None = Field(
+        description="Mode the recognition uses now; changes wait for the current throw"
+    )
+    pending_reading_mode: bool
+    prompt_version: str
+
+
+class VlmReadingResult(ResponseModel):
+    dice_count: int
+    value: int | None
+    confidence: Literal["high", "medium", "low"]
+    note: str
+
+
+class VlmReadingRecord(ResponseModel):
+    reading_id: str | None
+    at: str
+    mode: str
+    status: Literal["used", "discarded", "failed", "test"]
+    model: str
+    prompt_version: str
+    attempts: int
+    result: VlmReadingResult | None
+    error: str | None
+    duration_ms: int | None
+
+
+class VlmReadingList(ResponseModel):
+    readings: list[VlmReadingRecord]
 
 
 class RoiBrightness(ResponseModel):
@@ -337,6 +405,15 @@ class DiagnosticRejection(ResponseModel):
     reason: str
 
 
+class TrayInfo(ResponseModel):
+    enabled: bool
+    found: bool = Field(description="An outline is in use")
+    last_attempt_found: bool | None
+    vertices: int | None
+    area_ratio: float | None = Field(description="Share of the search area")
+    seconds_since_update: float | None
+
+
 class RecognitionDiagnostics(ResponseModel):
     running: bool
     frame_width: int | None
@@ -349,6 +426,7 @@ class RecognitionDiagnostics(ResponseModel):
     detections: list[DiagnosticDetection]
     rejected: list[DiagnosticRejection]
     pending_recognition_settings: bool
+    tray: TrayInfo
     hints: list[str]
 
 

@@ -180,6 +180,7 @@ class GameService:
                     confirmation_id=confirmation.id,
                     original_candidate=confirmation.original_candidate,
                     confidence=confidence,
+                    recognition=confirmation.recognition,
                 )
             except (ValueError, RuntimeError) as error:
                 raise ApiError(

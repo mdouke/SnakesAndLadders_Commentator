@@ -4,14 +4,14 @@
 
 現在はゲームエンジン、SQLite永続化、履歴の訂正・Undo/Redo・復元、手動入力API、管理者・プレイヤー画面、OpenCV によるサイコロ認識、LLM 実況と読み上げが動作する段階です。既存のサイコロ認識プロトタイプは比較検証が終わるまで `dice_recognize/` に残します。
 
-次は、サイコロの出目を Claude の画像認識（VLM）でも読めるようにします（設計: [ADR 0006](docs/decisions/0006-vlm-dice-reading.md)）。今の OpenCV 方式は残し、`opencv` / `vlm` / `hybrid`（両方が一致したら自動確定）を設定で切り替えられるようにする予定です。録音は来週のユーザースタディでは使わないため後回しにしています。
+サイコロの出目は、OpenCV のほかに Claude の画像認識（VLM）でも読めます。管理画面の「読み取り方式」で、OpenCV／Claude／両方（一致したら自動確定）を切り替えます（設計: [ADR 0006](docs/decisions/0006-vlm-dice-reading.md)）。Claude を使う場合は、実況と同じく `var/secrets.env` に `ANTHROPIC_API_KEY` が必要です。録音は来週のユーザースタディでは使わないため後回しにしています。
 
 ## ドキュメント
 
 - [全体構成・設計方針](docs/ARCHITECTURE.md)
 - [開発 ToDo](TODO.md)
 - [サイコロ認識の実機確認・調整](docs/operations/dice-recognition.md)（新しい環境で読み取れない時は管理画面の「認識の調整…」）
-- [Claude の画像認識によるサイコロの読み取り（設計案）](docs/decisions/0006-vlm-dice-reading.md)
+- [Claude の画像認識によるサイコロの読み取り](docs/decisions/0006-vlm-dice-reading.md)
 
 ## 初期方針
 
@@ -21,7 +21,7 @@
 - 管理者・プレイヤー UI: TypeScript / React
 - 永続化: SQLite（抽象化し、必要なら PostgreSQL に移行可能にする）
 - リアルタイム通知: WebSocket
-- サイコロ認識: USBカメラ / OpenCV（Claude の画像認識による読み取りを追加予定）
+- サイコロ認識: USBカメラ / OpenCV、または Claude の画像認識（切り替え可能）
 - LLM: Claude API / OpenAI API を共通インターフェースで切り替え
 - 読み上げ: macOS標準TTS（音声、速度、音量などを設定可能にする）
 - 録音: DJI Mic Mini受信機から2チャンネル音声のみを収録（後回し）
@@ -67,7 +67,7 @@ OPENAI_API_KEY=sk-...          # OpenAI を使う場合
 
 ターミナルで `export` した値がある場合はそちらが優先されます。別の場所のファイルを使う場合は `COMMENTATOR_SECRETS_PATH` で指定します。キーの値は画面・DB・ログには出ません（ログには読み込んだ変数名だけが残ります）。キーがない、または API が失敗した場合は、出目と位置だけを使ったテンプレートの文で実況します。
 
-読み上げはサーバーを動かしている Mac の標準音声（`say`）で行います。実況・読み上げの設定は `var/commentary-settings.json` と `var/speech-settings.json` に保存されます。
+読み上げはサーバーを動かしている Mac の標準音声（`say`）で行います。実況・読み上げの設定は `var/commentary-settings.json` と `var/speech-settings.json`、読み取り方式の設定は `var/vlm-settings.json` に保存されます。
 
 - 管理者画面: `http://127.0.0.1:5173/`
 - プレイヤー画面: `http://127.0.0.1:5173/player`

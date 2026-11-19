@@ -24,6 +24,7 @@ import { StatsPanel } from "./Stats";
 import { StatusPanel } from "./StatusPanel";
 import type { GameState, RecognitionCamera, RecognitionState } from "./types";
 import { VisionTuningDialog } from "./VisionTuning";
+import { ReadingModeSwitch, RecognitionComparison, recognitionErrorMessage } from "./ReadingMode";
 
 const statusLabels: Record<GameState["status"], string> = {
   ready: "開始待ち",
@@ -146,6 +147,7 @@ const recognitionLabels: Record<RecognitionState["state"], string> = {
   waiting: "投擲待ち",
   moving: "サイコロが動いています",
   stationary: "静止を確認中",
+  reading: "Claude で読み取り中…",
   candidate: "候補を判定中",
   confirmed: "確定",
   needs_confirmation: "確認が必要です",
@@ -230,6 +232,9 @@ function RecognitionPanel({
         {recognition.confidence && <span>信頼度 {recognition.confidence.total.toFixed(2)}</span>}
         {recognition.errorCode && <span className="muted">({recognition.errorCode})</span>}
       </p>
+      {recognitionErrorMessage(recognition.errorCode) && (
+        <p className="warning-text">{recognitionErrorMessage(recognition.errorCode)}</p>
+      )}
       {recognition.running && !recognition.gameReady && (
         <p className="muted">
           ゲームが進行中ではないため、サイコロは認識していません（カメラ映像の確認のみ）。
@@ -261,6 +266,9 @@ function RecognitionPanel({
           <button className="secondary" onClick={() => setTuning(true)}>認識の調整…</button>
         </div>
       )}
+      {recognition.available && (
+        <ReadingModeSwitch activeMode={recognition.readingMode} onError={onError} />
+      )}
       {tuning && (
         <VisionTuningDialog running={recognition.running} available={recognition.available}
           stateLabel={recognitionLabels[recognition.state]} cameras={cameras}
@@ -272,6 +280,7 @@ function RecognitionPanel({
             候補 {recognition.candidateValue} を確認してください。違う場合は正しい目を、
             サイコロが傾いているなどの場合は振り直しを選びます。
           </p>
+          <RecognitionComparison recognition={recognition.recognition} />
           <div className="button-row">
             <button disabled={busy} onClick={() => onGame(() => confirmRecognitionCandidate(
               game.id, candidateId, game.stateVersion, game.turnNumber

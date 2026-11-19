@@ -24,6 +24,7 @@ JPEG_QUALITY = 80
 _ROI_COLOR = (0, 200, 0)
 _DIE_COLOR = (0, 160, 255)
 _REJECTED_COLOR = (0, 0, 255)
+_TRAY_COLOR = (255, 200, 0)
 
 
 def _encode(image: Frame, *, max_width: int = PREVIEW_MAX_WIDTH) -> bytes:
@@ -79,11 +80,14 @@ def render_preview_jpeg(
     roi: NormalizedRoi | None,
     detections: Sequence[Any] = (),
     rejected: Sequence[Any] = (),
+    crop_origin: tuple[int, int] | None = None,
+    tray: np.ndarray | None = None,
 ) -> bytes:
-    """Draw the ROI and dice on a copy of the full frame and encode it as JPEG.
+    """Draw the ROI, the tray outline and dice on a copy of the full frame.
 
-    Detection boxes and centers are in ROI-cropped coordinates, as produced by
-    ``DiceRecognitionPipeline``; they are shifted back onto the full frame here.
+    Detection boxes and centers are in cropped coordinates, as produced by
+    ``DiceRecognitionPipeline``; ``crop_origin`` is where that crop starts (the
+    ROI corner, or the tray's bounding box when the tray is detected).
     """
     image = _bgr(frame)
     region = (roi or NormalizedRoi()).to_pixels(image)
@@ -94,7 +98,14 @@ def render_preview_jpeg(
         _ROI_COLOR,
         2,
     )
-    _draw_dice(image, (region.x, region.y), detections, rejected)
+    if tray is not None:
+        # Darken everything outside the tray so the operator sees what is used.
+        outside = np.full(image.shape[:2], 255, dtype=np.uint8)
+        cv2.fillPoly(outside, [tray.astype(np.int32)], 0)
+        image[outside > 0] = (image[outside > 0] * 0.45).astype(np.uint8)
+        cv2.polylines(image, [tray.astype(np.int32)], True, _TRAY_COLOR, 3, cv2.LINE_AA)
+    origin = crop_origin or (region.x, region.y)
+    _draw_dice(image, origin, detections, rejected)
     return _encode(image)
 
 

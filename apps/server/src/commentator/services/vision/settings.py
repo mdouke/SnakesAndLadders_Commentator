@@ -56,6 +56,8 @@ class VisionSettings:
     max_single_pip_center_offset: float = 0.22
     max_pip_layout_error: float = 0.15
     min_detector_confidence: float = 0.78
+    # Find the tray inside the ROI and use only its outline (vision/tray.py).
+    tray_detection: bool = False
 
     def __post_init__(self) -> None:
         if self.camera_id is not None and self.camera_id < 0:
@@ -105,6 +107,7 @@ class VisionSettings:
             "maxSinglePipCenterOffset": self.max_single_pip_center_offset,
             "maxPipLayoutError": self.max_pip_layout_error,
             "minDetectorConfidence": self.min_detector_confidence,
+            "trayDetection": self.tray_detection,
         }
 
     @classmethod
@@ -144,6 +147,7 @@ class VisionSettings:
                 ),
                 max_pip_layout_error=float(value.get("maxPipLayoutError", 0.15)),
                 min_detector_confidence=float(value.get("minDetectorConfidence", 0.78)),
+                tray_detection=bool(value.get("trayDetection", False)),
             )
         except (TypeError, ValueError) as error:
             raise ValueError(f"サイコロ認識設定の値が不正です: {error}") from error

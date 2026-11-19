@@ -39,6 +39,9 @@ from .api.responses import (
     SpeechSettingsResponse,
     SystemStatus,
     VisionSettingsResponse,
+    VlmReadingList,
+    VlmReadingRecord,
+    VlmSettingsResponse,
     VoiceList,
 )
 from .api.schemas import (
@@ -61,6 +64,7 @@ from .api.schemas import (
     VersionedRequest,
     VisionSettingsRevert,
     VisionSettingsUpdate,
+    VlmSettingsUpdate,
 )
 from .domain.board import Board
 from .domain.game import (
@@ -571,6 +575,25 @@ def create_app(
     def recognition_diagnostics() -> dict[str, Any]:
         return recognition.diagnostics()
 
+    @application.get("/api/settings/vlm", response_model=VlmSettingsResponse)
+    def get_vlm_settings() -> dict[str, Any]:
+        return recognition.vlm_settings_payload()
+
+    @application.put("/api/settings/vlm", response_model=VlmSettingsResponse)
+    def update_vlm_settings(request: VlmSettingsUpdate) -> dict[str, Any]:
+        changes = request.model_dump(exclude_unset=True, by_alias=True)
+        if any(value is None for value in changes.values()):
+            raise ApiError(422, "invalid_settings", "設定値に null は指定できません")
+        return recognition.update_vlm_settings(changes)
+
+    @application.post("/api/recognition/vlm/test", response_model=VlmReadingRecord)
+    def test_vlm_reading() -> dict[str, Any]:
+        return recognition.test_reading()
+
+    @application.get("/api/recognition/vlm/readings", response_model=VlmReadingList)
+    def vlm_readings() -> dict[str, Any]:
+        return {"readings": recognition.recent_readings()}
+
     @application.get("/api/settings/vision", response_model=VisionSettingsResponse)
     def get_vision_settings() -> dict[str, Any]:
         return recognition.vision_settings_payload()
@@ -924,6 +947,7 @@ def _create_recognition_service(game_service: GameService) -> RecognitionService
         from .services.vision.pipeline import DiceRecognitionPipeline
         from .services.vision.recognition import DiceRecognitionSession
         from .services.vision.settings import VisionSettingsStore
+        from .services.vision.vlm import ClaudeDiceReader, VlmSettingsStore
 
         store = VisionSettingsStore(repository_root / "var" / "vision-settings.json")
         settings = store.load()
@@ -935,6 +959,7 @@ def _create_recognition_service(game_service: GameService) -> RecognitionService
             ),
             session=DiceRecognitionSession(settings.recognition_config()),
             roi=settings.roi,
+            tray_detection=settings.tray_detection,
         )
         return RecognitionService(
             game_service,
@@ -949,6 +974,9 @@ def _create_recognition_service(game_service: GameService) -> RecognitionService
             camera_disconnected_errors=(CameraDisconnectedError,),
             vision_settings=settings,
             settings_store=store,
+            dice_reader=ClaudeDiceReader(),
+            vlm_settings=VlmSettingsStore(repository_root / "var" / "vlm-settings.json"),
+            image_dir=repository_root / "recordings" / "vlm",
         )
     except Exception as error:
         logging.getLogger("commentator.recognition").warning(

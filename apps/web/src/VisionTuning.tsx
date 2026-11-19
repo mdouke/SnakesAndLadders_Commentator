@@ -9,6 +9,7 @@ import {
   updateVisionSettings,
   type VisionSettingsChange
 } from "./api";
+import { VlmSettingsSection } from "./ReadingMode";
 import type {
   RecognitionCamera,
   RecognitionDiagnostics,
@@ -210,6 +211,17 @@ function DiagnosticsView({
           {diagnostics.whiteAreaRatio != null && `／白い部分 ${(diagnostics.whiteAreaRatio * 100).toFixed(0)}%`}
         </dd>
         <dt>動き</dt><dd>{diagnostics.motionScore?.toFixed(3) ?? "—"}</dd>
+        {diagnostics.tray.enabled && (
+          <>
+            <dt>トレー</dt>
+            <dd>
+              {diagnostics.tray.found
+                ? `検出済み（${diagnostics.tray.vertices}角形・枠の${Math.round((diagnostics.tray.areaRatio ?? 0) * 100)}%）`
+                : "探しています…"}
+              {diagnostics.tray.found && diagnostics.tray.lastAttemptFound === false && "／最新の映像では見つからず"}
+            </dd>
+          </>
+        )}
         <dt>映像</dt>
         <dd>
           {diagnostics.frameWidth}×{diagnostics.frameHeight}
@@ -369,7 +381,9 @@ export function VisionTuningDialog({
                   <RoiPreview view={view} running={running} roi={draft.roi}
                     onRoi={(roi) => change({ roi })} />
                   <p className="muted small">
-                    {view === "overlay" && "緑の枠が認識する範囲です。映像の上をドラッグすると枠を描き直せます。オレンジがサイコロ、赤は目を読めなかった候補です。"}
+                    {view === "overlay" && (draft.trayDetection
+                      ? "緑の枠がトレーを探す範囲、水色の線が検出したトレーです。トレーの外は暗く表示され、認識にも Claude にも使いません。映像の上をドラッグすると枠を描き直せます。"
+                      : "緑の枠が認識する範囲です。映像の上をドラッグすると枠を描き直せます。オレンジがサイコロ、赤は目を読めなかった候補です。")}
                     {view === "mask" && "白い部分がサイコロの面として扱われる部分です。サイコロだけが白い四角になるのが理想です。"}
                     {view === "pips" && "サイコロの面を正面から見た画像と、目として数えた部分です。緑が数えた目、赤は除外した部分です。"}
                   </p>
@@ -384,6 +398,7 @@ export function VisionTuningDialog({
             </div>
 
             <div className="tuning-controls">
+              <VlmSettingsSection running={running} />
               <fieldset>
                 <legend>カメラ</legend>
                 <label className="tuning-field">
@@ -417,6 +432,16 @@ export function VisionTuningDialog({
 
               <fieldset>
                 <legend>認識する範囲（枠）</legend>
+                <label className="tuning-field check-row">
+                  <input type="checkbox" checked={draft.trayDetection}
+                    onChange={(event) => change({ trayDetection: event.target.checked })} />
+                  トレーを自動で検出する（枠の中から探す）
+                </label>
+                <small className="block">
+                  {draft.trayDetection
+                    ? "枠の中で一番大きい暗い部分をトレーとして探し、その形（水色の線）の内側だけを認識と Claude に使います。トレーを動かしても、投擲待ちの間に形を探し直します。枠はトレー全体より少し大きめにしてください。"
+                    : "オンにすると、枠の中からトレーの形を探して、机などの写り込みを除きます。"}
+                </small>
                 <div className="tuning-pair">
                   <Slider label="左端" value={draft.roi.x} min={0} max={0.97} step={0.01}
                     onChange={(x) => change({ roi: { x, width: Math.min(draft.roi.width, round(1 - x)) } })} />

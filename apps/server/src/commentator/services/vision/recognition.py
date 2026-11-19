@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from enum import StrEnum
 from math import dist
 from statistics import median
+from typing import Any, Literal
 from uuid import uuid4
+
+# How the value is read (ADR 0006). Motion and stillness always come from OpenCV.
+ReadingMode = Literal["opencv", "vlm", "hybrid"]
+READING_MODES: tuple[ReadingMode, ...] = ("opencv", "vlm", "hybrid")
 
 
 class RecognitionState(StrEnum):
@@ -15,6 +20,7 @@ class RecognitionState(StrEnum):
     MOVING = "moving"
     STATIONARY = "stationary"
     CANDIDATE = "candidate"
+    READING = "reading"  # waiting for the vision model (vlm / hybrid modes)
     CONFIRMED = "confirmed"
     NEEDS_CONFIRMATION = "needs_confirmation"
     REMOVAL_WAIT = "removal_wait"
@@ -137,6 +143,24 @@ class Confirmation:
     confidence: ConfidenceBreakdown | None
     monotonic_time: float
     original_candidate: int | None = None
+    # How the value was read: recognizer, OpenCV candidate and the model's answer.
+    recognition: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VisionReading:
+    """The vision model's answer for one still image (see ``vision/vlm.py``)."""
+
+    dice_count: int
+    value: int | None  # None when the top face could not be read
+    confidence: Literal["high", "medium", "low"]
+    note: str = ""
+    model: str = ""
+    duration_ms: int = 0
+
+    @property
+    def certain_single(self) -> bool:
+        return self.dice_count == 1 and self.value is not None and self.confidence == "high"
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +179,8 @@ class RecognitionSnapshot:
     discarded_candidate: DiscardedCandidate | None
     candidate_id: str | None = None
     error_code: str | None = None
+    reading_id: str | None = None
+    recognition: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +223,12 @@ class DiceRecognitionSession:
         self._samples: deque[_CandidateSample] = deque(
             maxlen=self.config.candidate_window_frames
         )
+        self.reading_mode: ReadingMode = "opencv"
+        self._reading_id: str | None = None
+        self._reading_counter = 0
+        self._opencv_candidate: int | None = None
+        self._opencv_automatic = False
+        self._recognition: dict[str, Any] | None = None
 
     def observe(self, frame: FrameObservation) -> RecognitionSnapshot:
         self._discarded_candidate = None
@@ -255,7 +287,101 @@ class DiceRecognitionSession:
         if self.state is RecognitionState.REMOVAL_WAIT:
             self._observe_removal(frame)
             return self.snapshot()
+        if self.state is RecognitionState.READING:
+            if frame.motion_score >= self.config.movement_threshold:
+                # The die moved while the model was reading: that answer is stale.
+                self._reset_cycle(RecognitionState.MOVING)
+                self._cycle_started_time = frame.monotonic_time
+            return self.snapshot()
         return self.snapshot()
+
+    def complete_reading(
+        self,
+        reading_id: str,
+        reading: VisionReading | None,
+        *,
+        monotonic_time: float,
+        error_code: str | None = None,
+    ) -> bool:
+        """Apply the model's answer; returns False when it is no longer current.
+
+        ``reading`` is None when the call failed (``error_code`` says why).
+        """
+        if self.state is not RecognitionState.READING or reading_id != self._reading_id:
+            return False
+        self._reading_id = None
+        recognition: dict[str, Any] = {
+            "recognizer": self.reading_mode,
+            "readingId": reading_id,
+            "opencvCandidate": self._opencv_candidate,
+            "vlm": _reading_dict(reading) if reading is not None else None,
+            "vlmError": error_code if reading is None else None,
+        }
+        self._recognition = recognition
+        if self.reading_mode == "hybrid":
+            self._decide_hybrid(reading, monotonic_time)
+        else:
+            self._decide_vlm(reading, monotonic_time, error_code)
+        return True
+
+    def _decide_vlm(
+        self, reading: VisionReading | None, monotonic_time: float, error_code: str | None
+    ) -> None:
+        if reading is None:
+            self._fail("vlm_failed" if error_code is None else f"vlm_{error_code}")
+        elif reading.dice_count == 0:
+            # Nothing was thrown (a hand moved, for example). Wait for the next throw.
+            self._reset_cycle(RecognitionState.WAITING)
+        elif reading.value is None:
+            self._fail("vlm_unreadable")
+        elif reading.certain_single:
+            self._set_candidate(reading.value)
+            self._set_confirmation(
+                reading.value, ConfirmationSource.AUTOMATIC, monotonic_time,
+                original_candidate=reading.value,
+            )
+        else:
+            self._set_candidate(reading.value)
+            self.state = RecognitionState.NEEDS_CONFIRMATION
+
+    def _decide_hybrid(self, reading: VisionReading | None, monotonic_time: float) -> None:
+        opencv = self._opencv_candidate
+        assert opencv is not None
+        agreed = reading is not None and reading.dice_count == 1 and reading.value == opencv
+        if reading is None:
+            # The model is unavailable: decide exactly as the OpenCV mode would.
+            automatic = self._opencv_automatic
+            candidate = opencv
+        elif agreed:
+            automatic = reading.certain_single or self._opencv_automatic
+            candidate = opencv
+        else:
+            automatic = False
+            # Disagreement: suggest the model's value only when it is sure.
+            candidate = reading.value if reading.certain_single and reading.value else opencv
+        self._set_candidate(candidate)
+        if automatic:
+            self._set_confirmation(
+                candidate, ConfirmationSource.AUTOMATIC, monotonic_time,
+                original_candidate=opencv,
+            )
+        else:
+            self.state = RecognitionState.NEEDS_CONFIRMATION
+
+    def _begin_reading(self) -> None:
+        self._reading_counter += 1
+        self._reading_id = f"{self.session_id}:reading:{self._reading_counter}"
+        self.state = RecognitionState.READING
+
+    def _set_candidate(self, value: int) -> None:
+        if self._candidate_value != value or self._candidate_id is None:
+            self._candidate_counter += 1
+            self._candidate_id = f"{self.session_id}:candidate:{self._candidate_counter}"
+        self._candidate_value = value
+
+    def _fail(self, code: str) -> None:
+        self.state = RecognitionState.RECOGNITION_ERROR
+        self._recognition_error_code = code
 
     def confirm_candidate(
         self, *, value: int | None = None, monotonic_time: float
@@ -328,6 +454,10 @@ class DiceRecognitionSession:
         # detections cannot be told apart from it. Only clear motion starts a throw.
         self._motion_required = True
 
+    def require_motion(self) -> None:
+        """Start the next throw only on clear motion (the crop has just changed)."""
+        self._motion_required = True
+
     def reset_to_waiting(self) -> None:
         """Discard transient camera state before a new camera session starts."""
         self._last_confirmed_center = None
@@ -353,6 +483,10 @@ class DiceRecognitionSession:
             confirmation=self._confirmation,
             discarded_candidate=self._discarded_candidate,
             error_code=error_code,
+            reading_id=(
+                self._reading_id if self.state is RecognitionState.READING else None
+            ),
+            recognition=self._recognition,
         )
 
     def _observe_moving(self, motion_score: float) -> None:
@@ -360,6 +494,10 @@ class DiceRecognitionSession:
             self._stationary_count += 1
             if self._stationary_count >= self.config.stationary_frames:
                 self._reset_cycle(RecognitionState.STATIONARY)
+                if self.reading_mode == "vlm":
+                    # The model reads the value, even when OpenCV sees no die
+                    # (overexposure, an unusual background).
+                    self._begin_reading()
         else:
             self._stationary_count = 0
 
@@ -460,7 +598,7 @@ class DiceRecognitionSession:
             pip_recounted=pip_recounted,
             pip_layout_error=pip_layout_error,
         )
-        if (
+        automatic = (
             total >= self.config.automatic_threshold
             and pip_size_consistency >= self.config.min_pip_size_consistency
             # Fused pips that a lower-threshold recount could not separate.
@@ -477,12 +615,29 @@ class DiceRecognitionSession:
                 or single_pip_center_offset
                 <= self.config.max_single_pip_center_offset
             )
+        )
+        if self.reading_mode == "hybrid" and (
+            automatic or total >= self.config.confirmation_threshold
         ):
+            # Ask the model before deciding; keep what OpenCV would have done.
+            self._opencv_candidate = candidate
+            self._opencv_automatic = automatic
+            self._begin_reading()
+            return
+        if automatic:
+            self._recognition = {
+                "recognizer": "opencv", "readingId": None, "opencvCandidate": candidate,
+                "vlm": None, "vlmError": None,
+            }
             self._set_confirmation(
                 candidate, ConfirmationSource.AUTOMATIC, monotonic_time,
                 original_candidate=candidate,
             )
         elif total >= self.config.confirmation_threshold:
+            self._recognition = {
+                "recognizer": "opencv", "readingId": None, "opencvCandidate": candidate,
+                "vlm": None, "vlmError": None,
+            }
             self.state = RecognitionState.NEEDS_CONFIRMATION
         else:
             discarded = DiscardedCandidate(candidate, self._confidence, monotonic_time)
@@ -517,6 +672,10 @@ class DiceRecognitionSession:
             self._last_confirmed_roi_diagonal = latest.roi_diagonal
         else:
             self._last_confirmed_center = None
+            if source is not ConfirmationSource.MANUAL:
+                # Read by the model without an OpenCV position: only clear motion
+                # may start the next throw, so the same die is never read twice.
+                self._motion_required = True
         self._confirmation_counter += 1
         self._confirmation = Confirmation(
             id=f"{self.session_id}:{self._confirmation_counter}",
@@ -527,6 +686,9 @@ class DiceRecognitionSession:
             confidence=self._confidence,
             monotonic_time=monotonic_time,
             original_candidate=original_candidate,
+            recognition=(
+                None if source is ConfirmationSource.MANUAL else self._recognition
+            ),
         )
         self.state = RecognitionState.CONFIRMED
         return self._confirmation
@@ -563,6 +725,10 @@ class DiceRecognitionSession:
         self._samples.clear()
         self._recognition_error_code = None
         self._die_seen_in_cycle = False
+        self._reading_id = None
+        self._opencv_candidate = None
+        self._opencv_automatic = False
+        self._recognition = None
 
     def _require_candidate(self) -> int:
         if self._candidate_value is None:
@@ -587,3 +753,14 @@ class DiceRecognitionSession:
     def _validate_value(value: int) -> None:
         if not 1 <= value <= 6:
             raise ValueError("出目は1〜6で指定してください")
+
+
+def _reading_dict(reading: VisionReading) -> dict[str, Any]:
+    return {
+        "diceCount": reading.dice_count,
+        "value": reading.value,
+        "confidence": reading.confidence,
+        "note": reading.note,
+        "model": reading.model,
+        "durationMs": reading.duration_ms,
+    }
