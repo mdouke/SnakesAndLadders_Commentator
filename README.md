@@ -8,6 +8,7 @@
 
 ## ドキュメント
 
+- [再開メモ（前回の作業の続きから始めるとき）](RESUME.md)
 - [全体構成・設計方針](docs/ARCHITECTURE.md)
 - [開発 ToDo](TODO.md)
 - [サイコロ認識の実機確認・調整](docs/operations/dice-recognition.md)（新しい環境で読み取れない時は管理画面の「認識の調整…」）
@@ -64,11 +65,13 @@ Claude や OpenAI で実況する場合は、`var/secrets.env` に API キーを
 ANTHROPIC_API_KEY=sk-ant-...   # Claude を使う場合
 OPENAI_API_KEY=sk-...          # OpenAI を使う場合
 GOOGLE_TTS_API_KEY=AIza...     # 読み上げに Google Cloud Text-to-Speech を使う場合
+GEMINI_API_KEY=AIza...         # 読み上げに Gemini（読み方を文章で指示）を使う場合
+GOOGLE_APPLICATION_CREDENTIALS=var/xxxx.json  # Gemini を Google Cloud 経由で使う場合（サービスアカウントの鍵ファイル）
 ```
 
 ターミナルで `export` した値がある場合はそちらが優先されます。別の場所のファイルを使う場合は `COMMENTATOR_SECRETS_PATH` で指定します。キーの値は画面・DB・ログには出ません（ログには読み込んだ変数名だけが残ります）。キーがない、または API が失敗した場合は、出目と位置だけを使ったテンプレートの文で実況します。
 
-読み上げは、サーバーを動かしている Mac の標準音声（`say`）か Google Cloud Text-to-Speech で行います。管理画面の「実況・読み上げの設定」で切り替えます。Google を使う場合は、Google Cloud で Cloud Text-to-Speech API を有効にし、APIキー（Text-to-Speech API だけに制限するのがおすすめ）を `GOOGLE_TTS_API_KEY` に書きます。Google では文ごとに音声を作り、1文目ができたらすぐ読み始めます。Google が使えない時は Mac の音声で読みます。実況・読み上げの設定は `var/commentary-settings.json` と `var/speech-settings.json`、読み取り方式の設定は `var/vlm-settings.json` に保存されます。
+読み上げは、サーバーを動かしている Mac の標準音声（`say`）か Google Cloud Text-to-Speech で行います。管理画面の「実況・読み上げの設定」で切り替えます。Google を使う場合は、Google Cloud で Cloud Text-to-Speech API を有効にし、APIキー（Text-to-Speech API だけに制限するのがおすすめ）を `GOOGLE_TTS_API_KEY` に書きます。Google では文ごとに音声を作り、1文目ができたらすぐ読み始めます。Google が使えない時は Mac の音声で読みます。「Gemini」を選ぶと、Google AI Studio で作った Gemini API キー（`GEMINI_API_KEY`）で Gemini TTS を使い、「読み方の指示」に書いた文章（例: 明るく元気な実況アナウンサーのように）で話し方を変えられます。Gemini は「Google Cloud 経由」（サービスアカウントの鍵ファイルを `var/` に置き、`GOOGLE_APPLICATION_CREDENTIALS` で指定。サービスアカウントにはロール「Agent Platform ユーザー」が必要。1分150回・1日の上限なし）と「Gemini API 経由」（`GEMINI_API_KEY`。有料枠でも1日100回）を選べます。ゲームでは Google Cloud 経由を使ってください。Gemini が失敗したり回数の上限に当たったりした時は、Google の標準の声、それも使えなければ Mac の音声で読みます。実況・読み上げの設定は `var/commentary-settings.json` と `var/speech-settings.json`、読み取り方式の設定は `var/vlm-settings.json` に保存されます。
 
 - 管理者画面: `http://127.0.0.1:5173/`
 - プレイヤー画面: `http://127.0.0.1:5173/player`

@@ -1409,7 +1409,8 @@
                 {
                   "enum": [
                     "macos",
-                    "google"
+                    "google",
+                    "gemini"
                   ],
                   "type": "string"
                 },
@@ -2863,6 +2864,25 @@
         "title": "GameResponse",
         "type": "object"
       },
+      "GeminiVoice": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "gender": {
+            "type": "string",
+            "title": "Gender"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "gender"
+        ],
+        "title": "GeminiVoice"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4272,7 +4292,8 @@
                 "type": "string",
                 "enum": [
                   "macos",
-                  "google"
+                  "google",
+                  "gemini"
                 ]
               },
               {
@@ -4306,6 +4327,59 @@
               }
             ],
             "title": "Googlespeakingrate"
+          },
+          "geminiBackend": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "cloud",
+                  "api"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geminibackend"
+          },
+          "geminiModel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geminimodel"
+          },
+          "geminiVoice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geminivoice"
+          },
+          "geminiStyle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geministyle"
           }
         },
         "type": "object",
@@ -4328,6 +4402,21 @@
             "type": "boolean",
             "title": "Googlekeyconfigured",
             "description": "GOOGLE_TTS_API_KEY is set (never shown)"
+          },
+          "gemini": {
+            "type": "boolean",
+            "title": "Gemini",
+            "description": "Gemini TTS can be used (API key set)"
+          },
+          "geminiKeyConfigured": {
+            "type": "boolean",
+            "title": "Geminikeyconfigured",
+            "description": "GEMINI_API_KEY is set (never shown)"
+          },
+          "geminiCloudConfigured": {
+            "type": "boolean",
+            "title": "Geminicloudconfigured",
+            "description": "A service account key file is set (GOOGLE_APPLICATION_CREDENTIALS)"
           }
         },
         "additionalProperties": false,
@@ -4335,7 +4424,10 @@
         "required": [
           "macos",
           "google",
-          "googleKeyConfigured"
+          "googleKeyConfigured",
+          "gemini",
+          "geminiKeyConfigured",
+          "geminiCloudConfigured"
         ],
         "title": "SpeechProviders"
       },
@@ -4461,7 +4553,8 @@
             "type": "string",
             "enum": [
               "macos",
-              "google"
+              "google",
+              "gemini"
             ],
             "title": "Provider"
           },
@@ -4472,6 +4565,45 @@
           "googleSpeakingRate": {
             "type": "number",
             "title": "Googlespeakingrate"
+          },
+          "geminiBackend": {
+            "type": "string",
+            "enum": [
+              "cloud",
+              "api"
+            ],
+            "title": "Geminibackend"
+          },
+          "geminiModel": {
+            "type": "string",
+            "title": "Geminimodel"
+          },
+          "geminiVoice": {
+            "type": "string",
+            "title": "Geminivoice"
+          },
+          "geminiStyle": {
+            "type": "string",
+            "title": "Geministyle",
+            "description": "Gemini TTS: how the comment should be read"
+          },
+          "geminiModels": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Geminimodels",
+            "description": "Models per backend"
+          },
+          "geminiVoices": {
+            "items": {
+              "$ref": "#/components/schemas/GeminiVoice"
+            },
+            "type": "array",
+            "title": "Geminivoices"
           },
           "available": {
             "type": "boolean",
@@ -4496,6 +4628,12 @@
           "provider",
           "googleVoice",
           "googleSpeakingRate",
+          "geminiBackend",
+          "geminiModel",
+          "geminiVoice",
+          "geminiStyle",
+          "geminiModels",
+          "geminiVoices",
           "available",
           "engine",
           "providers"
@@ -4559,7 +4697,8 @@
                 "type": "string",
                 "enum": [
                   "macos",
-                  "google"
+                  "google",
+                  "gemini"
                 ]
               },
               {
@@ -4593,6 +4732,59 @@
               }
             ],
             "title": "Googlespeakingrate"
+          },
+          "geminiBackend": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "cloud",
+                  "api"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geminibackend"
+          },
+          "geminiModel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geminimodel"
+          },
+          "geminiVoice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geminivoice"
+          },
+          "geminiStyle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geministyle"
           }
         },
         "additionalProperties": false,

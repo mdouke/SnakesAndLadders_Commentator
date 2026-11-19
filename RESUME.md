@@ -1,0 +1,70 @@
+# 再開メモ
+
+最終更新: 2026-11-19（作業を中断した時点の状態）。次に作業を始めるときは、まずこのファイルを読む。
+詳しい経緯は [TODO.md](TODO.md)、設計は [ADR 0005](docs/decisions/0005-commentary-and-speech.md)（実況・読み上げ）と [ADR 0006](docs/decisions/0006-vlm-dice-reading.md)（サイコロの読み取り）にある。
+
+## いまの状態
+
+- 作業中のブランチ: `google-tts`
+  - `de3fa5d` Google Cloud Text-to-Speech（WaveNet など）の追加
+  - その次のコミット: Gemini の読み上げ（Gemini API 経由と Google Cloud 経由の切り替え、失敗時の切り替え順、
+    上限エラー時の待機、ログへの失敗理由の記録）とこのメモ。テスト 472 件・型チェック・画面のビルドは通っている。
+  - 未コミットの変更はない。
+  - `git stash` に1件: Cloud 経由 Gemini の最初の試作（APIキーでは動かず取りやめたもの）。不要なら `git stash drop`。
+- `main` は `4a9a481`（カメラ認識・VLM・トレー検出・調整ダイアログまで）。`google-tts` はまだマージしていない。
+  GitHub（origin）への push もしていない。
+- カメラでのサイコロ認識の開発は終わり（2026-11-19 ユーザー判断）。
+
+## 起動
+
+```bash
+npm start          # API と画面をまとめて起動し、管理者画面とプレイヤー画面を開く（Ctrl+C で停止）
+```
+
+Finder で `start.command` をダブルクリックしてもよい。秘密情報や鍵ファイルを書き換えたら起動し直す。
+
+## 秘密情報（`var/secrets.env`、Git 管理外。値はここに書かない）
+
+| 変数 | 用途 |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude の実況、Claude でのサイコロ読み取り |
+| `GOOGLE_TTS_API_KEY` | Google Cloud の WaveNet など（`AIza` で始まる Cloud のキー） |
+| `GEMINI_API_KEY` | Gemini API 経由の Gemini 読み上げ（AI Studio のキー）。1日100回しか使えないので普段は使わない |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Google Cloud 経由の Gemini 読み上げ。`var/` に置いたサービスアカウントの鍵ファイル（JSON）のパス |
+
+- サービスアカウント `commentator-tts@sal-commentator.iam.gserviceaccount.com` にロール「Agent Platform ユーザー」を付与済み。
+- この Mac の Python は証明書の一覧を持たないため、HTTPS は certifi を使っている（`pyproject.toml` の依存に記載済み）。
+
+## 次にやること（上から順に）
+
+1. 管理画面で Gemini のモデルを **`gemini-2.5-flash-lite-preview-tts`** に変える（今の設定は遅い `gemini-2.5-flash-tts`）。
+2. 読み上げの改善（コード）:
+   - 途中の文で失敗したら、**続きの文から** WaveNet で読む（今は最初から読み直してしまう）。
+   - ログに「話し始めまでの時間」と「どの声で読んだか」を記録する（今は読み終わりの時刻しか分からない）。
+3. 実験で使う声を決める: 話し始めの速さなら WaveNet（約0.4秒）、表現なら Gemini Flash-Lite（1文2〜3秒）。
+4. `google-tts` を `main` にマージする（必要なら push）。
+5. ユーザースタディの準備:
+   - 同意書に、サイコロのトレーの画像を Anthropic に、実況の文（プレイヤー名を含む）を Google に送ることを書く。
+   - 実機で Claude のサイコロ読み取りとトレー自動検出を試す（TODO.md の Phase 6.5）。
+6. 後片付け（安全のため）:
+   - サービスアカウントの鍵ファイルを作り直し、古い鍵（ID `0cc8fd83...`）を削除する（スクリーンショットに一部が写ったため）。
+   - IAM にあるオーナー権限のサービスアカウント `snakesandladders-commentator@...` が不要なら削除する。
+   - 使わない Gemini API キー・紐づけた API キーを削除する。
+
+## 測った値（2026-11-19、1文あたり音声ができるまで）
+
+| 読み上げ | 時間 |
+|---|---|
+| Google WaveNet | 約0.35秒 |
+| Gemini 2.5 Flash-Lite TTS（Cloud 経由） | 2.3〜3.0秒 |
+| Gemini 2.5 Flash TTS（Cloud 経由） | 2.6〜8.3秒、20秒で時間切れのことも |
+| macOS の標準音声 | 実況1つの全文で7〜10秒 |
+
+実際のゲームでは、実況ができてから読み終わるまで 24〜33 秒かかっていた（Flash 使用時。読む時間は約10秒）。
+
+## つまずいた点（同じ失敗を避けるため）
+
+- Gemini API（AI Studio）の読み上げは、有料枠でも `gemini-3.8-flash-tts` が1日100回まで。文ごとに送ると1ゲームも持たない。
+- Google Cloud 経由の Gemini は APIキー（サービスアカウントに紐づけたキーも含む）を受け付けない。鍵ファイル（OAuth）が必要。
+- IAM でロールを付けてから使えるようになるまで約3分かかった。
+- ログは個人情報を出さないよう決められた項目だけを書く（`infrastructure/logging/setup.py`）。失敗理由は `reason` に出る。

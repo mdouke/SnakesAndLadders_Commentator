@@ -151,9 +151,13 @@ class SpeechSettingsUpdate(RequestModel):
     voice: str | None = Field(default=None, max_length=100)
     rate: int | None = Field(default=None, ge=80, le=400)
     volume: float | None = Field(default=None, ge=0, le=1)
-    provider: Literal["macos", "google"] | None = None
+    provider: Literal["macos", "google", "gemini"] | None = None
     google_voice: str | None = Field(default=None, min_length=1, max_length=100)
     google_speaking_rate: float | None = Field(default=None, ge=0.5, le=2.0)
+    gemini_backend: Literal["cloud", "api"] | None = None
+    gemini_model: str | None = Field(default=None, min_length=1, max_length=100)
+    gemini_voice: str | None = Field(default=None, min_length=1, max_length=50)
+    gemini_style: str | None = Field(default=None, max_length=500)
 
 
 class SpeechPreview(RequestModel):
@@ -163,9 +167,13 @@ class SpeechPreview(RequestModel):
     voice: str | None = Field(default=None, max_length=100)
     rate: int | None = Field(default=None, ge=80, le=400)
     volume: float | None = Field(default=None, ge=0, le=1)
-    provider: Literal["macos", "google"] | None = None
+    provider: Literal["macos", "google", "gemini"] | None = None
     google_voice: str | None = Field(default=None, min_length=1, max_length=100)
     google_speaking_rate: float | None = Field(default=None, ge=0.5, le=2.0)
+    gemini_backend: Literal["cloud", "api"] | None = None
+    gemini_model: str | None = Field(default=None, min_length=1, max_length=100)
+    gemini_voice: str | None = Field(default=None, min_length=1, max_length=50)
+    gemini_style: str | None = Field(default=None, max_length=500)
 
 
 class VisionRoiUpdate(RequestModel):

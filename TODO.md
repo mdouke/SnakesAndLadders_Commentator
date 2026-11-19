@@ -184,6 +184,11 @@
 - [x] `P2` 外部音声生成API用のアダプターを追加する
   - 2026-11-19 ユーザー指定: 表示から読み上げ開始までが遅い（macOS の標準音声はファイル作成に実況1つで7〜10秒かかっていた）ため、Google Cloud Text-to-Speech を追加。APIキー（`GOOGLE_TTS_API_KEY`）で REST を呼び、文ごとに作って1文目からすぐ再生する。Google が失敗したら macOS の音声で読む（`services/google_tts.py`）
 - [ ] `P0` 実機で Google の読み上げを試し、話し始めまでの時間と声（WaveNet / Neural2 / Chirp 3 HD）を決める
+- [x] `P1` Gemini TTS（読み方を文章で指示できる）を試せるようにする（2026-11-19 ユーザー指定）
+  - Gemini API（`GEMINI_API_KEY`、`interactions`、`gemini-3.8-flash-tts`）で呼ぶ。Cloud Text-to-Speech 経由の Gemini-TTS は APIキーを受け付けず（OAuth が必要）、使えなかった
+  - Gemini API は有料枠でも1日100回（3.8 Flash TTS）で、文ごとに送ると1ゲームも持たないため、Google Cloud 経由（サービスアカウントの鍵ファイル、1分150回）を追加。失敗・上限時は Gemini → Google 標準の声 → macOS の順に切り替え、上限エラーの「〇秒後に再試行」の間はその声を飛ばす
+- [ ] `P1` Gemini の話し始めまでの時間と料金を実機で測り、使うかを決める
+- [ ] `P2` 実況を作る Claude に場面ごとの「読み方の指示」も出させ、Gemini に渡す
 - [ ] `P1` macOS の音声でも文ごとに区切って、1文目からすぐ再生する（今は全文をファイルにしてから再生）
 - [x] `P0` プレイヤー画面に待機、認識、生成、読み上げ、一時停止を表示する
 - [x] `P0` コメント、開始・終了メッセージ、ローディング、簡易エラーを表示する

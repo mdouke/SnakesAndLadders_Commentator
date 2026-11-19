@@ -17,6 +17,8 @@ OPTIONAL_FIELDS = (
     "durationMs", "errorCode", "retention", "retentionDays",
     "maxBytes", "backupCount",
     "method", "path", "statusCode",
+    # Failure reasons are our own messages (never user text or keys).
+    "reason", "provider",
 )
 
 

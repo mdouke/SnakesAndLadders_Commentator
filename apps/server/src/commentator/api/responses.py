@@ -567,6 +567,16 @@ class SpeechProviders(ResponseModel):
     macos: bool = Field(description="macOS voices can be used on this computer")
     google: bool = Field(description="Google Cloud TTS can be used (API key set)")
     google_key_configured: bool = Field(description="GOOGLE_TTS_API_KEY is set (never shown)")
+    gemini: bool = Field(description="Gemini TTS can be used (API key set)")
+    gemini_key_configured: bool = Field(description="GEMINI_API_KEY is set (never shown)")
+    gemini_cloud_configured: bool = Field(
+        description="A service account key file is set (GOOGLE_APPLICATION_CREDENTIALS)"
+    )
+
+
+class GeminiVoice(ResponseModel):
+    name: str
+    gender: str
 
 
 class SpeechSettingsResponse(ResponseModel):
@@ -574,9 +584,15 @@ class SpeechSettingsResponse(ResponseModel):
     voice: str | None = Field(description="macOS voice; null: the system default")
     rate: int | None = Field(description="macOS speaking rate (words per minute)")
     volume: float
-    provider: Literal["macos", "google"]
+    provider: Literal["macos", "google", "gemini"]
     google_voice: str
     google_speaking_rate: float
+    gemini_backend: Literal["cloud", "api"]
+    gemini_model: str
+    gemini_voice: str
+    gemini_style: str = Field(description="Gemini TTS: how the comment should be read")
+    gemini_models: dict[str, list[str]] = Field(description="Models per backend")
+    gemini_voices: list[GeminiVoice]
     available: bool = Field(description="The selected provider can be used")
     engine: str
     providers: SpeechProviders

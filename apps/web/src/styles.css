@@ -279,3 +279,7 @@ small.warning-text { display: block; }
 .vlm-readings { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; line-height: 1.5; }
 .check-row { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; }
 p.small, .error.small { font-size: 0.85rem; padding: 0.5rem 0.75rem; }
+
+.gemini-prompt { display: grid; gap: 0.4rem; margin: 0.25rem 0 0.75rem; }
+.gemini-prompt label { font-size: 0.9rem; font-weight: 700; }
+.gemini-prompt textarea { padding: 0.55rem; border: 1px solid #aaa; border-radius: 8px; font: inherit; resize: vertical; }

@@ -24,6 +24,9 @@ dev = [
 llm = [
   "anthropic>=2.10,<3",
   "openai>=3.55,<4",
+  # Gemini-TTS on Google Cloud authenticates with a service account key file.
+  "google-auth>=2.30,<3",
+  "requests>=2.31,<3",
 ]
 vision = [
   "numpy>=1.26,<3",

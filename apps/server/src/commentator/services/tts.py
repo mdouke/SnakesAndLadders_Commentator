@@ -21,14 +21,43 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Condition, Event, Thread
+from time import monotonic
 from typing import Any, Literal, Protocol
 
 from .llm.settings import SettingsFile
 
 SpeechStatus = Literal["idle", "speaking", "error"]
-SpeechProvider = Literal["macos", "google"]
-SPEECH_PROVIDERS: tuple[SpeechProvider, ...] = ("macos", "google")
+SpeechProvider = Literal["macos", "google", "gemini"]
+SPEECH_PROVIDERS: tuple[SpeechProvider, ...] = ("macos", "google", "gemini")
 DEFAULT_GOOGLE_VOICE = "ja-JP-Wavenet-B"
+# Gemini TTS: a style text steers the delivery. Models differ per backend:
+# "cloud" = Cloud Text-to-Speech (service account), "api" = Gemini API (API key).
+GeminiBackend = Literal["cloud", "api"]
+GEMINI_BACKENDS: tuple[GeminiBackend, ...] = ("cloud", "api")
+GEMINI_TTS_MODELS: dict[str, tuple[str, ...]] = {
+    # Measured 2026-11-19: flash-lite 2.3-3.0 s per sentence; flash 2.6-8.3 s and
+    # sometimes over 20 s. The first entry is the default.
+    "cloud": (
+        "gemini-2.5-flash-lite-preview-tts", "gemini-2.5-flash-tts", "gemini-2.5-pro-tts",
+        "gemini-3.1-flash-tts-preview",
+    ),
+    "api": ("gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"),
+}
+# When one provider fails, try these next (and finally the macOS voice).
+FALLBACK_PROVIDERS: dict[str, tuple[str, ...]] = {
+    "gemini": ("google", "macos"), "google": ("macos",), "macos": (),
+}
+GEMINI_TTS_VOICES: dict[str, str] = {
+    "Achernar": "女性", "Achird": "男性", "Algenib": "男性", "Algieba": "男性",
+    "Alnilam": "男性", "Aoede": "女性", "Autonoe": "女性", "Callirrhoe": "女性",
+    "Charon": "男性", "Despina": "女性", "Enceladus": "男性", "Erinome": "女性",
+    "Fenrir": "男性", "Gacrux": "女性", "Iapetus": "男性", "Kore": "女性",
+    "Laomedeia": "女性", "Leda": "女性", "Orus": "男性", "Pulcherrima": "女性",
+    "Puck": "男性", "Rasalgethi": "男性", "Sadachbia": "男性", "Sadaltager": "男性",
+    "Schedar": "男性", "Sulafat": "女性", "Umbriel": "男性", "Vindemiatrix": "女性",
+    "Zephyr": "女性", "Zubenelgenubi": "男性",
+}
+DEFAULT_GEMINI_STYLE = "明るく元気なボードゲームの実況アナウンサーのように、テンポよく"
 SpeechSubscriber = Callable[[dict[str, Any]], None]
 
 PREVIEW_TEXT_JA = "こんにちは。ヘビとハシゴの実況を担当します。よろしくお願いします。"
@@ -54,10 +83,22 @@ class SpeechSettings:
     provider: SpeechProvider = "macos"
     google_voice: str = DEFAULT_GOOGLE_VOICE
     google_speaking_rate: float = 1.0  # Google's speakingRate (1.0 = normal)
+    gemini_backend: GeminiBackend = "cloud"
+    gemini_model: str = GEMINI_TTS_MODELS["cloud"][0]
+    gemini_voice: str = "Kore"
+    gemini_style: str = DEFAULT_GEMINI_STYLE  # how to read, in plain words
 
     def validated(self) -> SpeechSettings:
         if self.provider not in SPEECH_PROVIDERS:
-            raise ValueError("読み上げの方法は macos または google です")
+            raise ValueError("読み上げの方法は macos、google、gemini のいずれかです")
+        if self.gemini_backend not in GEMINI_BACKENDS:
+            raise ValueError("Gemini の接続先は cloud または api です")
+        if not self.gemini_model.startswith("gemini-") or len(self.gemini_model) > 100:
+            raise ValueError("Gemini のモデル名が正しくありません")
+        if self.gemini_voice not in GEMINI_TTS_VOICES:
+            raise ValueError("Gemini の音声名が正しくありません")
+        if len(self.gemini_style) > 500:
+            raise ValueError("読み方の指示は500文字以内にしてください")
         if not self.google_voice.startswith(("ja-", "en-")) or len(self.google_voice) > 100:
             raise ValueError("Google の音声名が正しくありません")
         if not 0.5 <= self.google_speaking_rate <= 2.0:
@@ -75,6 +116,9 @@ class SpeechSettings:
             "enabled": self.enabled, "voice": self.voice, "rate": self.rate,
             "volume": self.volume, "provider": self.provider,
             "googleVoice": self.google_voice, "googleSpeakingRate": self.google_speaking_rate,
+            "geminiBackend": self.gemini_backend,
+            "geminiModel": self.gemini_model, "geminiVoice": self.gemini_voice,
+            "geminiStyle": self.gemini_style,
         }
 
     @classmethod
@@ -89,6 +133,10 @@ class SpeechSettings:
             provider=value.get("provider", "macos"),
             google_voice=str(value.get("googleVoice") or DEFAULT_GOOGLE_VOICE),
             google_speaking_rate=float(value.get("googleSpeakingRate", 1.0)),
+            gemini_backend=value.get("geminiBackend", "cloud"),
+            gemini_model=str(value.get("geminiModel") or GEMINI_TTS_MODELS["cloud"][0]),
+            gemini_voice=str(value.get("geminiVoice") or "Kore"),
+            gemini_style=str(value.get("geminiStyle", DEFAULT_GEMINI_STYLE)).strip(),
         ).validated()
 
 
@@ -262,6 +310,7 @@ class SpeechService:
         self._subscribers: list[SpeechSubscriber] = []
         self._stopped = False
         self._worker: Thread | None = None
+        self._cooldown_until: dict[str, float] = {}  # provider -> monotonic time
 
     def engine_for(self, provider: str) -> TtsEngine:
         return self.engines.get(provider, self._default_engine)
@@ -384,30 +433,42 @@ class SpeechService:
             })
         error: str | None = None
         completed = False
-        engine = self.engine_for(settings.provider)
-        try:
-            completed = engine.speak(text, settings, cancel)
-        except Exception as caught:
-            error = str(caught)[:300] or type(caught).__name__
-            logger.error("speech failed", exc_info=caught,
-                         extra={"event": "speech_failed", "errorCode": "speech_failed",
-                                "requestId": job.request_id, "provider": settings.provider,
-                                "reason": error})
-            fallback = self.engine_for("macos")
-            if (
-                settings.provider != "macos" and fallback is not engine
-                and fallback.available() and not cancel.is_set()
+        tried: list[TtsEngine] = []
+        for provider in (settings.provider, *FALLBACK_PROVIDERS.get(settings.provider, ())):
+            engine = self.engine_for(provider)
+            if engine in tried or cancel.is_set():
+                continue
+            if provider != settings.provider and (
+                provider not in self.engines or not engine.available()
             ):
-                # The game goes on: read this comment with the macOS voice instead.
-                try:
-                    completed = fallback.speak(text, settings, cancel)
-                    logger.warning("speech fell back to macOS",
-                                   extra={"event": "speech_fallback",
-                                          "requestId": job.request_id})
-                    error = None
-                except Exception as second:
-                    logger.error("fallback speech failed", exc_info=second,
-                                 extra={"event": "speech_failed", "errorCode": "speech_failed"})
+                continue
+            waiting = self._cooldown_until.get(provider, 0.0) - monotonic()
+            if waiting > 0:
+                logger.info("speech provider cooling down",
+                            extra={"event": "speech_provider_skipped", "provider": provider,
+                                   "reason": f"retry in {waiting:.0f}s"})
+                continue
+            tried.append(engine)
+            try:
+                completed = engine.speak(text, settings, cancel)
+                if provider != settings.provider:
+                    # The game goes on with the next voice; the comment is still read.
+                    logger.warning("speech fell back", extra={
+                        "event": "speech_fallback", "requestId": job.request_id,
+                        "provider": provider,
+                    })
+                error = None
+                break
+            except Exception as caught:
+                error = str(caught)[:300] or type(caught).__name__
+                retry_after = getattr(caught, "retry_after", None)
+                if retry_after:
+                    # Rate limited: skip this provider until Google allows it again.
+                    self._cooldown_until[provider] = monotonic() + float(retry_after)
+                logger.error("speech failed", exc_info=caught,
+                             extra={"event": "speech_failed", "errorCode": "speech_failed",
+                                    "requestId": job.request_id, "provider": provider,
+                                    "reason": error})
         logger.info(
             "speech finished" if completed else "speech stopped",
             extra={"event": "speech_finished" if completed else "speech_cancelled",

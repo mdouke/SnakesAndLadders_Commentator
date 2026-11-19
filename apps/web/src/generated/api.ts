@@ -1083,6 +1083,13 @@ export interface components {
             /** Auditlog */
             auditLog: components["schemas"]["AuditEntry"][];
         };
+        /** GeminiVoice */
+        GeminiVoice: {
+            /** Name */
+            name: string;
+            /** Gender */
+            gender: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1524,11 +1531,19 @@ export interface components {
             /** Volume */
             volume?: number | null;
             /** Provider */
-            provider?: ("macos" | "google") | null;
+            provider?: ("macos" | "google" | "gemini") | null;
             /** Googlevoice */
             googleVoice?: string | null;
             /** Googlespeakingrate */
             googleSpeakingRate?: number | null;
+            /** Geminibackend */
+            geminiBackend?: ("cloud" | "api") | null;
+            /** Geminimodel */
+            geminiModel?: string | null;
+            /** Geminivoice */
+            geminiVoice?: string | null;
+            /** Geministyle */
+            geminiStyle?: string | null;
         };
         /** SpeechProviders */
         SpeechProviders: {
@@ -1547,6 +1562,21 @@ export interface components {
              * @description GOOGLE_TTS_API_KEY is set (never shown)
              */
             googleKeyConfigured: boolean;
+            /**
+             * Gemini
+             * @description Gemini TTS can be used (API key set)
+             */
+            gemini: boolean;
+            /**
+             * Geminikeyconfigured
+             * @description GEMINI_API_KEY is set (never shown)
+             */
+            geminiKeyConfigured: boolean;
+            /**
+             * Geminicloudconfigured
+             * @description A service account key file is set (GOOGLE_APPLICATION_CREDENTIALS)
+             */
+            geminiCloudConfigured: boolean;
         };
         /**
          * SpeechResponse
@@ -1589,11 +1619,34 @@ export interface components {
              * Provider
              * @enum {string}
              */
-            provider: "macos" | "google";
+            provider: "macos" | "google" | "gemini";
             /** Googlevoice */
             googleVoice: string;
             /** Googlespeakingrate */
             googleSpeakingRate: number;
+            /**
+             * Geminibackend
+             * @enum {string}
+             */
+            geminiBackend: "cloud" | "api";
+            /** Geminimodel */
+            geminiModel: string;
+            /** Geminivoice */
+            geminiVoice: string;
+            /**
+             * Geministyle
+             * @description Gemini TTS: how the comment should be read
+             */
+            geminiStyle: string;
+            /**
+             * Geminimodels
+             * @description Models per backend
+             */
+            geminiModels: {
+                [key: string]: string[];
+            };
+            /** Geminivoices */
+            geminiVoices: components["schemas"]["GeminiVoice"][];
             /**
              * Available
              * @description The selected provider can be used
@@ -1617,11 +1670,19 @@ export interface components {
             /** Volume */
             volume?: number | null;
             /** Provider */
-            provider?: ("macos" | "google") | null;
+            provider?: ("macos" | "google" | "gemini") | null;
             /** Googlevoice */
             googleVoice?: string | null;
             /** Googlespeakingrate */
             googleSpeakingRate?: number | null;
+            /** Geminibackend */
+            geminiBackend?: ("cloud" | "api") | null;
+            /** Geminimodel */
+            geminiModel?: string | null;
+            /** Geminivoice */
+            geminiVoice?: string | null;
+            /** Geministyle */
+            geminiStyle?: string | null;
         };
         /**
          * SystemStatus
@@ -3301,7 +3362,7 @@ export interface operations {
     list_voices_api_speech_voices_get: {
         parameters: {
             query?: {
-                provider?: ("macos" | "google") | null;
+                provider?: ("macos" | "google" | "gemini") | null;
             };
             header?: never;
             path?: never;

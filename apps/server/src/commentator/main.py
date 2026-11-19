@@ -80,12 +80,19 @@ from .infrastructure.secrets import default_secrets_path, load_secrets
 from .presets import BoardPresetError, BoardPresetStore, board_from_definition, load_board_preset
 from .services.commentary import CommentaryError, CommentaryService
 from .services.game import GameService
-from .services.google_tts import GoogleTtsEngine
+from .services.google_tts import GeminiTtsEngine, GoogleTtsEngine
 from .services.llm.providers import provider_availability
 from .services.llm.settings import CommentarySettingsStore
 from .services.realtime import RealtimeClient, RealtimeHub
 from .services.recognition import RecognitionRuntimeSettings, RecognitionService
-from .services.tts import MacSayEngine, SpeechService, SpeechSettings, SpeechSettingsStore
+from .services.tts import (
+    GEMINI_TTS_MODELS,
+    GEMINI_TTS_VOICES,
+    MacSayEngine,
+    SpeechService,
+    SpeechSettings,
+    SpeechSettingsStore,
+)
 
 
 class GameRepository(Protocol):
@@ -689,7 +696,9 @@ def create_app(
                 "status": "ok",
                 "label": "読み上げ中" if speech_state["status"] == "speaking" else "待機中",
                 "detail": (
-                    f"Google（{speech_settings.google_voice}）"
+                    f"Gemini（{speech_settings.gemini_voice}）"
+                    if speech_settings.provider == "gemini"
+                    else f"Google（{speech_settings.google_voice}）"
                     if speech_settings.provider == "google"
                     else speech_settings.voice or "標準の音声"
                 ),
@@ -768,11 +777,24 @@ def create_app(
     def speech_settings_payload() -> dict[str, Any]:
         google = speech.engine_for("google")
         key_configured = getattr(google, "key_configured", None)
+        gemini = speech.engine_for("gemini")
+        gemini_key = getattr(gemini, "key_configured", None)
+        gemini_cloud = getattr(gemini, "cloud_configured", None)
         return {
             **speech.settings.get().to_dict(),
             "available": speech.engine.available(),
             "engine": speech.engine.name,
+            "geminiModels": {
+                backend: list(models) for backend, models in GEMINI_TTS_MODELS.items()
+            },
+            "geminiVoices": [
+                {"name": name, "gender": gender} for name, gender in GEMINI_TTS_VOICES.items()
+            ],
             "providers": {
+                "gemini": "gemini" in speech.engines and gemini.available(),
+                "geminiKeyConfigured": bool(gemini_key()) if callable(gemini_key) else False,
+                "geminiCloudConfigured": bool(gemini_cloud()) if callable(gemini_cloud)
+                else False,
                 "macos": speech.engine_for("macos").available(),
                 "google": "google" in speech.engines and google.available(),
                 "googleKeyConfigured": bool(key_configured()) if callable(key_configured)
@@ -785,7 +807,9 @@ def create_app(
         return speech.snapshot()
 
     @application.get("/api/speech/voices", response_model=VoiceList)
-    def list_voices(provider: Literal["macos", "google"] | None = None) -> dict[str, Any]:
+    def list_voices(
+        provider: Literal["macos", "google", "gemini"] | None = None,
+    ) -> dict[str, Any]:
         engine = speech.engine_for(provider) if provider else speech.engine
         return {"voices": [voice.to_dict() for voice in engine.voices()]}
 
@@ -796,7 +820,8 @@ def create_app(
     @application.put("/api/settings/speech", response_model=SpeechSettingsResponse)
     def update_speech_settings(request: SpeechSettingsUpdate) -> dict[str, Any]:
         changes = request.model_dump(by_alias=True, exclude_unset=True)
-        not_nullable = ("enabled", "volume", "provider", "googleVoice", "googleSpeakingRate")
+        not_nullable = ("enabled", "volume", "provider", "googleVoice", "googleSpeakingRate",
+                        "geminiBackend", "geminiModel", "geminiVoice", "geminiStyle")
         if any(key in changes and changes[key] is None for key in not_nullable):
             raise ApiError(422, "invalid_settings",
                            "voice と rate 以外の設定に null は指定できません")
@@ -821,6 +846,13 @@ def create_app(
                 google_voice=given.get("google_voice") or base.google_voice,
                 google_speaking_rate=given.get("google_speaking_rate")
                 or base.google_speaking_rate,
+                gemini_backend=given.get("gemini_backend") or base.gemini_backend,
+                gemini_model=given.get("gemini_model") or base.gemini_model,
+                gemini_voice=given.get("gemini_voice") or base.gemini_voice,
+                gemini_style=(
+                    given["gemini_style"] if given.get("gemini_style") is not None
+                    else base.gemini_style
+                ),
             ).validated()
             speech.preview(request.text, settings)
         except ValueError as error:
@@ -944,7 +976,9 @@ def create_production_app() -> FastAPI:
         log=SQLiteCommentaryLog(database_path),
     )
     speech = SpeechService(
-        engines={"macos": MacSayEngine(), "google": GoogleTtsEngine()},
+        engines={
+            "macos": MacSayEngine(), "google": GoogleTtsEngine(), "gemini": GeminiTtsEngine(),
+        },
         settings=SpeechSettingsStore(repository_root / "var" / "speech-settings.json"),
     )
     return create_app(

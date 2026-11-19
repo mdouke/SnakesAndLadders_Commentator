@@ -251,6 +251,7 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
   const [googleVoices, setGoogleVoices] = useState<VoiceInfo[]>([]);
   const [showAllVoices, setShowAllVoices] = useState(false);
   const [sample, setSample] = useState("");
+  const [styleDraft, setStyleDraft] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -296,6 +297,7 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
       <summary>実況・読み上げの設定<span className="muted">
         {settings.enabled ? providerLabels[settings.provider] : "実況オフ"}
         ・{!speech.enabled ? "読み上げオフ"
+          : speech.provider === "gemini" ? `Gemini（${speech.geminiVoice}）`
           : speech.provider === "google" ? `Google（${speech.googleVoice}）`
           : speech.voice ?? "標準の音声"}
       </span></summary>
@@ -380,7 +382,8 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
           <select value={speech.provider}
             onChange={(event) => saveSpeech({ provider: event.target.value as SpeechSettings["provider"] })}>
             <option value="macos">macOS の音声（無料・オフライン）</option>
-            <option value="google">Google Cloud Text-to-Speech</option>
+            <option value="google">Google Cloud Text-to-Speech（WaveNet など）</option>
+            <option value="gemini">Gemini（読み方を文章で指示できる）</option>
           </select>
         </label>
       </div>
@@ -388,6 +391,19 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
         <p className="error">
           Google の APIキー（GOOGLE_TTS_API_KEY）が見つかりません。var/secrets.env に書いてサーバーを起動し直してください。
           それまでは macOS の音声で読み上げます。
+        </p>
+      )}
+      {speech.provider === "gemini" && speech.geminiBackend === "api" && !speech.providers.geminiKeyConfigured && (
+        <p className="error">
+          Gemini の APIキー（GEMINI_API_KEY）が見つかりません。var/secrets.env に書いてサーバーを起動し直してください。
+          それまでは Google の標準の声か macOS の音声で読み上げます。
+        </p>
+      )}
+      {speech.provider === "gemini" && speech.geminiBackend === "cloud" && !speech.providers.geminiCloudConfigured && (
+        <p className="error">
+          サービスアカウントの鍵ファイルが見つかりません。var/ に置いた JSON ファイルを、var/secrets.env の
+          GOOGLE_APPLICATION_CREDENTIALS=var/（ファイル名）.json で指定し、サーバーを起動し直してください。
+          それまでは Google の標準の声か macOS の音声で読み上げます。
         </p>
       )}
       {!speech.available && speech.provider === "macos" ? (
@@ -400,7 +416,39 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
                 onChange={(event) => saveSpeech({ enabled: event.target.checked })} />
               実況を読み上げる
             </label>
-            {speech.provider === "google" ? (
+            {speech.provider === "gemini" ? (
+              <>
+                <label>Gemini の接続先
+                  <select value={speech.geminiBackend}
+                    onChange={(event) => {
+                      const backend = event.target.value as SpeechSettings["geminiBackend"];
+                      void saveSpeech({ geminiBackend: backend, geminiModel: speech.geminiModels[backend]?.[0] });
+                    }}>
+                    <option value="cloud">Google Cloud（鍵ファイル・1分150回）</option>
+                    <option value="api">Gemini API（APIキー・1日100回）</option>
+                  </select>
+                </label>
+                <label>Gemini のモデル
+                  <select value={speech.geminiModel}
+                    onChange={(event) => saveSpeech({ geminiModel: event.target.value })}>
+                    {!(speech.geminiModels[speech.geminiBackend] ?? []).includes(speech.geminiModel) && (
+                      <option value={speech.geminiModel}>{speech.geminiModel}（この接続先では既定のモデルを使います）</option>
+                    )}
+                    {(speech.geminiModels[speech.geminiBackend] ?? []).map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>Gemini の声
+                  <select value={speech.geminiVoice}
+                    onChange={(event) => saveSpeech({ geminiVoice: event.target.value })}>
+                    {speech.geminiVoices.map((voice) => (
+                      <option key={voice.name} value={voice.name}>{voice.name}（{voice.gender}）</option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : speech.provider === "google" ? (
               <>
                 <label>Google の音声
                   <select value={speech.googleVoice}
@@ -462,12 +510,46 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
             <button className="secondary" onClick={() => previewSpeech({
               text: sample || undefined, voice: speech.voice, rate: speech.rate, volume: speech.volume,
               provider: speech.provider, googleVoice: speech.googleVoice,
-              googleSpeakingRate: speech.googleSpeakingRate
+              googleSpeakingRate: speech.googleSpeakingRate, geminiBackend: speech.geminiBackend,
+              geminiModel: speech.geminiModel,
+              geminiVoice: speech.geminiVoice, geminiStyle: styleDraft ?? speech.geminiStyle
             }).catch((reason) => onError(reason instanceof Error ? reason.message : "試聴できませんでした"))}>
               試聴
             </button>
             <button className="secondary" onClick={() => stopSpeech().catch(() => undefined)}>止める</button>
           </div>
+          {speech.provider === "gemini" && (
+            <div className="gemini-prompt">
+              <label htmlFor="gemini-style">読み方の指示（Gemini に文章で伝えます）</label>
+              <textarea id="gemini-style" rows={2} maxLength={500}
+                value={styleDraft ?? speech.geminiStyle}
+                onChange={(event) => setStyleDraft(event.target.value)}
+                onBlur={() => {
+                  if (styleDraft !== null && styleDraft !== speech.geminiStyle) {
+                    void saveSpeech({ geminiStyle: styleDraft });
+                  }
+                  setStyleDraft(null);
+                }} />
+              <div className="button-row">
+                {[
+                  ["盛り上げる", "明るく元気なボードゲームの実況アナウンサーのように、テンポよく"],
+                  ["落ち着いた", "落ち着いた解説者のように、穏やかで聞き取りやすく"],
+                  ["子ども向け", "小さな子どもに話しかけるように、やさしく楽しそうに"],
+                  ["大げさに", "スポーツ中継の名場面のように、感情たっぷりに大げさに"]
+                ].map(([label, text]) => (
+                  <button key={label} className="secondary small"
+                    onClick={() => { setStyleDraft(null); void saveSpeech({ geminiStyle: text }); }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="muted">
+                文を「。」「！」ごとに区切り、1文目ができたらすぐ読み始めます。Gemini が使えない時や回数の上限に当たった時は、
+                Google の標準の声（WaveNet など）、それも使えなければ macOS の音声で読みます。
+                Gemini API 経由は有料枠でも1日100回までのため、ゲームでは Google Cloud 経由を使ってください。
+              </p>
+            </div>
+          )}
           {speech.provider === "google" && (
             <p className="muted">
               Google では文を「。」「！」ごとに区切り、1文目ができたらすぐ読み始めます（次の文は読んでいる間に作ります）。

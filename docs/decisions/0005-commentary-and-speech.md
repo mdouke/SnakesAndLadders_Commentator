@@ -110,3 +110,29 @@ macOS の標準音声は、実況1つ分（約60文字）を音声ファイル�
 - 文を「。」「！」「？」で区切り、1文目を作ったらすぐ再生し、再生中に次の文を作る。同じ文は覚えておいて再利用する。
 - 再生は macOS と同じく `afplay`（音量設定と途中停止がそのまま使える）。
 - Google が失敗した時（ネットワーク、キー、上限）は、その実況を macOS の音声で読む。
+
+### Gemini TTS（2026-11-19 追加）
+
+読み方を文章で指示できる Gemini TTS を、読み上げの方法 `gemini` として追加した。
+
+- Gemini API（Google AI Studio の APIキー `GEMINI_API_KEY`）の `v1beta/interactions` に、文と
+  `speech_metadata.style`（読み方の指示）を送り、WAV を受け取る。モデルは `gemini-3.8-flash-tts`
+  （軽量版 `gemini-3.8-flash-lite-tts`）、声は Kore など30種類。
+- 文ごとの分割・先読み・キャッシュ・`afplay` での再生・失敗時の macOS への切り替えは Google と同じ。
+- Cloud Text-to-Speech 経由の Gemini-TTS（`model_name` 指定）も試したが、Vertex AI の権限確認のため
+  OAuth の資格情報が必要で、APIキー（サービスアカウントに紐づけたキーも含む）は受け付けられなかった。
+- 無料枠は回数の上限が小さく、送った文がサービス改善に使われる場合がある。ユーザースタディでは有料枠で使う。
+
+#### 接続先の追加と切り替え（2026-11-19）
+
+Gemini API は有料枠でも `gemini-3.8-flash-tts` が1日100回までで、ゲームに足りなかった。そこで
+Gemini の接続先 `geminiBackend` を追加した。
+
+- `cloud`（既定）: Cloud Text-to-Speech の `text:synthesize` に `input.prompt` と `voice.model_name`
+  （`gemini-2.5-flash-tts` など）を付けて呼ぶ。認証はサービスアカウントの鍵ファイル
+  （`GOOGLE_APPLICATION_CREDENTIALS`、`var/` に置く）から google-auth で取る OAuth トークン。
+  サービスアカウントにはロール「Agent Platform ユーザー」（`roles/aiplatform.user`）が必要。
+  既定の上限は1分150回で、1日の上限はない。
+- `api`: Gemini API（`GEMINI_API_KEY`）。
+- 失敗した時は Gemini → Google の標準の声 → macOS の順に試す。上限エラー（429）で Google が
+  再試行までの時間を返した場合、その間はその読み上げ方法を飛ばす。

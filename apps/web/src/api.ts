@@ -309,7 +309,8 @@ export function getSpeechSettings(): Promise<SpeechSettings> {
 }
 
 export type SpeechSettingsChange = Partial<Pick<SpeechSettings,
-  "enabled" | "voice" | "rate" | "volume" | "provider" | "googleVoice" | "googleSpeakingRate">>;
+  "enabled" | "voice" | "rate" | "volume" | "provider" | "googleVoice" | "googleSpeakingRate"
+  | "geminiBackend" | "geminiModel" | "geminiVoice" | "geminiStyle">>;
 
 export function updateSpeechSettings(changes: SpeechSettingsChange): Promise<SpeechSettings> {
   return request("/api/settings/speech", { method: "PUT", body: JSON.stringify(changes) });
