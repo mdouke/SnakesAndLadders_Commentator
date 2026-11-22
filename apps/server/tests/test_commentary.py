@@ -415,7 +415,7 @@ def test_the_request_log_keeps_prompt_response_and_timing() -> None:
     row = table.row()
     assert row["game_id"] == game.id
     assert row["turn_id"] == game.turns[-1].id
-    assert row["prompt_version"] == "commentary-v1"
+    assert row["prompt_version"] == "commentary-v2"
     assert '"roll": 3' in row["user_prompt"]
     assert "ヘビとハシゴ" in row["system_prompt"]
     assert row["response_text"] == "アオイさん、いい出目です。"
@@ -506,7 +506,7 @@ def context(**overrides: Any) -> CommentaryContext:
         ({}, "10マス目から14マス目へ進みます。"),
         ({"jump_type": "ladder", "final_position": 38}, "ハシゴを登って一気に38マス目！"),
         ({"jump_type": "snake", "final_position": 6}, "ヘビに飲まれて6マス目まで落ちて"),
-        ({"overshoot": True, "normal_position": 98}, "ゴールを超えてしまい、98マス目へ戻ります。"),
+        ({"overshoot": True, "normal_position": 98}, "進めず、98マス目のままです。"),
         ({"events": ("normal_move", "goal"), "final_position": 100}, "見事ゴール！"),
         ({"events": ("normal_move", "near_goal"), "final_position": 97}, "ゴールまであと3マス！"),
         ({"leader_name": "アオイ"}, "現在トップを走っています。"),

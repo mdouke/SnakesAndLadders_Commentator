@@ -47,7 +47,7 @@ def template_commentary(context: CommentaryContext, *, language: str, honorific:
     name = f"{context.player_name}さん" if honorific else context.player_name
     parts = [f"{name}、出目は{context.roll}！"]
     if context.overshoot:
-        parts.append(f"ゴールを超えてしまい、{context.normal_position}マス目へ戻ります。")
+        parts.append(f"ゴールを超えてしまうので進めず、{context.normal_position}マス目のままです。")
     else:
         parts.append(f"{context.before}マス目から{context.normal_position}マス目へ進みます。")
     if context.jump_type == "ladder":
@@ -66,7 +66,7 @@ def template_commentary(context: CommentaryContext, *, language: str, honorific:
 def _template_en(context: CommentaryContext) -> str:
     parts = [f"{context.player_name} rolls a {context.roll}!"]
     if context.overshoot:
-        parts.append(f"Past the goal, so back to square {context.normal_position}.")
+        parts.append(f"Too far past the goal, so they stay on square {context.normal_position}.")
     else:
         parts.append(f"From square {context.before} to {context.normal_position}.")
     if context.jump_type == "ladder":
