@@ -1,27 +1,33 @@
 # 実況のプロンプト仕様
 
 実況文を作るときに LLM（Claude / OpenAI）へ送るプロンプトと、その前後の処理をまとめる。
-プロンプトのバージョンは `commentary-v2`（[context.py](../apps/server/src/commentator/services/llm/context.py) の `PROMPT_VERSION`）。
+プロンプトのバージョンは `commentary-v3`（[context.py](../apps/server/src/commentator/services/llm/context.py) の `PROMPT_VERSION`）。
 設計の判断は [ADR 0005](decisions/0005-commentary-and-speech.md) にある。
 
-## 実況の方針（v2、2026-11-22）
+## 実況の方針（v3、2026-11-22）
 
-- 勝負を盛り上げる。逆転、追い越し、差の変化を強調する。
-- **マスの移動がいちばん大きい展開を優先して話す**（ハシゴで進む・ヘビで下がるマス数。進むか下がるかは問わない）。
-  候補は、今回の出目で起こり得たこと、今振った人の次の手番、次に振る人の手番。触れるのは多くても2つまで。
-- ゴールに関わること（ゴールした、次にゴールできる目）は何より優先する。
-- 大きな展開がないときは、これまでの試合展開（差、逆転の回数、これまでで最大の移動など）を話す。
-- 起こり得たことや次の可能性は、LLM に盤面から推論させず、プログラムで計算して事実として渡す
-  （[outlook.py](../apps/server/src/commentator/services/llm/outlook.py)。ゲームと同じ移動計算 `Board.move` を使う）。
+- 勝負を盛り上げる。ただし**中立**で、どのプレイヤーにも肩入れしない。ある人の危険は別の人の望みとして、両方の立場から伝える。
+- **感情を込める**。実際に起きたことの大きさに合わせて、最初の一言を大歓声から大きな落胆まで変える。
+- **勝負への影響がいちばん大きい展開を優先して話す**。影響は「その展開で、勝つ確率がどれだけ変わるか」で測る。
+  ゴール前の短いヘビや、追う側の逆転につながるハシゴも、マス数だけで測るより正しく重みが付く。触れるのは多くても2つまで。
+- 勝負の局面（接戦・優勢・勝利が見えてきた）を伝える。**勝つ確率は数字で言わず、言葉だけ**で伝える。
+- サイコロの目は選べないので、「慎重に」「気をつけて」とは言わない。
+- 起こり得たこと・次の可能性・勝つ確率は、LLM に推論させずにプログラムで計算して事実として渡す
+  （[outlook.py](../apps/server/src/commentator/services/llm/outlook.py)、[winning.py](../apps/server/src/commentator/services/llm/winning.py)。
+  ゲームと同じ移動計算 `Board.move` を使う）。
 
-v1 との違い: 上の方針をシステムプロンプトに加え、ユーザープロンプトの JSON に `thisRollOptions`・`nextForPlayer`・
-`nextForNextPlayer`・`biggestSwings`・`race`・`gameFlow` を加えた。`overshotGoalAndBouncedBack` は、
-実際のルール（ゴールを超える目ではその場にとどまる）に合わせて `overshotGoalStayedPut` に名前を変えた。
+### 版の履歴
+
+| 版 | 変更 |
+|---|---|
+| v1 | ターンの事実・全員の位置・直前6回の出目を渡し、事実だけで実況する |
+| v2 | 起こり得たこと・次の可能性・勝負の状況を加え、移動マス数の大きい展開を優先する。`overshotGoalAndBouncedBack` を `overshotGoalStayedPut` に改名（ゴールを超える目ではその場にとどまるルールに合わせた） |
+| v3 | 1ゲーム通しのレビューを受けて変更。勝つ確率で影響を測る、反応の強さ（`reaction`）、局面（`phase`）、直前の出目（`previousRoll`）、中立の立場、数字を言わない、目を選べるような言い方をしない。`thisRollOptions` は `biggestSwings` と重なるので削除 |
 
 ## 全体の流れ
 
 1. 出目が登録される（自動認識・確認・手動入力・訂正のどれでも）。
-2. ゲームの状態から、そのターンの事実（コンテキスト）を作る（`build_context`）。起こり得たことと次の可能性、勝負の状況も計算する（`analyze_turn`）。
+2. ゲームの状態から、そのターンの事実（コンテキスト）を作る（`build_context`）。起こり得たことと次の可能性、勝つ確率、勝負の状況も計算する（`analyze_turn`）。
 3. システムプロンプトとユーザープロンプトを組み立てる（`build_system_prompt`・`build_user_prompt`）。
 4. LLM を呼ぶ。失敗したら設定の回数だけ再試行する。
 5. 返ってきた文を検査・整形する（[safety.py](../apps/server/src/commentator/services/llm/safety.py)）。使えなければテンプレート文に置き換える。
@@ -81,7 +87,7 @@ v1 との違い: 上の方針をシステムプロンプトに加え、ユーザ
 設定だけで決まり、ターンによって変わらない。日本語の全文（`{}` は設定で入る部分）:
 
 ```text
-あなたは、実物のボードゲーム「ヘビとハシゴ」を遊んでいる人たちのそばで、ターンごとに短い実況をする実況者です。勝負を盛り上げるのが役目です。
+あなたは、実物のボードゲーム「ヘビとハシゴ」を遊んでいる人たちのそばで、ターンごとに短い実況をする実況者です。勝負を盛り上げるのが役目です。どのプレイヤーにも肩入れせず、中立に実況します。
 守ること:
 - 与えられた JSON の事実だけを使う。数字、マス、順位を変えたり、起きていない出来事を付け足したりしない。
 - 長さは日本語で{目安}字程度、多くても{上限}字以内にする。
@@ -89,17 +95,21 @@ v1 との違い: 上の方針をシステムプロンプトに加え、ユーザ
 - 音声で読み上げるので、耳で聞いて分かる自然な話し言葉にする。
 - プレイヤーをからかったり傷つけたりする言葉、乱暴な言葉は使わない。悪い結果でも前向きに伝える。
 - {名前の指示}
-話す内容の選び方:
-- まず turn の結果を伝える。jump が ladder ならハシゴを登った、snake ならヘビで下がったこと、overshotGoalStayedPut が true ならゴールを超えて進めなかったことを伝える。
-- ゴールに関わること（ゴールした、goalRolls にあるゴールできる目）は何より優先する。
-- 次に、biggestSwings の先頭から、マスの移動がいちばん大きい展開を話す。biggestSwings は移動マス数（squares）の大きい順に並んでいる。触れるのは多くても2つまで。
-  - hit_ladder / hit_snake: 今回の出目で実際にハシゴを登った / ヘビで下がった
-  - missed_ladder: roll の目ならハシゴを登れた（惜しかった）
+- 勝つ見込み（winChances の percent など）は数字やパーセントで言わない。「勝利が見えてきた」「まだまだ分からない」のような言葉で伝える。
+- サイコロの目は選べない。「慎重に」「気をつけて」のような、プレイヤーが目を選べるかのような言い方はしない。
+話す内容の組み立て:
+- 最初の一言は reaction に合わせた感情にする。huge_cheer は大歓声、cheer は歓声、mild_cheer は軽い喜び、mild_groan は軽い残念さ、groan は落胆、huge_groan は大きな落胆。淡々と事実だけを述べない。calm のときは感情の言葉や前置きを足さず、結果から話し始める。
+- 次に turn の結果を伝える。jump が ladder ならハシゴを登った、snake ならヘビで下がったこと、overshotGoalStayedPut が true ならゴールを超えて進めなかったことを伝える。
+- 続いて biggestSwings の先頭から話す。biggestSwings は勝負への影響（impact）の大きい順に並んでいる。impact は decisive、big、notable、small の順に大きい。触れるのは多くても2つまで。
+  - reached_goal / hit_ladder / hit_snake: 今回の出目で実際にゴールした / ハシゴを登った / ヘビで下がった
+  - missed_goal / missed_ladder: roll の目ならゴールできた / ハシゴを登れた（惜しかった）
   - avoided_snake: roll の目ならヘビで下がっていた（危なかった）
-  - next_ladder / next_snake: player が次の手番で roll を出すとハシゴを登る / ヘビで下がる
-- race で逆転（leadChanged）や追い越し（overtook）があれば、勝負の動きとして強調する。
-- biggestSwings が空で大きな展開がないときは、race と gameFlow から試合の流れ（差、逆転の回数、いつからトップか、これまでで最大の移動）を話す。
-- 可能性は「6分の1」のように、耳で聞いて分かる言い方にしてよい。
+  - next_goal / next_ladder / next_snake: player が次の手番で roll を出すとゴール / ハシゴを登る / ヘビで下がる
+- ある人にとっての危険は、ほかの人にとっての望みでもある。片方を応援せず、「○○さんにとっては□が出れば望みがつながる」のように、それぞれの立場を中立に伝える。
+- race.phase で勝負の局面を伝える。nearly_decided は勝利が見えてきた、pulling_away は優勢、close は接戦。phaseBefore から変わったときは強調する。逆転（leadChanged）や追い越し（overtook）も勝負の動きとして強調する。
+- previousRoll（直前の出目）で大きなことがあれば、今回とつなげて語ってよい（例: 直前に相手がヘビで下がったあとに差が開いた）。
+- biggestSwings に small 以外の展開がなければ、race と gameFlow から試合の流れ（差、逆転の回数、いつからトップか、これまでで最大の移動）を話す。
+- サイコロの目の可能性は「6分の1」のように言ってよい。
 話し方: {話し方の指示}
 ```
 
@@ -118,9 +128,9 @@ v1 との違い: 上の方針をシステムプロンプトに加え、ユーザ
 {JSON}
 ```
 
-英語では `The situation of this turn. Write one comment.`。
+英語では `The situation of this turn. Write one comment.`。JSON は1項目ずつ改行して字下げ1で書かれる。
 
-### JSON の項目（`CommentaryContext.facts()`）
+### 今回の出目と全体の状況
 
 **`turn`: 今回の出目（今振った人の1回分）**
 
@@ -148,53 +158,61 @@ v1 との違い: 上の方針をシステムプロンプトに加え、ユーザ
 | `goal` | ちょうどゴールした |
 | `near_goal` | ゴールまで6マス以内（ゴールしていない） |
 
-**全体の状況**
-
 | 項目 | 意味 |
 |---|---|
 | `goalSquare` | ゴールのマス（標準の盤は100） |
 | `leader` | いちばん進んでいる人の名前。同点、または全員0マスのときは null |
 | `gameFinished` | ゲームが終わったか |
-| `players` | **全員**の状況（下の表）。参加順に並ぶ |
-| `recentTurns` | 今回より前の出目を**全員分**、古い順に最大6回分（`RECENT_TURNS`） |
+| `players` | **全員**の状況。参加順に並ぶ。各項目は `name`・`turnOrder`（振る順番）・`position`・`rank`（確定した順位。ゴールするまでは null）・`reachedGoal`・`laddersClimbed`・`snakesHit` |
+| `recentTurns` | 今回より前の出目を**全員分**、古い順に最大6回分（`RECENT_TURNS`）。各項目は `turnNumber`・`player`・`roll`・`from`・`final`・`jump`・`overshoot` |
 
-`players` の各項目:
+2人の場合、先攻の出目では `recentTurns` は前のターンまでの両者の出目（直前3ターン分）、後攻の出目では最後が同じターンの先攻の出目になる。
 
-| 項目 | 意味 |
-|---|---|
-| `name` | 名前 |
-| `turnOrder` | 振る順番（1から） |
-| `position` | 今のマス |
-| `rank` | 確定した順位。ゴールするまでは null |
-| `reachedGoal` | ゴールしたか |
-| `laddersClimbed` / `snakesHit` | これまでにハシゴを登った回数 / ヘビで下がった回数 |
-
-`recentTurns` の各項目: `turnNumber`・`player`・`roll`・`from`・`final`・`jump`・`overshoot`（`afterRoll` と `events` は含まない）。
-
-**起こり得たこと・次の可能性・勝負の状況（v2 で追加、[outlook.py](../apps/server/src/commentator/services/llm/outlook.py)）**
+### 起こり得たこと・次の可能性・勝負の状況（[outlook.py](../apps/server/src/commentator/services/llm/outlook.py)）
 
 | 項目 | 意味 |
 |---|---|
-| `thisRollOptions` | 今回、振る前のマスから1〜6のそれぞれが出ていたら。各項目は `roll`・`landsOn`（出目の分進んだマス）・`final`（ハシゴ・ヘビの後）・`jump`・`actual`（実際に出た目か）。ゴールを超える目には `overshootStaysPut: true` |
-| `nextForPlayer` | 今振った人が次の手番で1〜6を出したとき。`player`・`position`・`ladderChances`・`snakeRisks`（各 `roll`・`from`・`to`・`squares`）・`goalRolls`（ゴールできる目）。ゴール済み・ゲーム終了時は null |
-| `nextForNextPlayer` | 次に振る人について、`nextForPlayer` と同じ形。2人なら相手。今振った人と同じ人、ゴール済み、ゲーム終了時は null |
-| `biggestSwings` | 上の3つから集めたハシゴ・ヘビを、移動マス数（`squares`）の大きい順に最大5件。各項目は `kind`・`player`・`roll`・`from`・`to`・`squares` |
+| `reaction` | 今回の結果への反応の強さ（下の「反応の強さ」） |
+| `nextForPlayer` | 今振った人が次の手番で1〜6を出したとき。`player`・`position`・`ladderChances`・`snakeRisks`（各 `roll`・`from`・`to`・`squares`）・`goalRolls`（ゴールできる目）。ゴール・ゲーム終了時は null |
+| `nextForNextPlayer` | 次に振る人について、`nextForPlayer` と同じ形。2人なら相手。ゲーム終了時は null |
+| `biggestSwings` | 起こり得た展開を、勝負への影響の大きい順に最大5件（下の表） |
 | `race` | 今回の出目の前と後での勝負の状況（下の表） |
+| `previousRoll` | 直前の出目（`player`・`roll`・`from`・`final`・`jump`・`reaction`）。最初の出目では null |
 | `gameFlow` | ここまでの試合展開（下の表） |
 
-`biggestSwings` の `kind`:
+**`biggestSwings` の各項目**: `kind`・`player`・`roll`・`from`・`to`・`squares`（ハシゴ・ヘビの移動マス数。ゴールは null）・`impact`。
+集める対象は、今回の出目で実際に起きたこと・別の目なら起きたこと（ゴール・ハシゴ・ヘビ）と、`nextForPlayer`・`nextForNextPlayer` のゴール・ハシゴ・ヘビ。
 
-| 値 | 意味 |
+| `kind` | 意味 | 影響（勝つ確率の変化）の測り方 |
+|---|---|---|
+| `reached_goal` / `hit_ladder` / `hit_snake` | 今回の出目で実際にゴールした / ハシゴを登った / ヘビで下がった | 振る前と後での、振った人の勝つ確率の差 |
+| `missed_goal` / `missed_ladder` | 別の目（`roll`）ならゴールできた / ハシゴを登れた | その目だった場合と、実際の結果との差 |
+| `avoided_snake` | 別の目（`roll`）ならヘビで下がっていた | 同上 |
+| `next_goal` / `next_ladder` / `next_snake` | `player` が次の手番で `roll` を出すとゴール / ハシゴを登る / ヘビで下がる | その目が出た場合と、今との差 |
+
+`impact` は勝つ確率の変化の大きさ（`IMPACT_LEVELS`）:
+
+| 値 | 変化 |
 |---|---|
-| `hit_ladder` / `hit_snake` | 今回の出目で実際にハシゴを登った / ヘビで下がった |
-| `missed_ladder` | 別の目（`roll`）ならハシゴを登れた |
-| `avoided_snake` | 別の目（`roll`）ならヘビで下がっていた |
-| `next_ladder` / `next_snake` | `player` が次の手番で `roll` を出すとハシゴを登る / ヘビで下がる |
+| `decisive` | 25ポイント以上 |
+| `big` | 12ポイント以上 |
+| `notable` | 5ポイント以上 |
+| `small` | 5ポイント未満 |
 
-移動マス数が同じときは、上の表の順（実際に起きたこと → 今回起こり得たこと → 次の可能性）に並べる。
-ゴールは移動マス数で比べられないので `biggestSwings` には入れず、`goalRolls` と `turn.events` で伝え、システムプロンプトで最優先にしている。
+並び順は、`impact` → 移動マス数（ゴールは最大扱い）→ `kind`（上の表の順。実際に起きたこと → 今回起こり得たこと → 次の可能性）。
 
-`race` の項目:
+**反応の強さ（`reaction`）**: 次の2つのうち強いほう（`reaction_level`）。ゴールしたときは必ず `huge_cheer`。
+
+| 値 | 勝つ確率の変化（振った人） | ハシゴ・ヘビの大きさ（移動マス数 ÷ ゴールのマス） |
+|---|---|---|
+| `huge_cheer` / `huge_groan` | +20 / −20ポイント以上 | ハシゴ / ヘビで 0.30 以上（標準の盤で30マス以上） |
+| `cheer` / `groan` | +8 / −8ポイント以上 | 0.15 以上（15マス以上） |
+| `mild_cheer` / `mild_groan` | — | それより小さいハシゴ / ヘビ |
+| `calm` | 上のどれにも当たらない | ハシゴ・ヘビなし |
+
+序盤の長いハシゴは勝つ確率をあまり変えないが、その場では大きな出来事なので、大きさでも反応を強める（レビューの指摘）。
+
+**`race` の項目**:
 
 | 項目 | 意味 |
 |---|---|
@@ -204,50 +222,44 @@ v1 との違い: 上の方針をシステムプロンプトに加え、ユーザ
 | `fellBehind` | 今回（ヘビなどで）追い越された人 |
 | `behindLeader` | 今振った人がトップから何マス後ろか（トップまたは同点なら0） |
 | `leadMargin` | 今振った人が単独トップのとき、2番目との差。それ以外は null |
+| `phaseBefore` / `phase` | 今回の前 / 後の局面。いちばん勝つ確率が高い人の確率で決める: 80%以上 `nearly_decided`（勝利が見えてきた）、65%以上 `pulling_away`（優勢）、それ以外 `close`（接戦）。確率の変化が3ポイント未満なら、境目をまたいでも局面は変わらないとする |
+| `winChances` | 全員の勝つ確率。各項目は `player`・`word`（`very_likely` 85%以上、`likely` 60%以上、`even`、`unlikely` 15%超、`very_unlikely`）・`percent`・`percentBefore`。**判断の材料で、数字は言わせない** |
 
-`gameFlow` の項目:
+**`gameFlow` の項目**: `rollsSoFar`（これまでの出目の回数）・`leadChanges`（トップが入れ替わった回数。同点は数えない）・`leaderSinceTurn`（今のトップがトップになったターン。同点なら null）・`biggestJumpSoFar`（これまでで最大のハシゴ・ヘビの移動）。
 
-| 項目 | 意味 |
-|---|---|
-| `rollsSoFar` | これまでの出目の回数（今回を含む） |
-| `leadChanges` | トップが入れ替わった回数（同点は入れ替わりに数えない） |
-| `leaderSinceTurn` | 今のトップがトップになったターンの番号（同点なら null） |
-| `biggestJumpSoFar` | これまでで最大のハシゴ・ヘビの移動（`player`・`turnNumber`・`jump`・`from`・`to`・`squares`） |
+`race` の位置は、最新の出目では実際の位置（位置の訂正を含む）を使う。`gameFlow` と `previousRoll` は出目の記録から計算するので、位置の訂正は反映されない。
 
-`race` の位置は、最新の出目では実際の位置（位置の訂正を含む）を使う。`gameFlow` は出目の記録から計算するので、位置の訂正は反映されない。
+### 勝つ確率の計算（[winning.py](../apps/server/src/commentator/services/llm/winning.py)）
 
-### 何が送られるか（2人の場合）
+プレイヤー同士は互いの移動に影響しないので、各プレイヤーが「あと何回振ればゴールできるか」は、そのマスだけで決まる独立した確率分布になる。
+盤面ごとに「t 回振ってもまだゴールしていない確率」の表（最大400回分）を一度だけ作り、手番の順に組み合わせて、全員の「最初にゴールする確率」を正確に求める（乱数による試行は使わない）。
+1回の計算は約0.2ミリ秒。乱数の試行（4万回）とは±1ポイント以内で一致することを確かめた。
 
-- **先攻**: 同じターンではまだ誰も振っていないので、`recentTurns` は前のターンまでの両者の出目（直前3ターン分）。相手の今のマスは `players` で分かる。
-- **後攻**: `recentTurns` の最後が、同じターンの先攻の出目。
-
-相手との比較や流れは、`race`・`gameFlow`・`nextForNextPlayer` とシステムプロンプトの指示で話すようにしている（v2）。
+先にゴールした人が勝ち（ゲームはそこで終わる）。ゴールを超える目ではその場にとどまるため、ゴール前にヘビの多い標準の盤では、85マスと19マスでも先の人の勝つ確率は約73%にとどまる。
 
 ### 例（架空のゲーム。標準の盤、2人、3ターン目の先攻がハシゴを登った）
 
-出目は あおい 3、はると 5、あおい 2、はると 6、あおい 4（5→9、ハシゴで31）。v2 で加えた部分だけを示す
-（`thisRollOptions` は省略。実際の送信では JSON は1項目ずつ改行して字下げ1で書かれる）。
+出目は あおい 3、はると 5、あおい 2、はると 6、あおい 4（5→9、ハシゴで31）。一部だけを示す。
 
 ```json
 {
- "nextForPlayer": {"player": "あおい", "position": 31,
-  "ladderChances": [{"roll": 5, "from": 36, "to": 44, "squares": 8}], "snakeRisks": [], "goalRolls": []},
- "nextForNextPlayer": {"player": "はると", "position": 11,
-  "ladderChances": [], "snakeRisks": [{"roll": 5, "from": 16, "to": 6, "squares": 10}], "goalRolls": []},
+ "reaction": "cheer",
  "biggestSwings": [
-  {"kind": "hit_ladder", "player": "あおい", "roll": 4, "from": 9, "to": 31, "squares": 22},
-  {"kind": "next_snake", "player": "はると", "roll": 5, "from": 16, "to": 6, "squares": 10},
-  {"kind": "next_ladder", "player": "あおい", "roll": 5, "from": 36, "to": 44, "squares": 8}
+  {"kind": "hit_ladder", "player": "あおい", "roll": 4, "from": 9, "to": 31, "squares": 22, "impact": "small"},
+  {"kind": "next_snake", "player": "はると", "roll": 5, "from": 16, "to": 6, "squares": 10, "impact": "small"},
+  {"kind": "next_ladder", "player": "あおい", "roll": 5, "from": 36, "to": 44, "squares": 8, "impact": "small"}
  ],
- "race": {"leaderBefore": "はると", "leaderAfter": "あおい", "leadChanged": true,
-  "overtook": ["はると"], "fellBehind": [], "behindLeader": 0, "leadMargin": 20},
- "gameFlow": {"rollsSoFar": 5, "leadChanges": 2, "leaderSinceTurn": 3,
-  "biggestJumpSoFar": {"player": "あおい", "turnNumber": 3, "jump": "ladder", "from": 9, "to": 31, "squares": 22}}
+ "race": {"leaderBefore": "はると", "leaderAfter": "あおい", "leadChanged": true, "overtook": ["はると"],
+  "fellBehind": [], "behindLeader": 0, "leadMargin": 20, "phaseBefore": "close", "phase": "close",
+  "winChances": [
+   {"player": "あおい", "word": "even", "percent": 52, "percentBefore": 49},
+   {"player": "はると", "word": "even", "percent": 48, "percentBefore": 51}
+  ]},
+ "previousRoll": {"player": "はると", "roll": 6, "from": 5, "final": 11, "jump": null, "reaction": "calm"}
 }
 ```
 
-このときの Claude（claude-opus-5-5）の実況の例（2026-11-22）:
-「あおいさん4を出して9マスへ、そこからハシゴで一気に31マス、22マスの大ジャンプです。はるとさんを抜いてトップに浮上、その差は20マス。はるとさん、次は5だけ気をつけて、反撃に期待しましょう。」
+序盤なので、22マスのハシゴでも勝つ確率は3ポイントしか変わらない（`impact` は small）。反応はハシゴの大きさ（22マス）から `cheer` になる。
 
 ## LLM の呼び出し
 
@@ -272,7 +284,7 @@ v1 との違い: 上の方針をシステムプロンプトに加え、ユーザ
 
 使えなかったとき、または LLM を呼べなかったときは、事実だけで作るテンプレート文に置き換える（`template_commentary`）。
 例: 「あおいさん、出目は4！5マス目から9マス目へ進みます。ハシゴを登って一気に31マス目！現在トップを走っています。」
-管理画面では「代替文」と理由が表示される。
+ゴールを超える目のときは「ゴールを超えてしまうので進めず、97マス目のままです。」となる。管理画面では「代替文」と理由が表示される。
 
 ## 記録と確認のしかた
 
@@ -281,10 +293,27 @@ v1 との違い: 上の方針をシステムプロンプトに加え、ユーザ
   SQLite の `commentary_requests` テーブルに保存される（`GET /api/commentary/requests`）。
 - 通常のログ（`var/log/commentator.jsonl`）にはプロンプトや実況の文を書かない（[logging.md](operations/logging.md)）。
 
+## 遊んだゲームで比べる（[compare_commentary.py](../apps/server/src/commentator/tools/compare_commentary.py)）
+
+保存されたゲームを出目ごとに再現し、今のプロンプトと設定で実況を作り直して、ゲーム中に出た実況と並べた Markdown を書き出す。
+
+```bash
+.venv/bin/python -m commentator.tools.compare_commentary                 # いちばん最近実況したゲーム
+.venv/bin/python -m commentator.tools.compare_commentary --turns 14-22   # 14〜22回目の出目だけ
+.venv/bin/python -m commentator.tools.compare_commentary --game <ID>     # ゲームを指定
+.venv/bin/python -m commentator.tools.compare_commentary --dry-run       # LLM を呼ばずにプロンプトだけ
+```
+
+- 出力は `var/prompt-comparisons/`（Git 管理外。プレイヤー名を含むため）。
+- 各出目に、前の実況・新しい実況・反応の強さ・局面・勝つ確率の変化・上位の展開と、送ったユーザープロンプトを載せる。
+- LLM を出目1回につき1回呼ぶ（1ゲーム26回なら26回）。サーバーと同じ検査・代替文の処理をするが、再試行はしない。
+- 再現するのは出目だけで、手で行った位置の訂正・手番の変更は含まない。
+
 ## プロンプトを変えるとき
 
-- システムプロンプトは `build_system_prompt`、依頼文は `build_user_prompt`、JSON の中身は `CommentaryContext.facts()` と `build_context`、
-  起こり得たこと・次の可能性・勝負の状況は `outlook.py` の `analyze_turn`（`MAX_SWINGS` で件数、`SWING_KINDS` で同じ大きさのときの順）。
-- 内容を変えたら `PROMPT_VERSION` を上げる（例: `commentary-v2`）。記録に残るので、どの版で作った実況か後から分かる。
+- システムプロンプトは `build_system_prompt`、依頼文は `build_user_prompt`、JSON の中身は `CommentaryContext.facts()` と `build_context`。
+- 起こり得たこと・次の可能性・勝負の状況は `outlook.py` の `analyze_turn`。しきい値は `IMPACT_LEVELS`（影響）、`reaction_level`（反応）、`phase_of`（局面）、`chance_word`（勝つ確率の言葉）、件数は `MAX_SWINGS`。
+- 内容を変えたら `PROMPT_VERSION` を上げる（例: `commentary-v4`）。記録に残るので、どの版で作った実況か後から分かる。
+- 変えたら、遊んだゲームで比べる（上の比較の仕組み）。
 - 長さの目安・上限は `LENGTH_LIMITS`、話し方は `_STYLE_JA`・`_STYLE_EN`。
 - テストは `apps/server/tests/test_commentary.py` と `test_commentary_outlook.py`。

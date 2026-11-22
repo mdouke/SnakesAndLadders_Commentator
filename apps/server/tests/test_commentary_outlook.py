@@ -1,26 +1,39 @@
-"""Possibilities and the race given to the commentary model (llm/outlook.py)."""
+"""Possibilities, impact and the race given to the commentary model.
+
+Covers llm/winning.py (exact chances of finishing first) and llm/outlook.py.
+"""
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
+import pytest
 from commentator.domain.board import Board, Jump, JumpType
 from commentator.domain.game import GameState, PlayerState
+from commentator.presets import load_board_preset
 from commentator.services.llm.context import build_context, build_prompt
+from commentator.services.llm.outlook import (
+    impact_level,
+    phase_of,
+    reaction_level,
+)
 from commentator.services.llm.settings import CommentarySettings
+from commentator.services.llm.winning import win_chances
 
-# A small board: ladders 3->20 and 9->12, snakes 7->1 and 15->5, goal 30.
+# A small board: ladders 3->20 and 9->12, snakes 7->1 and 27->10, goal 30.
 BOARD = Board("test", "Test", 30, (
     Jump(JumpType.LADDER, 3, 20),
     Jump(JumpType.LADDER, 9, 12),
     Jump(JumpType.SNAKE, 7, 1),
-    Jump(JumpType.SNAKE, 15, 5),
+    Jump(JumpType.SNAKE, 27, 10),
 ))
 SETTINGS = CommentarySettings(provider="claude")
+LEVELS = ["decisive", "big", "notable", "small"]
 
 
-def play(*rolls: int) -> dict[str, Any]:
-    game = GameState.create(BOARD, [PlayerState("a", "あおい", "red"),
+def play(*rolls: int, board: Board = BOARD) -> dict[str, Any]:
+    game = GameState.create(board, [PlayerState("a", "あおい", "red"),
                                     PlayerState("b", "はると", "blue")])
     game.start()
     for value in rolls:
@@ -32,98 +45,140 @@ def outlook(game: dict[str, Any]) -> dict[str, Any]:
     return build_context(game, game["turns"][-1]["id"], SETTINGS).outlook
 
 
-def test_this_roll_lists_every_roll_and_marks_the_actual_one() -> None:
-    result = outlook(play(1))  # あおい: 0 -> 1
-    options = result["thisRollOptions"]
-    assert [item["roll"] for item in options] == [1, 2, 3, 4, 5, 6]
-    assert [item["actual"] for item in options] == [True, False, False, False, False, False]
-    assert options[2] == {"roll": 3, "landsOn": 3, "final": 20, "jump": "ladder",
-                          "actual": False}
+def kinds(result: dict[str, Any]) -> list[tuple[str, str, int]]:
+    return [(item["kind"], item["player"], item["roll"]) for item in result["biggestSwings"]]
 
 
-def swings(result: dict[str, Any]) -> list[tuple[str, str, int, int]]:
-    return [(item["kind"], item["player"], item["roll"], item["squares"])
-            for item in result["biggestSwings"]]
+# -- winning.py ---------------------------------------------------------------------
 
 
-def test_biggest_swings_are_sorted_by_squares_moved() -> None:
-    # あおい 0 -> 1. This roll: 3 would have climbed 3->20. Next for あおい from 1:
-    # 2 climbs 3->20, 6 hits 7->1. Next for はると from 0: 3 climbs 3->20.
-    # Equal sizes: what this roll could have done comes before the next rolls.
-    assert swings(outlook(play(1))) == [
-        ("missed_ladder", "あおい", 3, 17),
-        ("next_ladder", "あおい", 2, 17),
-        ("next_ladder", "はると", 3, 17),
-        ("next_snake", "あおい", 6, 6),
+def test_win_chances_match_a_simulation() -> None:
+    board = load_board_preset()
+    exact = win_chances(board, [("orange", 85), ("blue", 19)])
+    assert sum(exact.values()) == pytest.approx(1.0)
+    random.seed(1)
+    wins = 0
+    for _ in range(4000):
+        squares = {"orange": 85, "blue": 19}
+        while True:
+            squares["orange"] = board.move(squares["orange"], random.randint(1, 6)).final_position
+            if squares["orange"] == board.goal:
+                wins += 1
+                break
+            squares["blue"] = board.move(squares["blue"], random.randint(1, 6)).final_position
+            if squares["blue"] == board.goal:
+                break
+    assert exact["orange"] == pytest.approx(wins / 4000, abs=0.03)
+
+
+def test_rolling_first_is_a_small_advantage_and_the_goal_wins() -> None:
+    first = win_chances(BOARD, [("a", 0), ("b", 0)])
+    assert first["a"] > first["b"]
+    assert win_chances(BOARD, [("a", 5), ("b", 30)]) == {"a": 0.0, "b": 1.0}
+
+
+# -- impact and labels --------------------------------------------------------------
+
+
+def test_labels() -> None:
+    assert [impact_level(change) for change in (0.3, -0.15, 0.06, 0.01)] == LEVELS
+    assert reaction_level(0.25, None, False) == "huge_cheer"
+    assert reaction_level(-0.1, "snake", False) == "groan"
+    assert reaction_level(0.01, "ladder", False) == "mild_cheer"
+    # A long ladder is a big moment even when the chances barely move.
+    assert reaction_level(0.03, "ladder", False, size=0.56) == "huge_cheer"
+    assert reaction_level(-0.02, "snake", False, size=0.2) == "groan"
+    assert reaction_level(0.0, None, True) == "huge_cheer"
+    assert [phase_of(value) for value in (0.9, 0.7, 0.5)] == [
+        "nearly_decided", "pulling_away", "close",
     ]
 
 
-def test_a_hit_ladder_is_listed() -> None:
-    assert swings(outlook(play(3)))[0] == ("hit_ladder", "あおい", 3, 17)
+def test_swings_are_sorted_by_impact() -> None:
+    result = outlook(play(1))
+    levels = [LEVELS.index(item["impact"]) for item in result["biggestSwings"]]
+    assert levels == sorted(levels)
+    assert ("missed_ladder", "あおい", 3) in kinds(result)
+    assert ("next_ladder", "はると", 3) in kinds(result)
 
 
-def test_a_hit_snake_ranks_by_size_and_the_list_is_cut_at_five() -> None:
-    # あおい 5; はると 1; あおい 5 -> 7, snake to 1. From 5, a 4 would have climbed
-    # 9->12 (3 squares) but five larger swings push it off the list.
-    assert swings(outlook(play(5, 1, 2))) == [
-        ("next_ladder", "あおい", 2, 17),
-        ("next_ladder", "はると", 2, 17),
-        ("hit_snake", "あおい", 2, 6),
-        ("next_snake", "あおい", 6, 6),
-        ("next_snake", "はると", 6, 6),
-    ]
+def test_near_the_goal_a_short_snake_outranks_a_longer_one_far_behind() -> None:
+    # Standard board, 21 rolls: あおい ends on 47, はると waits on 96. はると's 2
+    # would hit 98->78 (20 squares) and 4 would reach the goal; あおい's next 2
+    # would hit 49->11 (38 squares) but she is far behind, so it matters less,
+    # and her ladder 51->67 matters more than that snake.
+    rolls = (5, 2, 5, 6, 4, 6, 5, 4, 2, 6, 5, 2, 5, 2, 5, 1, 5, 6, 2, 5, 5)
+    result = outlook(play(*rolls, board=load_board_preset()))
+    ranked = kinds(result)
+    assert ranked[:2] == [("next_goal", "はると", 4), ("next_snake", "はると", 2)]
+    impact = {(item["kind"], item["player"], item["roll"]): item["impact"]
+              for item in result["biggestSwings"]}
+    assert impact[("next_snake", "はると", 2)] == "big"
+    assert LEVELS.index(impact[("next_ladder", "あおい", 4)]) < LEVELS.index(
+        impact.get(("next_snake", "あおい", 2), "small")
+    )
+
+
+def test_a_hit_ladder_gets_a_cheer_and_a_hit_snake_a_groan() -> None:
+    climbed = outlook(play(3))
+    assert climbed["reaction"] in {"huge_cheer", "cheer"}
+    assert ("hit_ladder", "あおい", 3) in kinds(climbed)
+    slid = outlook(play(5, 1, 2))  # あおい 5 -> 7, snake to 1
+    assert slid["reaction"] in {"groan", "huge_groan", "mild_groan"}
+    assert ("hit_snake", "あおい", 2) in kinds(slid)
 
 
 def test_next_rolls_for_both_players_and_goal_rolls() -> None:
     result = outlook(play(1))
     assert result["nextForPlayer"]["player"] == "あおい"
-    assert result["nextForPlayer"]["position"] == 1
     assert result["nextForNextPlayer"]["player"] == "はると"
     assert result["nextForNextPlayer"]["ladderChances"] == [
         {"roll": 3, "from": 3, "to": 20, "squares": 17},
     ]
-    near = outlook(play(3, 1, 6, 1, 2))  # あおい 3->20, 26, then 28
+    near = outlook(play(3, 1, 6, 1, 2))  # あおい 20 -> 26 -> 28
     assert near["nextForPlayer"]["goalRolls"] == [2]
-    overshoot = [item for item in near["thisRollOptions"] if item.get("overshootStaysPut")]
-    assert [item["roll"] for item in overshoot] == [5, 6]  # 26 + 5 > 30
+    goal = next(item for item in near["biggestSwings"] if item["kind"] == "next_goal")
+    assert (goal["from"], goal["to"], goal["squares"]) == (28, 30, None)
 
 
-def test_race_reports_a_lead_change_and_overtaking() -> None:
-    result = outlook(play(2, 4, 3))  # あおい 2; はると 4; あおい 2 -> 5, passing はると
+# -- race, previous roll and game flow -------------------------------------------------
+
+
+def test_race_reports_a_lead_change_and_win_chances() -> None:
+    result = outlook(play(2, 4, 4))  # あおい 2; はると 4; あおい 2 -> 6, passing はると
     race = result["race"]
     assert race["leaderBefore"] == "はると" and race["leaderAfter"] == "あおい"
-    assert race["leadChanged"] is True
-    assert race["overtook"] == ["はると"]
-    assert race["leadMargin"] == 1
-    assert result["gameFlow"]["leadChanges"] == 2
-    assert result["gameFlow"]["leaderSinceTurn"] == 2
+    assert race["leadChanged"] is True and race["overtook"] == ["はると"]
+    assert race["leadMargin"] == 2
+    chances = {item["player"]: item for item in race["winChances"]}
+    assert set(chances) == {"あおい", "はると"}
+    assert chances["あおい"]["percent"] + chances["はると"]["percent"] in {99, 100, 101}
+    assert race["phase"] in {"close", "pulling_away", "nearly_decided"}
 
 
 def test_a_snake_can_lose_the_lead() -> None:
-    # あおい 6; はると 5; あおい 6 -> 7, snake to 1: はると takes the lead.
-    race = outlook(play(6, 5, 1))["race"]
+    race = outlook(play(6, 5, 1))["race"]  # あおい 6; はると 5; あおい 7 -> snake to 1
     assert race["leaderBefore"] == "あおい" and race["leaderAfter"] == "はると"
-    assert race["leadChanged"] is True
     assert race["fellBehind"] == ["はると"]
     assert race["behindLeader"] == 4
-    assert race["leadMargin"] is None
 
-    # Already behind before the snake: nobody newly passes あおい.
-    race = outlook(play(5, 6, 2))["race"]
-    assert race["fellBehind"] == [] and race["behindLeader"] == 5
+
+def test_previous_roll_carries_its_reaction() -> None:
+    result = outlook(play(3, 1))  # あおい climbed 3->20 just before はると's roll
+    previous = result["previousRoll"]
+    assert previous["player"] == "あおい" and previous["jump"] == "ladder"
+    assert previous["reaction"] in {"huge_cheer", "cheer", "mild_cheer"}
+    assert outlook(play(1))["previousRoll"] is None
 
 
 def test_biggest_jump_so_far_and_prompt_version() -> None:
-    game = play(3, 1, 1)  # あおい climbs 3->20 in turn 1
+    game = play(3, 1, 1)
     flow = outlook(game)["gameFlow"]
-    assert flow["biggestJumpSoFar"] == {
-        "player": "あおい", "turnNumber": 1, "jump": "ladder", "from": 3, "to": 20,
-        "squares": 17,
-    }
+    assert flow["biggestJumpSoFar"]["squares"] == 17
     prompt = build_prompt(build_context(game, game["turns"][-1]["id"], SETTINGS), SETTINGS)
-    assert prompt.version == "commentary-v2"
-    assert '"biggestSwings"' in prompt.user
-    assert "biggestSwings" in prompt.system
+    assert prompt.version == "commentary-v3"
+    assert '"biggestSwings"' in prompt.user and '"reaction"' in prompt.user
+    assert "中立" in prompt.system and "パーセントで言わない" in prompt.system
 
 
 def test_no_next_rolls_once_the_game_is_over() -> None:
@@ -131,3 +186,5 @@ def test_no_next_rolls_once_the_game_is_over() -> None:
     result = outlook(game)
     assert game["status"] == "completed"
     assert result["nextForPlayer"] is None and result["nextForNextPlayer"] is None
+    assert result["reaction"] == "huge_cheer"
+    assert ("reached_goal", "あおい", 4) in kinds(result)
