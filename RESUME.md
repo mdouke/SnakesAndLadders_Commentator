@@ -27,7 +27,7 @@ Finder で `start.command` をダブルクリックしてもよい。秘密情�
 | 変数 | 用途 |
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude の実況、Claude でのサイコロ読み取り |
-| `GOOGLE_TTS_API_KEY` | Google Cloud の WaveNet など（`AIza` で始まる Cloud のキー） |
+| `GOOGLE_TTS_API_KEY` | Google Cloud の WaveNet など。2026-11-22 の片付け後に無効になった（実験では使わない） |
 | `GEMINI_API_KEY` | （2026-11-22 削除）Gemini API 経由の Gemini 読み上げ。1日100回しか使えない |
 | `GOOGLE_APPLICATION_CREDENTIALS` | （2026-11-22 削除）Google Cloud 経由の Gemini 読み上げ用の鍵ファイルのパス |
 
@@ -41,7 +41,9 @@ Finder で `start.command` をダブルクリックしてもよい。秘密情�
    - ログの `speech_finished` に `firstAudioMs`・`voice`・`provider`・`durationMs` を記録する
      （項目の意味は [docs/operations/logging.md](docs/operations/logging.md) の「読み上げのログ」）。
    - 実機（Flash-Lite）での話し始めまでの時間はまだ測っていない。
-3. ~~実験で使う声を決める~~（2026-11-22 決定: **WaveNet**（`ja-JP-Wavenet-B`、速さ 1.3））。
+3. ~~実験で使う声を決める~~（2026-11-22 決定: **macOS の音声**（`var/speech-settings.json` の provider が `macos`、速さ 230））。
+   いったん WaveNet に決めたが、キーが無効になったこともあり macOS に変更した。実況の文を外部に送らずに済む。
+   以下は WaveNet に決めたときの理由（参考）:
    理由: 話し始めが速い（約0.4秒）うえ、渡した文をそのまま読む。Gemini Flash-Lite は実況文にないことを
    話し始めることがあった（生成型のため）。Gemini の実装は残すが、実験では使わない。
 4. ~~`google-tts` を `main` にマージする~~（2026-11-22 済み。push はまだ）。
@@ -51,7 +53,8 @@ Finder で `start.command` をダブルクリックしてもよい。秘密情�
    - Google Cloud（`sal-commentator`）のサービスアカウントの鍵・紐づけた API キー・不要なサービスアカウント、
      AI Studio の Gemini API キーを削除した（ユーザーが操作）。
    - この Mac の鍵ファイルを削除し、`var/secrets.env` から `GEMINI_API_KEY` と `GOOGLE_APPLICATION_CREDENTIALS` を消した。
-   - 残したキーは `ANTHROPIC_API_KEY` と `GOOGLE_TTS_API_KEY` だけ。WaveNet が使えることを確かめた（1文 0.47秒）。
+   - 残したキーは `ANTHROPIC_API_KEY` と `GOOGLE_TTS_API_KEY` だけ。WaveNet が使えることを確かめた（1文 0.47秒）が、
+     その後 Google 側の削除が反映されて `GOOGLE_TTS_API_KEY` も無効になった（API Key not found）。実験は macOS の音声で行う。
    - Gemini の読み上げを再び使うには、サービスアカウントの鍵か Gemini API キーを作り直す必要がある。
 
 ## 測った値（2026-11-19、1文あたり音声ができるまで）
