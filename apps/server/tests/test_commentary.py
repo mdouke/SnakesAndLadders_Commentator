@@ -638,3 +638,42 @@ def test_prompt_preview_api_follows_settings_and_the_newest_turn() -> None:
         http.put("/api/settings/commentary", json={"length": "short"})
         shorter = http.get("/api/commentary/prompt").json()
         assert shorter["system"] != preview["system"]
+
+
+def test_prompt_versions_can_be_switched_and_keep_their_own_facts() -> None:
+    from commentator.services.llm.prompts import VERSIONS
+    from commentator.services.llm.settings import LATEST_PROMPT_VERSION
+
+    http, scheduler = api_table()
+    with http:
+        current = http.get("/api/settings/commentary").json()
+        assert current["promptVersion"] == LATEST_PROMPT_VERSION
+        assert [item["id"] for item in current["promptVersions"]] == list(VERSIONS)
+
+        started = start_game(http)
+        http.post(
+            f"/api/games/{started['id']}/rolls",
+            json={"value": 2, "expectedStateVersion": started["stateVersion"]},
+        )
+        scheduler.run()
+        users = {}
+        for version in VERSIONS:
+            assert http.put("/api/settings/commentary",
+                            json={"promptVersion": version}).status_code == 200
+            preview = http.get("/api/commentary/prompt").json()
+            assert preview["promptVersion"] == version
+            users[version] = preview["user"]
+        assert "overshotGoalAndBouncedBack" in users["commentary-v1"]
+        assert "biggestSwings" not in users["commentary-v1"]
+        assert '"thisRollOptions"' in users["commentary-v2"]
+        assert '"reaction"' in users["commentary-v3"]
+
+        # The comment is made with the chosen version and recorded as such.
+        http.post("/api/commentary/regenerate", json={})
+        scheduler.run()
+        newest = http.get("/api/commentary/requests",
+                          params={"gameId": started["id"]}).json()["requests"][0]
+        assert newest["promptVersion"] == list(VERSIONS)[-1]
+
+        assert http.put("/api/settings/commentary",
+                        json={"promptVersion": "commentary-v99"}).status_code == 422

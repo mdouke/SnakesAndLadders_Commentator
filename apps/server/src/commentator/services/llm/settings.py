@@ -23,6 +23,10 @@ LANGUAGES: tuple[Language, ...] = ("ja", "en")
 LENGTHS: tuple[Length, ...] = ("short", "medium", "long")
 STYLES: tuple[Style, ...] = ("lively", "calm", "kids")
 
+# Prompt versions (see prompts/); the newest is the default.
+PROMPT_VERSIONS: tuple[str, ...] = ("commentary-v1", "commentary-v2", "commentary-v3")
+LATEST_PROMPT_VERSION = PROMPT_VERSIONS[-1]
+
 DEFAULT_CLAUDE_MODEL = "claude-opus-5-5"
 DEFAULT_OPENAI_MODEL = "gpt-5-mini"
 
@@ -39,6 +43,7 @@ class CommentarySettings:
     use_names: bool = True
     timeout_seconds: float = 10.0
     max_retries: int = 1
+    prompt_version: str = LATEST_PROMPT_VERSION
 
     @property
     def model(self) -> str:
@@ -62,6 +67,8 @@ class CommentarySettings:
             problems.append("タイムアウトは1〜60秒にしてください")
         if not 0 <= self.max_retries <= 3:
             problems.append("再試行回数は0〜3回にしてください")
+        if self.prompt_version not in PROMPT_VERSIONS:
+            problems.append("プロンプトの版が正しくありません")
         for label, model in (("Claude", self.claude_model), ("OpenAI", self.openai_model)):
             if not model.strip() or len(model) > 100:
                 problems.append(f"{label}のモデル名を1〜100文字で指定してください")
@@ -83,6 +90,7 @@ class CommentarySettings:
             "useNames": self.use_names,
             "timeoutSeconds": self.timeout_seconds,
             "maxRetries": self.max_retries,
+            "promptVersion": self.prompt_version,
         }
 
     @classmethod
@@ -99,6 +107,7 @@ class CommentarySettings:
             use_names=bool(value.get("useNames", defaults.use_names)),
             timeout_seconds=float(value.get("timeoutSeconds", defaults.timeout_seconds)),
             max_retries=int(value.get("maxRetries", defaults.max_retries)),
+            prompt_version=str(value.get("promptVersion", defaults.prompt_version)),
         ).validated()
 
 

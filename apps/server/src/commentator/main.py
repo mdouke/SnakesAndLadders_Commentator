@@ -82,6 +82,7 @@ from .presets import BoardPresetError, BoardPresetStore, board_from_definition, 
 from .services.commentary import CommentaryError, CommentaryService
 from .services.game import GameService
 from .services.google_tts import GeminiTtsEngine, GoogleTtsEngine
+from .services.llm.prompts import version_list
 from .services.llm.providers import provider_availability
 from .services.llm.settings import CommentarySettingsStore
 from .services.realtime import RealtimeClient, RealtimeHub
@@ -735,7 +736,11 @@ def create_app(
         return log_control.status()
 
     def commentary_settings_payload() -> dict[str, Any]:
-        return {**commentary.settings.get().to_dict(), "providers": provider_availability()}
+        return {
+            **commentary.settings.get().to_dict(),
+            "providers": provider_availability(),
+            "promptVersions": version_list(),
+        }
 
     @application.get("/api/commentary", response_model=CommentaryResponse)
     def get_commentary() -> dict[str, Any]:

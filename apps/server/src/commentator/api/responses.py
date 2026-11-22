@@ -515,6 +515,14 @@ class ProviderAvailability(ResponseModel):
     credentials_configured: bool
 
 
+class PromptVersionInfo(ResponseModel):
+    """A selectable commentary prompt version."""
+
+    id: str
+    label: str
+    description: str
+
+
 class CommentarySettingsResponse(ResponseModel):
     enabled: bool
     provider: Literal["fake", "claude", "openai"]
@@ -526,7 +534,9 @@ class CommentarySettingsResponse(ResponseModel):
     use_names: bool
     timeout_seconds: float
     max_retries: int
+    prompt_version: str
     providers: dict[str, ProviderAvailability]
+    prompt_versions: list[PromptVersionInfo]
 
 
 class CommentaryRequestError(ResponseModel):

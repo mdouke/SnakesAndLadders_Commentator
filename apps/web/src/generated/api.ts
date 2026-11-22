@@ -977,10 +977,14 @@ export interface components {
             timeoutSeconds: number;
             /** Maxretries */
             maxRetries: number;
+            /** Promptversion */
+            promptVersion: string;
             /** Providers */
             providers: {
                 [key: string]: components["schemas"]["ProviderAvailability"];
             };
+            /** Promptversions */
+            promptVersions: components["schemas"]["PromptVersionInfo"][];
         };
         /**
          * CommentarySettingsUpdate
@@ -1007,6 +1011,8 @@ export interface components {
             timeoutSeconds?: number | null;
             /** Maxretries */
             maxRetries?: number | null;
+            /** Promptversion */
+            promptVersion?: string | null;
         };
         /** ComponentStatus */
         ComponentStatus: {
@@ -1292,6 +1298,18 @@ export interface components {
             reason: string;
             /** Operator */
             operator: string;
+        };
+        /**
+         * PromptVersionInfo
+         * @description A selectable commentary prompt version.
+         */
+        PromptVersionInfo: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Description */
+            description: string;
         };
         /** ProviderAvailability */
         ProviderAvailability: {

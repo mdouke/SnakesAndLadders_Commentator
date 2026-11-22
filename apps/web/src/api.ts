@@ -302,7 +302,7 @@ export function getCommentarySettings(): Promise<CommentarySettings> {
   return request("/api/settings/commentary");
 }
 
-export type CommentarySettingsChange = Partial<Omit<CommentarySettings, "providers">>;
+export type CommentarySettingsChange = Partial<Omit<CommentarySettings, "providers" | "promptVersions">>;
 
 export function updateCommentarySettings(
   changes: CommentarySettingsChange

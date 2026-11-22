@@ -279,6 +279,8 @@ export function PlayerCommentary({
 
 // -- settings --------------------------------------------------------------------
 
+const COMMENTARY_SETTINGS_CHANGED = "commentary-settings-changed";
+
 const providerLabels = { fake: "テンプレート（APIを使わない）", claude: "Claude", openai: "OpenAI" };
 const lengthLabels = { short: "短い", medium: "ふつう", long: "長い" };
 const styleLabels = { lively: "盛り上げる", calm: "落ち着いた", kids: "子ども向け" };
@@ -310,6 +312,8 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
       onError(null);
       setSettings(await updateCommentarySettings(change));
       setSaved("実況の設定を保存しました");
+      // The prompt panel shows the prompt for the current settings.
+      window.dispatchEvent(new Event(COMMENTARY_SETTINGS_CHANGED));
     } catch (reason) {
       onError(reason instanceof Error ? reason.message : "設定を保存できませんでした");
     }
@@ -326,6 +330,7 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
 
   if (!settings || !speech) return null;
   const availability = settings.providers[settings.provider];
+  const promptVersion = settings.promptVersions.find((item) => item.id === settings.promptVersion);
   const language = settings.language === "en" ? "en" : "ja";
   const shownVoices = showAllVoices
     ? voices
@@ -335,6 +340,7 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
     <details className="panel settings-panel">
       <summary>実況・読み上げの設定<span className="muted">
         {settings.enabled ? providerLabels[settings.provider] : "実況オフ"}
+        {settings.enabled && promptVersion ? `（${promptVersion.label}）` : ""}
         ・{!speech.enabled ? "読み上げオフ"
           : speech.provider === "gemini" ? `Gemini（${speech.geminiVoice}）`
           : speech.provider === "google" ? `Google（${speech.googleVoice}）`
@@ -355,6 +361,15 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
               <option key={provider} value={provider}>{providerLabels[provider]}</option>
             ))}
           </select>
+        </label>
+        <label>プロンプトの版
+          <select value={settings.promptVersion}
+            onChange={(event) => save({ promptVersion: event.target.value })}>
+            {settings.promptVersions.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
+          {promptVersion && <span className="muted">{promptVersion.description}</span>}
         </label>
         {settings.provider === "claude" && (
           <ModelField label="Claudeのモデル" value={settings.claudeModel}
@@ -649,10 +664,16 @@ export function CommentaryPromptPanel({
       .then((value) => { setPreview(value); setFailed(false); })
       .catch(() => setFailed(true));
   }, []);
-  // Refresh when opened and whenever a new comment starts or finishes.
+  // Refresh when opened, whenever a new comment starts or finishes, and when
+  // the settings (such as the prompt version) change.
   useEffect(() => {
     if (open) load();
   }, [open, marker, load]);
+  useEffect(() => {
+    if (!open) return undefined;
+    window.addEventListener(COMMENTARY_SETTINGS_CHANGED, load);
+    return () => window.removeEventListener(COMMENTARY_SETTINGS_CHANGED, load);
+  }, [open, load]);
 
   return (
     <details className="panel prompt-panel"

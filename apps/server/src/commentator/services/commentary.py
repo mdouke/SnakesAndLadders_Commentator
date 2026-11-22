@@ -28,7 +28,6 @@ from ..infrastructure.persistence.commentary_log import (
 )
 from .game import GameService
 from .llm.context import (
-    PROMPT_VERSION,
     CommentaryContext,
     CommentaryPrompt,
     build_context,
@@ -208,7 +207,7 @@ class CommentaryService:
             user = build_prompt(context, settings).user
             turn_number = context.turn_number
         return {
-            "promptVersion": PROMPT_VERSION,
+            "promptVersion": settings.prompt_version,
             "provider": settings.provider,
             "model": settings.model,
             "system": build_system_prompt(settings),

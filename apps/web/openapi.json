@@ -2396,12 +2396,23 @@
             "type": "integer",
             "title": "Maxretries"
           },
+          "promptVersion": {
+            "type": "string",
+            "title": "Promptversion"
+          },
           "providers": {
             "additionalProperties": {
               "$ref": "#/components/schemas/ProviderAvailability"
             },
             "type": "object",
             "title": "Providers"
+          },
+          "promptVersions": {
+            "items": {
+              "$ref": "#/components/schemas/PromptVersionInfo"
+            },
+            "type": "array",
+            "title": "Promptversions"
           }
         },
         "additionalProperties": false,
@@ -2417,7 +2428,9 @@
           "useNames",
           "timeoutSeconds",
           "maxRetries",
-          "providers"
+          "promptVersion",
+          "providers",
+          "promptVersions"
         ],
         "title": "CommentarySettingsResponse"
       },
@@ -2559,6 +2572,19 @@
               }
             ],
             "title": "Maxretries"
+          },
+          "promptVersion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promptversion"
           }
         },
         "additionalProperties": false,
@@ -3454,6 +3480,31 @@
           "operator"
         ],
         "title": "PositionCorrection"
+      },
+      "PromptVersionInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "description"
+        ],
+        "title": "PromptVersionInfo",
+        "description": "A selectable commentary prompt version."
       },
       "ProviderAvailability": {
         "properties": {

@@ -1,7 +1,8 @@
 # 実況のプロンプト仕様
 
 実況文を作るときに LLM（Claude / OpenAI）へ送るプロンプトと、その前後の処理をまとめる。
-プロンプトのバージョンは `commentary-v3`（[context.py](../apps/server/src/commentator/services/llm/context.py) の `PROMPT_VERSION`）。
+プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v3`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
+この文書は v3 を中心に書く。
 設計の判断は [ADR 0005](decisions/0005-commentary-and-speech.md) にある。
 
 ## 実況の方針（v3、2026-11-22）
@@ -23,6 +24,21 @@
 | v1 | ターンの事実・全員の位置・直前6回の出目を渡し、事実だけで実況する |
 | v2 | 起こり得たこと・次の可能性・勝負の状況を加え、移動マス数の大きい展開を優先する。`overshotGoalAndBouncedBack` を `overshotGoalStayedPut` に改名（ゴールを超える目ではその場にとどまるルールに合わせた） |
 | v3 | 1ゲーム通しのレビューを受けて変更。勝つ確率で影響を測る、反応の強さ（`reaction`）、局面（`phase`）、直前の出目（`previousRoll`）、中立の立場、数字を言わない、目を選べるような言い方をしない。`thisRollOptions` は `biggestSwings` と重なるので削除 |
+
+### 版の切り替え（2026-11-22）
+
+- 管理画面「実況・読み上げの設定」の「プロンプトの版」で選ぶ。設定の `promptVersion`（`var/commentary-settings.json`）に保存される。
+- 次の実況から、選んだ版のシステムプロンプトと事実（JSON）で作る。実況の記録には使った版が残る。
+- 各版は使ったあとは変えない。変えるときは新しい版を作る（`prompts/vN.py` を足し、`prompts/__init__.py` の `VERSIONS` と
+  `settings.py` の `PROMPT_VERSIONS` に加える）。古い版と比べられるようにするため。
+
+| 版 | システムプロンプト | 加える事実 |
+|---|---|---|
+| `commentary-v1` | [prompts/v1.py](../apps/server/src/commentator/services/llm/prompts/v1.py) | なし（`overshotGoalAndBouncedBack` の名前を使う） |
+| `commentary-v2` | [prompts/v2.py](../apps/server/src/commentator/services/llm/prompts/v2.py) | [outlook_v2.py](../apps/server/src/commentator/services/llm/outlook_v2.py)（`thisRollOptions`、マス数順の `biggestSwings`、`race`、`gameFlow`） |
+| `commentary-v3` | [prompts/v3.py](../apps/server/src/commentator/services/llm/prompts/v3.py) | [outlook.py](../apps/server/src/commentator/services/llm/outlook.py)（この文書で説明するもの） |
+
+比較の仕組みでも `--version commentary-v2` のように版を選べる。
 
 ## 全体の流れ
 
@@ -311,9 +327,9 @@
 
 ## プロンプトを変えるとき
 
-- システムプロンプトは `build_system_prompt`、依頼文は `build_user_prompt`、JSON の中身は `CommentaryContext.facts()` と `build_context`。
+- システムプロンプトは `prompts/vN.py` の `system_prompt`、依頼文は `build_user_prompt`、JSON の中身は `CommentaryContext.facts()` と `build_context`。
 - 起こり得たこと・次の可能性・勝負の状況は `outlook.py` の `analyze_turn`。しきい値は `IMPACT_LEVELS`（影響）、`reaction_level`（反応）、`phase_of`（局面）、`chance_word`（勝つ確率の言葉）、件数は `MAX_SWINGS`。
-- 内容を変えたら `PROMPT_VERSION` を上げる（例: `commentary-v4`）。記録に残るので、どの版で作った実況か後から分かる。
+- 内容を変えるときは、今の版を書き換えずに新しい版を作る（上の「版の切り替え」）。記録に残るので、どの版で作った実況か後から分かる。
 - 変えたら、遊んだゲームで比べる（上の比較の仕組み）。
-- 長さの目安・上限は `LENGTH_LIMITS`、話し方は `_STYLE_JA`・`_STYLE_EN`。
+- 長さの目安・上限は `LENGTH_LIMITS`、話し方は `STYLE_JA`・`STYLE_EN`（[prompts/common.py](../apps/server/src/commentator/services/llm/prompts/common.py)。全版で共通）。
 - テストは `apps/server/tests/test_commentary.py` と `test_commentary_outlook.py`。

@@ -9,6 +9,7 @@ Usage (from the repository root):
     .venv/bin/python -m commentator.tools.compare_commentary            # newest game
     .venv/bin/python -m commentator.tools.compare_commentary --turns 14-22
     .venv/bin/python -m commentator.tools.compare_commentary --dry-run  # prompts only
+    .venv/bin/python -m commentator.tools.compare_commentary --version commentary-v2
 
 The report is written to ``var/prompt-comparisons/`` (not in Git: it holds
 player names). Calling the model costs one request per roll; ``--dry-run``
@@ -20,6 +21,7 @@ from __future__ import annotations
 import argparse
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -33,7 +35,7 @@ from ..services.commentary import default_providers
 from ..services.llm.context import CommentaryPrompt, build_context, build_prompt
 from ..services.llm.providers import ProviderError, template_commentary
 from ..services.llm.safety import review
-from ..services.llm.settings import CommentarySettingsStore
+from ..services.llm.settings import PROMPT_VERSIONS, CommentarySettingsStore
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 VAR = REPOSITORY_ROOT / "var"
@@ -143,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path,
                         help="report path (default: var/prompt-comparisons/)")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--version", choices=PROMPT_VERSIONS,
+                        help="prompt version to use (default: the one in the settings)")
     args = parser.parse_args(argv)
 
     load_secrets(default_secrets_path(REPOSITORY_ROOT))
@@ -154,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     game = stored.to_dict()
     settings = CommentarySettingsStore(args.settings).get()
+    if args.version:
+        settings = replace(settings, prompt_version=args.version)
     provider = default_providers().get(settings.provider)
     snapshots = replay(game)
     shown = shown_comments(log, game["id"])
