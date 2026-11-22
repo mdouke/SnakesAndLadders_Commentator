@@ -5,15 +5,13 @@
 
 ## いまの状態
 
-- 作業中のブランチ: `google-tts`
-  - `de3fa5d` Google Cloud Text-to-Speech（WaveNet など）の追加
-  - その次のコミット: Gemini の読み上げ（Gemini API 経由と Google Cloud 経由の切り替え、失敗時の切り替え順、
-    上限エラー時の待機、ログへの失敗理由の記録）とこのメモ。テスト 472 件・型チェック・画面のビルドは通っている。
-  - 未コミット（2026-11-22）: 途中で失敗したら続きの文から次の声で読む変更と、読み上げログへの
-    `firstAudioMs`（話し始めまでの時間）・`voice`（使った声）の追加。テスト 474 件・ruff・mypy は通っている。
+- ブランチ: `main`（2026-11-22 に `google-tts` を早送りでマージ済み。`google-tts` ブランチは残してある）
+  - `google-tts` で入れたもの: Google Cloud Text-to-Speech（WaveNet など）、Gemini の読み上げ
+    （Gemini API 経由と Google Cloud 経由、失敗時の切り替え順、上限エラー時の待機）、
+    途中で失敗したら続きの文から次の声で読む仕組み、読み上げログの `firstAudioMs`・`voice`。
+    テスト 474 件・ruff・mypy は通っている。
   - `git stash` に1件: Cloud 経由 Gemini の最初の試作（APIキーでは動かず取りやめたもの）。不要なら `git stash drop`。
-- `main` は `4a9a481`（カメラ認識・VLM・トレー検出・調整ダイアログまで）。`google-tts` はまだマージしていない。
-  GitHub（origin）への push もしていない。
+- GitHub（origin）への push はしていない。
 - カメラでのサイコロ認識の開発は終わり（2026-11-19 ユーザー判断）。
 
 ## 起動
@@ -44,8 +42,10 @@ Finder で `start.command` をダブルクリックしてもよい。秘密情�
    - ログの `speech_finished` に `firstAudioMs`・`voice`・`provider`・`durationMs` を記録する
      （項目の意味は [docs/operations/logging.md](docs/operations/logging.md) の「読み上げのログ」）。
    - 実機（Flash-Lite）での話し始めまでの時間はまだ測っていない。
-3. 実験で使う声を決める: 話し始めの速さなら WaveNet（約0.4秒）、表現なら Gemini Flash-Lite（1文2〜3秒）。
-4. `google-tts` を `main` にマージする（必要なら push）。
+3. ~~実験で使う声を決める~~（2026-11-22 決定: **WaveNet**（`ja-JP-Wavenet-B`、速さ 1.3））。
+   理由: 話し始めが速い（約0.4秒）うえ、渡した文をそのまま読む。Gemini Flash-Lite は実況文にないことを
+   話し始めることがあった（生成型のため）。Gemini の実装は残すが、実験では使わない。
+4. ~~`google-tts` を `main` にマージする~~（2026-11-22 済み。push はまだ）。
 5. ユーザースタディの準備:
    - 同意書に、サイコロのトレーの画像を Anthropic に、実況の文（プレイヤー名を含む）を Google に送ることを書く。
    - 実機で Claude のサイコロ読み取りとトレー自動検出を試す（TODO.md の Phase 6.5）。
