@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   type CommentarySettingsChange,
   type SpeechSettingsChange,
+  getCommentaryPrompt,
   getCommentaryRequests,
   getCommentarySettings,
   getSpeechSettings,
@@ -14,6 +15,7 @@ import {
   updateSpeechSettings
 } from "./api";
 import type {
+  CommentaryPromptPreview,
   CommentaryRequestRecord,
   CommentarySettings,
   CommentaryState,
@@ -632,6 +634,53 @@ const statusLabels: Record<CommentaryRequestRecord["status"], string> = {
   discarded: "破棄（古い）",
   superseded: "置き換え済み"
 };
+
+export function CommentaryPromptPanel({
+  commentary
+}: {
+  commentary: CommentaryState | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<CommentaryPromptPreview | null>(null);
+  const [failed, setFailed] = useState(false);
+  const marker = `${commentary?.requestId}:${commentary?.status}`;
+  const load = useCallback(() => {
+    getCommentaryPrompt()
+      .then((value) => { setPreview(value); setFailed(false); })
+      .catch(() => setFailed(true));
+  }, []);
+  // Refresh when opened and whenever a new comment starts or finishes.
+  useEffect(() => {
+    if (open) load();
+  }, [open, marker, load]);
+
+  return (
+    <details className="panel prompt-panel"
+      onToggle={(event) => setOpen((event.target as HTMLDetailsElement).open)}>
+      <summary>実況のプロンプト<span className="muted">今の設定で Claude に送る内容</span></summary>
+      {failed && <p className="error">プロンプトを読み込めませんでした</p>}
+      {preview && (
+        <>
+          <p className="muted">
+            {preview.promptVersion}・{preview.provider}{preview.model ? `（${preview.model}）` : ""}
+            <button className="secondary small" onClick={load}>再読み込み</button>
+          </p>
+          <h3>システムプロンプト<span className="muted">（指示。設定で変わる）</span></h3>
+          <pre className="prompt-text">{preview.system}</pre>
+          <h3>
+            ユーザープロンプト
+            <span className="muted">
+              {preview.turnNumber === null ? "（ターンの状況。まだ出目がありません）" : `（ターン${preview.turnNumber}の状況）`}
+            </span>
+          </h3>
+          {preview.user !== null
+            ? <pre className="prompt-text">{preview.user}</pre>
+            : <p className="muted">最初の出目が入ると、そのターンの状況（JSON）がここに表示されます。</p>}
+        </>
+      )}
+    </details>
+  );
+}
 
 export function CommentaryLogPanel({
   game, commentary

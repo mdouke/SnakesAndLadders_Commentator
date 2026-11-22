@@ -563,6 +563,18 @@ class CommentaryRequestRecord(ResponseModel):
     duration_ms: float | None
 
 
+class CommentaryPromptPreview(ResponseModel):
+    """The prompt the next comment would be made with, under the current settings."""
+
+    prompt_version: str
+    provider: str
+    model: str | None
+    system: str
+    # Built from the newest turn of the current game; None before the first roll.
+    user: str | None
+    turn_number: int | None
+
+
 class CommentaryRequestList(ResponseModel):
     requests: list[CommentaryRequestRecord]
 

@@ -283,3 +283,8 @@ p.small, .error.small { font-size: 0.85rem; padding: 0.5rem 0.75rem; }
 .gemini-prompt { display: grid; gap: 0.4rem; margin: 0.25rem 0 0.75rem; }
 .gemini-prompt label { font-size: 0.9rem; font-weight: 700; }
 .gemini-prompt textarea { padding: 0.55rem; border: 1px solid #aaa; border-radius: 8px; font: inherit; resize: vertical; }
+
+.prompt-panel h3 { margin: 1rem 0 0.4rem; font-size: 1rem; }
+.prompt-panel h3 .muted { font-weight: 400; margin-left: 0.4rem; }
+.prompt-panel .muted .small { margin-left: 0.6rem; }
+.prompt-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 28rem; overflow: auto; }

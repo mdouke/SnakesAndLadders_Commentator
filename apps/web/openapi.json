@@ -1323,6 +1323,24 @@
         }
       }
     },
+    "/api/commentary/prompt": {
+      "get": {
+        "summary": "Get Commentary Prompt",
+        "operationId": "get_commentary_prompt_api_commentary_prompt_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentaryPromptPreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/commentary": {
       "get": {
         "summary": "Get Commentary Settings",
@@ -1817,6 +1835,67 @@
           "message"
         ],
         "title": "BoardValidation"
+      },
+      "CommentaryPromptPreview": {
+        "properties": {
+          "promptVersion": {
+            "type": "string",
+            "title": "Promptversion"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "system": {
+            "type": "string",
+            "title": "System"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          },
+          "turnNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnnumber"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "promptVersion",
+          "provider",
+          "model",
+          "system",
+          "user",
+          "turnNumber"
+        ],
+        "title": "CommentaryPromptPreview",
+        "description": "The prompt the next comment would be made with, under the current settings."
       },
       "CommentaryRegenerate": {
         "properties": {

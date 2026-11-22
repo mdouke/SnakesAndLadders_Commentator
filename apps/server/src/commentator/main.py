@@ -25,6 +25,7 @@ from .api.responses import (
     BoardPresetList,
     BoardResponse,
     BoardValidation,
+    CommentaryPromptPreview,
     CommentaryRequestList,
     CommentaryResponse,
     CommentarySettingsResponse,
@@ -753,6 +754,10 @@ def create_app(
     ) -> dict[str, Any]:
         rows = commentary.log.list(game_id=game_id, limit=max(1, min(limit, 200)))
         return {"requests": [to_api(row) for row in rows]}
+
+    @application.get("/api/commentary/prompt", response_model=CommentaryPromptPreview)
+    def get_commentary_prompt() -> dict[str, Any]:
+        return commentary.prompt_preview()
 
     @application.get("/api/settings/commentary", response_model=CommentarySettingsResponse)
     def get_commentary_settings() -> dict[str, Any]:

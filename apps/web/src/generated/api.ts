@@ -587,6 +587,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/commentary/prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Commentary Prompt */
+        get: operations["get_commentary_prompt_api_commentary_prompt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/commentary": {
         parameters: {
             query?: never;
@@ -789,6 +806,24 @@ export interface components {
             valid: boolean;
             /** Message */
             message: string | null;
+        };
+        /**
+         * CommentaryPromptPreview
+         * @description The prompt the next comment would be made with, under the current settings.
+         */
+        CommentaryPromptPreview: {
+            /** Promptversion */
+            promptVersion: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string | null;
+            /** System */
+            system: string;
+            /** User */
+            user: string | null;
+            /** Turnnumber */
+            turnNumber: number | null;
         };
         /** CommentaryRegenerate */
         CommentaryRegenerate: {
@@ -3284,6 +3319,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_commentary_prompt_api_commentary_prompt_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentaryPromptPreview"];
                 };
             };
         };

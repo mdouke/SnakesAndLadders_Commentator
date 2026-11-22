@@ -27,7 +27,14 @@ from ..infrastructure.persistence.commentary_log import (
     MemoryCommentaryLog,
 )
 from .game import GameService
-from .llm.context import CommentaryContext, CommentaryPrompt, build_context, build_prompt
+from .llm.context import (
+    PROMPT_VERSION,
+    CommentaryContext,
+    CommentaryPrompt,
+    build_context,
+    build_prompt,
+    build_system_prompt,
+)
 from .llm.providers import (
     ClaudeCommentaryProvider,
     CommentaryProvider,
@@ -184,6 +191,30 @@ class CommentaryService:
                 state = dict(self._state)
         self.scheduler(lambda: self._generate(job))
         return state
+
+    def prompt_preview(self) -> dict[str, Any]:
+        """The prompt the next comment would be made with (for the admin screen).
+
+        The system prompt follows the current settings. The user prompt is built
+        for the newest turn of the current game; without a turn there is none.
+        """
+        settings = self.settings.get()
+        with self.game_service.lock:
+            game = self.game_service.current_payload()
+        user: str | None = None
+        turn_number: int | None = None
+        if game is not None and game["turns"]:
+            context = build_context(game, game["turns"][-1]["id"], settings)
+            user = build_prompt(context, settings).user
+            turn_number = context.turn_number
+        return {
+            "promptVersion": PROMPT_VERSION,
+            "provider": settings.provider,
+            "model": settings.model,
+            "system": build_system_prompt(settings),
+            "user": user,
+            "turnNumber": turn_number,
+        }
 
     def settings_changed(self) -> None:
         """Turning commentary off clears the screen and cancels pending speech."""

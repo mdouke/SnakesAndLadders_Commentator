@@ -16,7 +16,7 @@ import {
 import { HistoryPanel, confirmEnded, isEnded, playerName } from "./AdminPanels";
 import { BoardView } from "./Board";
 import {
-  AdminCommentary, CommentaryLogPanel, CommentarySettingsPanel, PlayerCommentary, PlayerStatus
+  AdminCommentary, CommentaryLogPanel, CommentaryPromptPanel, CommentarySettingsPanel, PlayerCommentary, PlayerStatus
 } from "./Commentary";
 import { newerGame, useRealtime } from "./realtime";
 import { GameSetupPanel } from "./Setup";
@@ -509,6 +509,7 @@ function AdminView() {
       )}
       </fieldset>
       <CommentarySettingsPanel onError={setError} />
+      <CommentaryPromptPanel commentary={realtime.commentary} />
       <StatusPanel connected={realtime.connected} />
       {notice && <p className="notice toast" role="status">{notice}</p>}
       {error && <p className="error">{error}</p>}

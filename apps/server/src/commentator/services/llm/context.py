@@ -206,16 +206,16 @@ _STYLE_EN = {
 }
 
 
-def build_prompt(context: CommentaryContext, settings: CommentarySettings) -> CommentaryPrompt:
+def build_system_prompt(settings: CommentarySettings) -> str:
+    """The instructions for the model; they depend on the settings only."""
     target, maximum = LENGTH_LIMITS[settings.language][settings.length]
-    facts = json.dumps(context.facts(), ensure_ascii=False, indent=1)
     if settings.language == "ja":
         names = (
             "プレイヤーは JSON の名前のとおりに呼び、敬称は「さん」を付ける。"
             if settings.use_names
             else "プレイヤーは JSON にある「プレイヤー1」などの呼び方だけを使う。"
         )
-        system = "\n".join([
+        return "\n".join([
             "あなたは、実物のボードゲーム「ヘビとハシゴ」を遊んでいる人たちのそばで、"
             "ターンごとに短い実況をする実況者です。",
             "守ること:",
@@ -232,31 +232,41 @@ def build_prompt(context: CommentaryContext, settings: CommentarySettings) -> Co
             "overshotGoalAndBouncedBack が true ならゴールを超えて戻ったことを伝える。",
             f"話し方: {_STYLE_JA[settings.style]}",
         ])
-        user = f"このターンの状況です。実況を1つ作ってください。\n{facts}"
-    else:
-        names = (
-            "Call players exactly by the names in the JSON."
-            if settings.use_names
-            else 'Refer to players only as "Player 1" etc., as given in the JSON.'
-        )
-        system = "\n".join([
-            "You are a live commentator standing next to people playing the physical "
-            "board game Snakes and Ladders. You give one short comment per turn.",
-            "Rules:",
-            "- Use only the facts in the JSON. Never change numbers, squares or ranks, "
-            "and never add events that did not happen.",
-            f"- About {target} words, never more than {maximum} words.",
-            "- Output only the comment itself: no preface, quotes, lists, emoji or Markdown.",
-            "- It will be read aloud, so write natural spoken language.",
-            "- Never tease or hurt players and never use rude words. Stay upbeat even "
-            "after bad luck.",
-            f"- {names}",
-            "- jump = ladder means they climbed a ladder, snake means a snake took them "
-            "down, and overshotGoalAndBouncedBack means they passed the goal and bounced "
-            "back.",
-            f"Style: {_STYLE_EN[settings.style]}",
-        ])
-        user = f"The situation of this turn. Write one comment.\n{facts}"
+    names = (
+        "Call players exactly by the names in the JSON."
+        if settings.use_names
+        else 'Refer to players only as "Player 1" etc., as given in the JSON.'
+    )
+    return "\n".join([
+        "You are a live commentator standing next to people playing the physical "
+        "board game Snakes and Ladders. You give one short comment per turn.",
+        "Rules:",
+        "- Use only the facts in the JSON. Never change numbers, squares or ranks, "
+        "and never add events that did not happen.",
+        f"- About {target} words, never more than {maximum} words.",
+        "- Output only the comment itself: no preface, quotes, lists, emoji or Markdown.",
+        "- It will be read aloud, so write natural spoken language.",
+        "- Never tease or hurt players and never use rude words. Stay upbeat even "
+        "after bad luck.",
+        f"- {names}",
+        "- jump = ladder means they climbed a ladder, snake means a snake took them "
+        "down, and overshotGoalAndBouncedBack means they passed the goal and bounced "
+        "back.",
+        f"Style: {_STYLE_EN[settings.style]}",
+    ])
+
+
+def build_user_prompt(context: CommentaryContext, settings: CommentarySettings) -> str:
+    """This turn's facts as JSON, with a one-line request."""
+    facts = json.dumps(context.facts(), ensure_ascii=False, indent=1)
+    if settings.language == "ja":
+        return f"このターンの状況です。実況を1つ作ってください。\n{facts}"
+    return f"The situation of this turn. Write one comment.\n{facts}"
+
+
+def build_prompt(context: CommentaryContext, settings: CommentarySettings) -> CommentaryPrompt:
+    system = build_system_prompt(settings)
+    user = build_user_prompt(context, settings)
     return CommentaryPrompt(
         version=PROMPT_VERSION, system=system, user=user, context=context, settings=settings
     )

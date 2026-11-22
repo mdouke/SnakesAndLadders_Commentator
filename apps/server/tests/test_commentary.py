@@ -612,3 +612,29 @@ def test_regenerate_and_request_log_api() -> None:
         log = http.get("/api/commentary/requests", params={"gameId": started["id"]}).json()
         assert [item["status"] for item in log["requests"]] == ["displayed", "superseded"]
         assert log["requests"][0]["trigger"] == "regenerate"
+
+
+def test_prompt_preview_api_follows_settings_and_the_newest_turn() -> None:
+    http, scheduler = api_table()
+    with http:
+        before = http.get("/api/commentary/prompt").json()
+        assert before["user"] is None and before["turnNumber"] is None
+        assert "ヘビとハシゴ" in before["system"]
+
+        started = start_game(http)
+        http.post(
+            f"/api/games/{started['id']}/rolls",
+            json={"value": 2, "expectedStateVersion": started["stateVersion"]},
+        )
+        scheduler.run()
+        preview = http.get("/api/commentary/prompt").json()
+        assert preview["turnNumber"] == 1
+        assert '"roll": 2' in preview["user"]
+        # The preview is what the comment was actually made with.
+        sent = http.get("/api/commentary/requests",
+                        params={"gameId": started["id"]}).json()["requests"][0]
+        assert (preview["system"], preview["user"]) == (sent["systemPrompt"], sent["userPrompt"])
+
+        http.put("/api/settings/commentary", json={"length": "short"})
+        shorter = http.get("/api/commentary/prompt").json()
+        assert shorter["system"] != preview["system"]

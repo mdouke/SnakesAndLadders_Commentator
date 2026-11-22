@@ -1,4 +1,5 @@
 import type {
+  CommentaryPromptPreview,
   CommentaryRequestRecord,
   CommentarySettings,
   CommentaryState,
@@ -283,6 +284,11 @@ export function regenerateCommentary(turnId?: string): Promise<CommentaryState> 
   return request("/api/commentary/regenerate", {
     method: "POST", body: JSON.stringify(turnId ? { turnId } : {})
   });
+}
+
+/** The prompt the next comment would be made with, under the current settings. */
+export function getCommentaryPrompt(): Promise<CommentaryPromptPreview> {
+  return request("/api/commentary/prompt");
 }
 
 export function getCommentaryRequests(

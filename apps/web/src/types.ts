@@ -29,6 +29,7 @@ export type AuditEntry = Schemas["AuditEntry"];
 export type SpeechState = Schemas["SpeechResponse"];
 export type CommentarySettings = Schemas["CommentarySettingsResponse"];
 export type CommentaryRequestRecord = Schemas["CommentaryRequestRecord"];
+export type CommentaryPromptPreview = Schemas["CommentaryPromptPreview"];
 export type SpeechSettings = Schemas["SpeechSettingsResponse"];
 export type VoiceInfo = Schemas["VoiceInfo"];
 export type VisionSettings = Schemas["VisionSettingsModel"];
