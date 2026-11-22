@@ -498,12 +498,16 @@ class CommentaryResponse(ResponseModel):
 class SpeechResponse(ResponseModel):
     """What the server is reading aloud right now."""
 
-    status: Literal["idle", "speaking", "error"]
+    # "preparing": the voice is being made and no sound has played yet.
+    status: Literal["idle", "preparing", "speaking", "error"]
     kind: Literal["commentary", "preview"] | None
     request_id: str | None
     turn_id: str | None
     text: str | None
     error: str | None
+    # The newest comment the player screen may show: its sound has started,
+    # speech failed, or speech is off (the text appears together with the voice).
+    revealed_request_id: str | None
 
 
 class ProviderAvailability(ResponseModel):

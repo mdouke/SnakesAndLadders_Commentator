@@ -1587,7 +1587,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "idle" | "speaking" | "error";
+            status: "idle" | "preparing" | "speaking" | "error";
             /** Kind */
             kind: ("commentary" | "preview") | null;
             /** Requestid */
@@ -1598,6 +1598,8 @@ export interface components {
             text: string | null;
             /** Error */
             error: string | null;
+            /** Revealedrequestid */
+            revealedRequestId: string | null;
         };
         /** SpeechSettingsResponse */
         SpeechSettingsResponse: {

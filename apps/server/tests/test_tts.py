@@ -53,9 +53,12 @@ class FakeEngine:
               progress: Any = None) -> bool:
         with self._lock:
             self.spoken.append((text, settings))
-        self.started.set()
         if self.fail:
+            self.started.set()
             raise RuntimeError("audio device missing")
+        if progress is not None:
+            progress.audio_started()  # the sound starts right away
+        self.started.set()
         if not self.hold:
             return True
         while not self.release.is_set():
@@ -254,3 +257,61 @@ def test_macos_voice_renders_sentence_by_sentence_and_starts_after_the_first() -
     # The second sentence was rendered while the first one was playing.
     assert rendered[1][1] < played[0][2] + 0.1
     assert progress.remaining == ""
+
+
+class SlowStartEngine:
+    """Takes a moment to make the voice before the first sound."""
+
+    name = "slow"
+
+    def __init__(self) -> None:
+        self.make_voice = Event()
+
+    def available(self) -> bool:
+        return True
+
+    def voices(self) -> list[Voice]:
+        return []
+
+    def speak(self, text: str, settings: SpeechSettings, cancel: Event,
+              progress: Any = None) -> bool:
+        self.make_voice.wait(2)
+        if progress is not None:
+            progress.audio_started()
+        return True
+
+
+def test_comment_is_revealed_when_its_sound_starts() -> None:
+    engine = SlowStartEngine()
+    service = SpeechService(engine=engine, is_current=lambda _r: True)
+    states: list[dict[str, Any]] = []
+    service.subscribe(states.append)
+    service.start()
+    try:
+        service.commentary_changed(ready("r1", "葵さん、出目は3！"))
+        wait_until(lambda: bool(states) and states[-1]["status"] == "preparing")
+        # The voice is still being made: the player screen keeps waiting.
+        assert states[-1]["revealedRequestId"] is None
+        engine.make_voice.set()
+        wait_until(lambda: any(s["status"] == "speaking" for s in states))
+        speaking = next(s for s in states if s["status"] == "speaking")
+        assert speaking["revealedRequestId"] == "r1"
+        wait_until(lambda: states[-1]["status"] == "idle")
+        assert states[-1]["revealedRequestId"] == "r1"
+    finally:
+        service.stop()
+
+
+def test_comment_is_revealed_when_speech_fails_or_is_off() -> None:
+    service = SpeechService(engine=FakeEngine(fail=True), is_current=lambda _r: True)
+    service.start()
+    try:
+        service.commentary_changed(ready("r1", "失敗する実況"))
+        wait_until(lambda: service.snapshot()["status"] == "error")
+        assert service.snapshot()["revealedRequestId"] == "r1"
+
+        service.settings.update({"enabled": False})
+        service.commentary_changed(ready("r2", "読み上げオフ"))
+        assert service.snapshot()["revealedRequestId"] == "r2"
+    finally:
+        service.stop()

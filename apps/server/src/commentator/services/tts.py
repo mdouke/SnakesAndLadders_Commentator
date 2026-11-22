@@ -27,7 +27,8 @@ from typing import Any, Literal, Protocol
 
 from .llm.settings import SettingsFile
 
-SpeechStatus = Literal["idle", "speaking", "error"]
+# "preparing": the voice is being made and no sound has played yet.
+SpeechStatus = Literal["idle", "preparing", "speaking", "error"]
 SpeechProvider = Literal["macos", "google", "gemini"]
 SPEECH_PROVIDERS: tuple[SpeechProvider, ...] = ("macos", "google", "gemini")
 DEFAULT_GOOGLE_VOICE = "ja-JP-Wavenet-B"
@@ -168,14 +169,19 @@ class SpeechProgress:
     Only the speech worker thread touches it.
     """
 
-    def __init__(self, text: str) -> None:
+    def __init__(
+        self, text: str, on_audio_started: Callable[[], None] | None = None
+    ) -> None:
         self.text = text
         self.first_audio_at: float | None = None  # monotonic time
         self._spoken_end = 0
+        self._on_audio_started = on_audio_started
 
     def audio_started(self) -> None:
         if self.first_audio_at is None:
             self.first_audio_at = monotonic()
+            if self._on_audio_started is not None:
+                self._on_audio_started()
 
     def spoken_through(self, end: int) -> None:
         self._spoken_end = max(self._spoken_end, min(end, len(self.text)))
@@ -401,6 +407,9 @@ class SpeechService:
         self._cancel = Event()
         self._speaking: _SpeechJob | None = None
         self._state: dict[str, Any] = _idle_speech()
+        # The newest comment the player screen may show: its sound has started,
+        # speech failed, or speech is off. The text appears together with the voice.
+        self._revealed_request_id: str | None = None
         self._subscribers: list[SpeechSubscriber] = []
         self._stopped = False
         self._worker: Thread | None = None
@@ -442,11 +451,14 @@ class SpeechService:
 
     def snapshot(self) -> dict[str, Any]:
         with self._condition:
-            return dict(self._state)
+            return self._public_state()
 
     def send_snapshot(self, callback: SpeechSubscriber) -> None:
         with self._condition:
-            callback(dict(self._state))
+            callback(self._public_state())
+
+    def _public_state(self) -> dict[str, Any]:
+        return {**self._state, "revealedRequestId": self._revealed_request_id}
 
     # -- inputs ----------------------------------------------------------------
 
@@ -460,13 +472,22 @@ class SpeechService:
                 self._cancel.set()  # the comment being spoken is no longer current
             if self._pending is not None and self._pending.kind == "commentary":
                 self._pending = None
-            if state["status"] == "ready" and state.get("text") and self.settings.get().enabled:
-                if speaking is None or speaking.request_id != state["requestId"]:
+            if state["status"] == "ready" and state.get("text"):
+                if not self.settings.get().enabled:
+                    # Nothing will be read: the text is shown at once.
+                    self._reveal(state.get("requestId"))
+                elif speaking is None or speaking.request_id != state["requestId"]:
                     self._pending = _SpeechJob(
                         kind="commentary", text=str(state["text"]),
                         request_id=state["requestId"], turn_id=state.get("turnId"),
                     )
             self._condition.notify_all()
+
+    def _reveal(self, request_id: str | None) -> None:
+        """Let the player screen show this comment (call with the lock held)."""
+        if request_id is not None and request_id != self._revealed_request_id:
+            self._revealed_request_id = request_id
+            self._set_state(self._state)
 
     def preview(self, text: str | None = None, settings: SpeechSettings | None = None) -> None:
         if not self.engine.available():
@@ -521,10 +542,20 @@ class SpeechService:
             self._cancel = Event()
             cancel = self._cancel
             self._speaking = job
+            revealed_before = self._revealed_request_id
             self._set_state({
-                "status": "speaking", "kind": job.kind, "requestId": job.request_id,
+                "status": "preparing", "kind": job.kind, "requestId": job.request_id,
                 "turnId": job.turn_id, "text": job.text, "error": None,
             })
+
+        def audio_started() -> None:
+            # The first sound: from now on the comment is being spoken.
+            with self._condition:
+                if self._speaking is not job or self._state.get("status") != "preparing":
+                    return
+                if job.kind == "commentary":
+                    self._revealed_request_id = job.request_id
+                self._set_state({**self._state, "status": "speaking"})
         error: str | None = None
         completed = False
         tried: list[TtsEngine] = []
@@ -547,7 +578,7 @@ class SpeechService:
                                    "reason": f"retry in {waiting:.0f}s"})
                 continue
             tried.append(engine)
-            progress = SpeechProgress(remaining)
+            progress = SpeechProgress(remaining, audio_started)
             try:
                 completed = engine.speak(remaining, settings, cancel, progress)
                 if provider != settings.provider:
@@ -595,6 +626,10 @@ class SpeechService:
         )
         with self._condition:
             self._speaking = None
+            if job.kind == "commentary" and self._revealed_request_id == revealed_before:
+                # Failed or stopped before any sound: show the text anyway.
+                # (When a newer comment was revealed meanwhile, keep that one.)
+                self._revealed_request_id = job.request_id
             if error is not None:
                 self._set_state({**_idle_speech(), "status": "error", "kind": job.kind,
                                  "requestId": job.request_id, "turnId": job.turn_id,
@@ -604,9 +639,10 @@ class SpeechService:
 
     def _set_state(self, state: dict[str, Any]) -> None:
         self._state = state
+        public = self._public_state()
         for subscriber in tuple(self._subscribers):
             try:
-                subscriber(dict(state))
+                subscriber(dict(public))
             except Exception:
                 logging.getLogger("commentator.speech").exception(
                     "speech subscriber failed", extra={"event": "speech_subscriber_failed"}

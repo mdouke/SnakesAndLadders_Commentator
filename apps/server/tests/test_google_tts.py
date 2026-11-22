@@ -185,6 +185,9 @@ class RecordingEngine:
     def speak(self, text: str, settings: SpeechSettings, cancel: Event,
               progress: Any = None) -> bool:
         self.spoken.append(text)
+        if progress is not None:
+            progress.audio_started()
+            progress.spoken_through(len(text))
         return True
 
 

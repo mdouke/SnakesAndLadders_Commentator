@@ -4438,6 +4438,7 @@
           "status": {
             "enum": [
               "idle",
+              "preparing",
               "speaking",
               "error"
             ],
@@ -4502,6 +4503,17 @@
               }
             ],
             "title": "Error"
+          },
+          "revealedRequestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revealedrequestid"
           }
         },
         "required": [
@@ -4510,7 +4522,8 @@
           "requestId",
           "turnId",
           "text",
-          "error"
+          "error",
+          "revealedRequestId"
         ],
         "title": "SpeechResponse",
         "type": "object"

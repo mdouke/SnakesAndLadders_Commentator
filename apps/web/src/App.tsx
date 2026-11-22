@@ -525,7 +525,7 @@ function PlayerView() {
       <h1>{game ? statusLabels[game.status] : "ゲーム開始待ち"}</h1>
       <PlayerStatus game={game} recognition={recognition} commentary={commentary}
         speech={speech} connected={connected} />
-      <PlayerCommentary commentary={commentary} game={game} />
+      <PlayerCommentary commentary={commentary} game={game} speech={speech} />
       {game && <PlayerList game={game} />}
     </main>
   );

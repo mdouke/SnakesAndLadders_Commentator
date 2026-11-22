@@ -67,7 +67,7 @@ export function AdminCommentary({
   else body = current.text ?? "";
   const canRegenerate = game.turns.length > 0
     && !["aborted", "suspended"].includes(game.status) && !pending;
-  const speaking = speech?.status === "speaking";
+  const speaking = speech?.status === "speaking" || speech?.status === "preparing";
 
   const regenerate = async () => {
     setPending(true);
@@ -106,7 +106,9 @@ export function AdminCommentary({
             読み上げを止める
           </button>
         )}
-        {speaking && <span className="muted">読み上げ中…</span>}
+        {speaking && (
+          <span className="muted">{speech?.status === "preparing" ? "音声を準備中…" : "読み上げ中…"}</span>
+        )}
       </div>
     </section>
   );
@@ -125,11 +127,38 @@ const phaseLabels: Record<PlayerPhase, string> = {
   paused: "一時停止中"
 };
 
+// If the server never says the voice started (it should), show the text anyway.
+const REVEAL_FALLBACK_MS = 20000;
+
+/**
+ * Whether the player screen may show the current comment yet.
+ *
+ * The text appears together with the voice: the server reveals a comment when its
+ * first sound plays, when speech fails, or right away when speech is off.
+ */
+export function useCommentaryRevealed(
+  commentary: CommentaryState | null,
+  game: GameState | null,
+  speech: SpeechState | null
+): boolean {
+  const current = currentCommentary(commentary, game);
+  const requestId = current?.status === "ready" ? current.requestId : null;
+  const [timedOut, setTimedOut] = useState<string | null>(null);
+  useEffect(() => {
+    if (!requestId) return undefined;
+    const timer = window.setTimeout(() => setTimedOut(requestId), REVEAL_FALLBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [requestId]);
+  if (!requestId) return true;
+  return speech === null || speech.revealedRequestId === requestId || timedOut === requestId;
+}
+
 export function playerPhase(
   game: GameState | null,
   recognition: RecognitionState | null,
   commentary: CommentaryState | null,
-  speech: SpeechState | null
+  speech: SpeechState | null,
+  revealed = true
 ): PlayerPhase {
   if (!game) return "idle";
   if (game.status === "paused") return "paused";
@@ -137,6 +166,8 @@ export function playerPhase(
   if (speech?.status === "speaking" && speech.kind === "commentary"
     && current && speech.requestId === current.requestId) return "speaking";
   if (current?.status === "generating") return "generating";
+  // The text is ready but its voice is still being made.
+  if (current?.status === "ready" && !revealed) return "generating";
   if (game.status !== "in_progress") return "idle";
   if (recognition?.running && recognition.gameReady
     && ["moving", "stationary", "reading", "candidate", "needs_confirmation"].includes(recognition.state)) {
@@ -184,7 +215,8 @@ export function PlayerStatus({
   speech: SpeechState | null;
   connected: boolean;
 }) {
-  const phase = playerPhase(game, recognition, commentary, speech);
+  const revealed = useCommentaryRevealed(commentary, game, speech);
+  const phase = playerPhase(game, recognition, commentary, speech, revealed);
   const current = game?.players.find((player) => player.id === game.currentPlayerId);
   const busy = phase === "recognizing" || phase === "generating" || phase === "speaking";
   let label = phaseLabels[phase];
@@ -208,16 +240,21 @@ export function PlayerStatus({
 }
 
 export function PlayerCommentary({
-  commentary, game
+  commentary, game, speech
 }: {
   commentary: CommentaryState | null;
   game: GameState | null;
+  speech: SpeechState | null;
 }) {
   const current = currentCommentary(commentary, game);
+  const revealed = useCommentaryRevealed(commentary, game, speech);
   const message = gameMessage(game);
   let body: string | null = null;
   let className = "idle";
-  if (current?.status === "ready" && current.text) {
+  if (current?.status === "ready" && current.text && !revealed) {
+    body = "実況を準備しています…";  // shown together with the voice
+    className = "generating";
+  } else if (current?.status === "ready" && current.text) {
     body = current.text;
     className = "ready";
   } else if (current?.status === "generating") {
