@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Condition, Event, Thread
@@ -240,24 +241,44 @@ def parse_voices(output: str) -> list[Voice]:
     return voices
 
 
+MACOS_LOOKAHEAD = 2  # sentences rendered ahead of the one playing
+
+
 class MacSayEngine:
-    """``say`` renders to a temporary file, ``afplay`` plays it at the set volume.
+    """``say`` renders each sentence to a file, ``afplay`` plays it at the set volume.
 
     Rendering first makes the volume setting work for every voice, and both steps
-    can be stopped at any moment.
+    can be stopped at any moment. Like the Google engines, the comment is split
+    into sentences: the first sentence plays while the next ones are rendered, so
+    speech starts after one sentence instead of the whole comment.
     """
 
     name = "macos"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        render: Callable[[str, SpeechSettings, Event], bytes] | None = None,
+        player: Callable[[Path, float, Event], bool] | None = None,
+    ) -> None:
         self._voices: list[Voice] | None = None
+        self._render = render or _render_with_say
+        self._player = player or _play_with_afplay
+        self._injected = render is not None
+        # `say` takes about as long to render a sentence as it takes to play it,
+        # so two sentences are rendered ahead to avoid gaps between them.
+        self._pool = ThreadPoolExecutor(
+            max_workers=MACOS_LOOKAHEAD, thread_name_prefix="macos-tts"
+        )
 
     def available(self) -> bool:
+        if self._injected:
+            return True
         return shutil.which("say") is not None and shutil.which("afplay") is not None
 
     def voices(self) -> list[Voice]:
         if self._voices is None:
-            if not self.available():
+            if not self.available() or self._injected:
                 return []
             result = subprocess.run(
                 ["say", "-v", "?"], capture_output=True, text=True, timeout=10, check=False
@@ -269,25 +290,33 @@ class MacSayEngine:
         self, text: str, settings: SpeechSettings, cancel: Event,
         progress: SpeechProgress | None = None,
     ) -> bool:
-        with tempfile.TemporaryDirectory(prefix="commentator-tts-") as directory:
-            text_path = Path(directory) / "text.txt"
-            audio_path = Path(directory) / "speech.aiff"
-            text_path.write_text(text, encoding="utf-8")
-            render = ["say", "-f", str(text_path), "-o", str(audio_path)]
-            if settings.voice:
-                render[1:1] = ["-v", settings.voice]
-            if settings.rate:
-                render[1:1] = ["-r", str(settings.rate)]
-            if not _run_cancellable(render, cancel):
-                return False
-            if progress is not None:
-                progress.audio_started()
-            played = _run_cancellable(
-                ["afplay", "-v", f"{settings.volume:.2f}", str(audio_path)], cancel
-            )
-            if played and progress is not None:
-                progress.spoken_through(len(text))
-            return played
+        from .google_tts import speak_sentences
+
+        return speak_sentences(
+            text, lambda sentence: self._render(sentence, settings, cancel), suffix=".aiff",
+            pool=self._pool, player=self._player, volume=settings.volume, cancel=cancel,
+            progress=progress, lookahead=MACOS_LOOKAHEAD,
+        )
+
+
+def _render_with_say(text: str, settings: SpeechSettings, cancel: Event) -> bytes:
+    """One sentence to AIFF audio; empty when cancelled."""
+    with tempfile.TemporaryDirectory(prefix="commentator-say-") as directory:
+        text_path = Path(directory) / "text.txt"
+        audio_path = Path(directory) / "speech.aiff"
+        text_path.write_text(text, encoding="utf-8")
+        render = ["say", "-f", str(text_path), "-o", str(audio_path)]
+        if settings.voice:
+            render[1:1] = ["-v", settings.voice]
+        if settings.rate:
+            render[1:1] = ["-r", str(settings.rate)]
+        if not _run_cancellable(render, cancel):
+            return b""
+        return audio_path.read_bytes()
+
+
+def _play_with_afplay(path: Path, volume: float, cancel: Event) -> bool:
+    return _run_cancellable(["afplay", "-v", f"{volume:.2f}", str(path)], cancel)
 
 
 def _run_cancellable(command: list[str], cancel: Event) -> bool:

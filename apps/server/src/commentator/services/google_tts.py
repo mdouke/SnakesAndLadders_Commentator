@@ -13,7 +13,8 @@
 
 Keys come from ``var/secrets.env``, are sent in a header and are never logged.
 
-To start speaking quickly, the text is split into sentences: the first
+To start speaking quickly, the text is split into sentences (``speak_sentences``,
+also used by the macOS engine): the first
 sentence is synthesized and played while the next one is synthesized in the
 background. Audio is played with ``afplay`` at the configured volume, so a
 change of comment stops it at once, exactly like the macOS engine.
@@ -278,14 +279,14 @@ class GoogleTtsEngine:
     ) -> bool:
         voice = settings.google_voice
         rate = settings.google_speaking_rate
-        return _speak_sentences(
+        return speak_sentences(
             text, lambda sentence: self.synthesize(sentence, voice, rate), suffix=".mp3",
             pool=self._pool, player=self._player, volume=settings.volume, cancel=cancel,
             progress=progress,
         )
 
 
-def _speak_sentences(
+def speak_sentences(
     text: str,
     fetch: Callable[[str], bytes],
     *,
@@ -295,15 +296,44 @@ def _speak_sentences(
     volume: float,
     cancel: Event,
     progress: SpeechProgress | None = None,
+    lookahead: int = 1,
 ) -> bool:
-    """Play sentence by sentence while the next sentence is being synthesized.
+    """Play sentence by sentence while the next sentences are being synthesized.
 
-    ``progress`` learns after each sentence how far the text was read, so when
-    a later sentence fails the next voice reads only the rest.
+    ``lookahead`` sentences are synthesized ahead of the one playing (the pool
+    needs as many workers to make them in parallel). ``progress`` learns after
+    each sentence how far the text was read, so when a later sentence fails the
+    next voice reads only the rest.
     """
     spans = sentence_spans(text)
     if not spans:
         return not cancel.is_set()
+    sentences = [text[start:end] for start, end in spans]
+    pending: dict[int, Future[bytes]] = {
+        index: pool.submit(fetch, sentences[index])
+        for index in range(min(lookahead, len(sentences)))
+    }
+    try:
+        with tempfile.TemporaryDirectory(prefix="commentator-tts-") as directory:
+            for index in range(len(sentences)):
+                audio = pending.pop(index).result()  # raises on failure
+                if cancel.is_set():
+                    return False
+                ahead = index + lookahead
+                if ahead < len(sentences):
+                    pending[ahead] = pool.submit(fetch, sentences[ahead])
+                path = Path(directory) / f"part-{index}{suffix}"
+                path.write_bytes(audio)
+                if progress is not None:
+                    progress.audio_started()
+                if not player(path, volume, cancel):
+                    return False
+                if progress is not None:
+                    progress.spoken_through(spans[index][1])
+    finally:
+        for future in pending.values():
+            future.cancel()  # not started yet: no need to make it any more
+    return not cancel.is_set()
     sentences = [text[start:end] for start, end in spans]
     upcoming: Future[bytes] = pool.submit(fetch, sentences[0])
     with tempfile.TemporaryDirectory(prefix="commentator-tts-") as directory:
@@ -485,7 +515,7 @@ class GeminiTtsEngine:
         # A model saved for the other backend falls back to this backend's default.
         model = settings.gemini_model if settings.gemini_model in models else models[0]
         voice, style = settings.gemini_voice, settings.gemini_style
-        return _speak_sentences(
+        return speak_sentences(
             text, lambda sentence: self.synthesize(sentence, model=model, voice=voice,
                                                    style=style, backend=backend),
             suffix=".mp3" if backend == "cloud" else ".wav", pool=self._pool,
@@ -515,6 +545,6 @@ def _gemini_audio(data: dict[str, Any]) -> bytes:
 
 
 def _play_with_afplay(path: Path, volume: float, cancel: Event) -> bool:
-    from .tts import _run_cancellable
+    from .tts import _play_with_afplay as play
 
-    return _run_cancellable(["afplay", "-v", f"{volume:.2f}", str(path)], cancel)
+    return play(path, volume, cancel)

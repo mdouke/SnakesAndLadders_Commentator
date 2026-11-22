@@ -222,3 +222,35 @@ def test_end_to_end_roll_is_spoken_and_undo_stops_it() -> None:
         assert updated.status_code == 200 and updated.json()["voice"] == "Kyoko"
         assert http.put("/api/settings/speech", json={"volume": 2}).status_code == 422
         assert http.post("/api/speech/preview", json={"voice": "Kyoko"}).status_code == 200
+
+
+def test_macos_voice_renders_sentence_by_sentence_and_starts_after_the_first() -> None:
+    from commentator.services.tts import MacSayEngine, SpeechProgress
+
+    rendered: list[tuple[str, float]] = []
+    played: list[tuple[bytes, float, float]] = []
+
+    def render(text: str, settings: SpeechSettings, cancel: Event) -> bytes:
+        rendered.append((text, time.monotonic()))
+        time.sleep(0.05)
+        return f"aiff:{text}:{settings.rate}".encode()
+
+    def player(path: Path, volume: float, cancel: Event) -> bool:
+        played.append((path.read_bytes(), volume, time.monotonic()))
+        cancel.wait(0.1)
+        return not cancel.is_set()
+
+    comment = "あおいさん、出目は4！12マス目から16マス目へ進みます。ハシゴを登って38マス目！"
+    progress = SpeechProgress(comment)
+    engine = MacSayEngine(render=render, player=player)
+    assert engine.speak(comment, SpeechSettings(rate=230, volume=0.5), Event(), progress)
+    assert [text for text, _ in rendered] == [
+        "あおいさん、出目は4！", "12マス目から16マス目へ進みます。", "ハシゴを登って38マス目！",
+    ]
+    assert [audio for audio, _, _ in played] == [
+        f"aiff:{text}:230".encode() for text, _ in rendered
+    ]
+    assert all(volume == 0.5 for _, volume, _ in played)
+    # The second sentence was rendered while the first one was playing.
+    assert rendered[1][1] < played[0][2] + 0.1
+    assert progress.remaining == ""
