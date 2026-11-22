@@ -49,7 +49,8 @@ class FakeEngine:
     def voices(self) -> list[Voice]:
         return parse_voices(SAY_OUTPUT)
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
+    def speak(self, text: str, settings: SpeechSettings, cancel: Event,
+              progress: Any = None) -> bool:
         with self._lock:
             self.spoken.append((text, settings))
         self.started.set()

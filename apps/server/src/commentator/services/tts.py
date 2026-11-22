@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Condition, Event, Thread
 from time import monotonic
@@ -159,6 +159,32 @@ class SpeechSettingsStore:
         return settings
 
 
+class SpeechProgress:
+    """How far an engine got with a text, so the next voice can go on from there.
+
+    Engines call ``audio_started()`` right before playing audio and
+    ``spoken_through(end)`` after the audio of ``text[:end]`` finished playing.
+    Only the speech worker thread touches it.
+    """
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.first_audio_at: float | None = None  # monotonic time
+        self._spoken_end = 0
+
+    def audio_started(self) -> None:
+        if self.first_audio_at is None:
+            self.first_audio_at = monotonic()
+
+    def spoken_through(self, end: int) -> None:
+        self._spoken_end = max(self._spoken_end, min(end, len(self.text)))
+
+    @property
+    def remaining(self) -> str:
+        """The part not read yet (the whole text when nothing was finished)."""
+        return self.text[self._spoken_end:].strip()
+
+
 class TtsEngine(Protocol):
     name: str
 
@@ -166,8 +192,14 @@ class TtsEngine(Protocol):
 
     def voices(self) -> list[Voice]: ...
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
-        """Speak and block until done; return False when cancelled."""
+    def speak(
+        self, text: str, settings: SpeechSettings, cancel: Event,
+        progress: SpeechProgress | None = None,
+    ) -> bool:
+        """Speak and block until done; return False when cancelled.
+
+        ``progress`` (optional) is told when audio starts and how far it got.
+        """
         ...
 
 
@@ -182,8 +214,16 @@ class SilentTtsEngine:
     def voices(self) -> list[Voice]:
         return []
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
-        return not cancel.is_set()
+    def speak(
+        self, text: str, settings: SpeechSettings, cancel: Event,
+        progress: SpeechProgress | None = None,
+    ) -> bool:
+        if cancel.is_set():
+            return False
+        if progress is not None:
+            progress.audio_started()
+            progress.spoken_through(len(text))
+        return True
 
 
 _VOICE_LINE = re.compile(
@@ -225,7 +265,10 @@ class MacSayEngine:
             self._voices = parse_voices(result.stdout)
         return list(self._voices)
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
+    def speak(
+        self, text: str, settings: SpeechSettings, cancel: Event,
+        progress: SpeechProgress | None = None,
+    ) -> bool:
         with tempfile.TemporaryDirectory(prefix="commentator-tts-") as directory:
             text_path = Path(directory) / "text.txt"
             audio_path = Path(directory) / "speech.aiff"
@@ -237,9 +280,14 @@ class MacSayEngine:
                 render[1:1] = ["-r", str(settings.rate)]
             if not _run_cancellable(render, cancel):
                 return False
-            return _run_cancellable(
+            if progress is not None:
+                progress.audio_started()
+            played = _run_cancellable(
                 ["afplay", "-v", f"{settings.volume:.2f}", str(audio_path)], cancel
             )
+            if played and progress is not None:
+                progress.spoken_through(len(text))
+            return played
 
 
 def _run_cancellable(command: list[str], cancel: Event) -> bool:
@@ -266,6 +314,21 @@ def _run_cancellable(command: list[str], cancel: Event) -> bool:
     return True
 
 
+def voice_label(provider: str, settings: SpeechSettings) -> str:
+    """The voice a provider reads with, for the log (never user text)."""
+    if provider == "google":
+        return settings.google_voice
+    if provider == "gemini":
+        models = GEMINI_TTS_MODELS.get(settings.gemini_backend, ())
+        model = settings.gemini_model if settings.gemini_model in models else (
+            models[0] if models else settings.gemini_model
+        )
+        return f"{model}/{settings.gemini_voice}"
+    if provider == "macos":
+        return settings.voice or "default"
+    return provider
+
+
 def apply_readings(text: str, readings: dict[str, str]) -> str:
     """Replace display names with their readings, longest name first."""
     for name in sorted(readings, key=len, reverse=True):
@@ -282,6 +345,8 @@ class _SpeechJob:
     request_id: str | None = None
     turn_id: str | None = None
     settings: SpeechSettings | None = None  # preview may try unsaved settings
+    # When the comment became ready (or the preview was asked for); monotonic time.
+    created_at: float = field(default_factory=monotonic)
 
 
 class SpeechService:
@@ -434,6 +499,10 @@ class SpeechService:
         error: str | None = None
         completed = False
         tried: list[TtsEngine] = []
+        remaining = text  # what is still to be read; a fallback voice goes on from here
+        first_audio_at: float | None = None
+        spoken_by: list[str] = []  # provider of each voice that played audio
+        voices: list[str] = []
         for provider in (settings.provider, *FALLBACK_PROVIDERS.get(settings.provider, ())):
             engine = self.engine_for(provider)
             if engine in tried or cancel.is_set():
@@ -449,13 +518,15 @@ class SpeechService:
                                    "reason": f"retry in {waiting:.0f}s"})
                 continue
             tried.append(engine)
+            progress = SpeechProgress(remaining)
             try:
-                completed = engine.speak(text, settings, cancel)
+                completed = engine.speak(remaining, settings, cancel, progress)
                 if provider != settings.provider:
                     # The game goes on with the next voice; the comment is still read.
                     logger.warning("speech fell back", extra={
                         "event": "speech_fallback", "requestId": job.request_id,
-                        "provider": provider,
+                        "provider": provider, "voice": voice_label(provider, settings),
+                        "reason": "resumed mid-comment" if remaining != text else None,
                     })
                 error = None
                 break
@@ -468,11 +539,30 @@ class SpeechService:
                 logger.error("speech failed", exc_info=caught,
                              extra={"event": "speech_failed", "errorCode": "speech_failed",
                                     "requestId": job.request_id, "provider": provider,
+                                    "voice": voice_label(provider, settings),
                                     "reason": error})
+            finally:
+                if progress.first_audio_at is not None:
+                    if first_audio_at is None:
+                        first_audio_at = progress.first_audio_at
+                    spoken_by.append(provider)
+                    voices.append(voice_label(provider, settings))
+                remaining = progress.remaining
+            if not remaining:
+                # Failed after the last sentence was played: nothing is left to read.
+                completed, error = not cancel.is_set(), None
+                break
+        finished_at = monotonic()
         logger.info(
             "speech finished" if completed else "speech stopped",
             extra={"event": "speech_finished" if completed else "speech_cancelled",
-                   "requestId": job.request_id, "kind": job.kind},
+                   "requestId": job.request_id, "kind": job.kind,
+                   # e.g. "gemini>google" when WaveNet read the rest of the comment
+                   "provider": ">".join(spoken_by) or None,
+                   "voice": ">".join(voices) or None,
+                   "firstAudioMs": (round((first_audio_at - job.created_at) * 1000)
+                                    if first_audio_at is not None else None),
+                   "durationMs": round((finished_at - job.created_at) * 1000)},
         )
         with self._condition:
             self._speaking = None

@@ -165,7 +165,8 @@ class FailingEngine:
     def voices(self) -> list[Voice]:
         return []
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
+    def speak(self, text: str, settings: SpeechSettings, cancel: Event,
+              progress: Any = None) -> bool:
         raise GoogleTtsError("Google の読み上げに接続できませんでした")
 
 
@@ -181,7 +182,8 @@ class RecordingEngine:
     def voices(self) -> list[Voice]:
         return [Voice("Kyoko", "ja_JP", "こんにちは")]
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
+    def speak(self, text: str, settings: SpeechSettings, cancel: Event,
+              progress: Any = None) -> bool:
         self.spoken.append(text)
         return True
 
@@ -420,7 +422,8 @@ class LimitedEngine(FailingEngine):
     def __init__(self) -> None:
         self.calls = 0
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
+    def speak(self, text: str, settings: SpeechSettings, cancel: Event,
+              progress: Any = None) -> bool:
         self.calls += 1
         raise GoogleTtsError("上限", retry_after=60)
 
@@ -443,3 +446,64 @@ def test_fallback_goes_gemini_then_google_then_macos_and_skips_cooling_providers
         assert mac.spoken == []
     finally:
         service.stop()
+
+
+class FailOnSecondSentence(FakeTransport):
+    def __call__(self, method: str, url: str, body: dict[str, Any] | None,
+                 timeout: float) -> dict[str, Any]:
+        if body is not None and body["input"]["text"] != split_sentences(COMMENT)[0]:
+            self.calls.append({"method": method, "url": url, "body": body,
+                               "at": time.monotonic()})
+            raise GoogleTtsError("Gemini の読み上げに接続できませんでした")
+        return super().__call__(method, url, body, timeout)
+
+
+def test_progress_tracks_the_sentences_already_played() -> None:
+    from commentator.services.tts import SpeechProgress
+
+    gemini = GeminiTtsEngine(cloud_transport=FailOnSecondSentence(), player=FakePlayer(),
+                             cloud_present=lambda: True, key_present=lambda: False)
+    progress = SpeechProgress(COMMENT)
+    with pytest.raises(GoogleTtsError):
+        gemini.speak(COMMENT, SpeechSettings(provider="gemini"), Event(), progress)
+    assert progress.first_audio_at is not None
+    assert progress.remaining == "".join(split_sentences(COMMENT)[1:])
+
+
+def test_a_failure_mid_comment_goes_on_with_the_next_voice_from_that_sentence(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    gemini_player, google_player = FakePlayer(), FakePlayer()
+    gemini = GeminiTtsEngine(cloud_transport=FailOnSecondSentence(), player=gemini_player,
+                             cloud_present=lambda: True, key_present=lambda: False)
+    google = engine(FakeTransport(), google_player)
+    mac = RecordingEngine()
+    store = SpeechSettingsStore()
+    store.update({"provider": "gemini", "geminiModel": "gemini-2.5-flash-lite-preview-tts"})
+    service = SpeechService(engines={"gemini": gemini, "google": google, "macos": mac},
+                            settings=store)
+    caplog.set_level("INFO", logger="commentator.speech")
+    service.start()
+    try:
+        service.preview(COMMENT)
+        deadline = time.monotonic() + 2
+        while not any(getattr(r, "event", None) == "speech_finished" for r in caplog.records):
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
+    finally:
+        service.stop()
+    sentences = split_sentences(COMMENT)
+    assert [item[0].decode() for item in gemini_player.played] == [f"audio:{sentences[0]}"]
+    # WaveNet reads only the sentences Gemini did not get to, not the whole comment again.
+    assert [item[0].decode() for item in google_player.played] == [
+        f"audio:{sentence}" for sentence in sentences[1:]
+    ]
+    assert mac.spoken == []
+    finished = next(r for r in caplog.records if getattr(r, "event", None) == "speech_finished")
+    assert finished.provider == "gemini>google"  # type: ignore[attr-defined]
+    assert finished.voice == (  # type: ignore[attr-defined]
+        "gemini-2.5-flash-lite-preview-tts/Kore>ja-JP-Wavenet-B"
+    )
+    assert 0 <= finished.firstAudioMs <= finished.durationMs  # type: ignore[attr-defined]
+    fallback = next(r for r in caplog.records if getattr(r, "event", None) == "speech_fallback")
+    assert fallback.reason == "resumed mid-comment"  # type: ignore[attr-defined]

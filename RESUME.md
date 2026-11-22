@@ -1,6 +1,6 @@
 # 再開メモ
 
-最終更新: 2026-11-19（作業を中断した時点の状態）。次に作業を始めるときは、まずこのファイルを読む。
+最終更新: 2026-11-22（作業を中断した時点の状態）。次に作業を始めるときは、まずこのファイルを読む。
 詳しい経緯は [TODO.md](TODO.md)、設計は [ADR 0005](docs/decisions/0005-commentary-and-speech.md)（実況・読み上げ）と [ADR 0006](docs/decisions/0006-vlm-dice-reading.md)（サイコロの読み取り）にある。
 
 ## いまの状態
@@ -9,7 +9,8 @@
   - `de3fa5d` Google Cloud Text-to-Speech（WaveNet など）の追加
   - その次のコミット: Gemini の読み上げ（Gemini API 経由と Google Cloud 経由の切り替え、失敗時の切り替え順、
     上限エラー時の待機、ログへの失敗理由の記録）とこのメモ。テスト 472 件・型チェック・画面のビルドは通っている。
-  - 未コミットの変更はない。
+  - 未コミット（2026-11-22）: 途中で失敗したら続きの文から次の声で読む変更と、読み上げログへの
+    `firstAudioMs`（話し始めまでの時間）・`voice`（使った声）の追加。テスト 474 件・ruff・mypy は通っている。
   - `git stash` に1件: Cloud 経由 Gemini の最初の試作（APIキーでは動かず取りやめたもの）。不要なら `git stash drop`。
 - `main` は `4a9a481`（カメラ認識・VLM・トレー検出・調整ダイアログまで）。`google-tts` はまだマージしていない。
   GitHub（origin）への push もしていない。
@@ -37,10 +38,12 @@ Finder で `start.command` をダブルクリックしてもよい。秘密情�
 
 ## 次にやること（上から順に）
 
-1. 管理画面で Gemini のモデルを **`gemini-2.5-flash-lite-preview-tts`** に変える（今の設定は遅い `gemini-2.5-flash-tts`）。
-2. 読み上げの改善（コード）:
-   - 途中の文で失敗したら、**続きの文から** WaveNet で読む（今は最初から読み直してしまう）。
-   - ログに「話し始めまでの時間」と「どの声で読んだか」を記録する（今は読み終わりの時刻しか分からない）。
+1. ~~Gemini のモデルを `gemini-2.5-flash-lite-preview-tts` に変える~~（2026-11-22 済み。`var/speech-settings.json`）
+2. ~~読み上げの改善~~（2026-11-22 済み、未コミット）:
+   - 途中の文で失敗したら、続きの文から WaveNet で読む。
+   - ログの `speech_finished` に `firstAudioMs`・`voice`・`provider`・`durationMs` を記録する
+     （項目の意味は [docs/operations/logging.md](docs/operations/logging.md) の「読み上げのログ」）。
+   - 実機（Flash-Lite）での話し始めまでの時間はまだ測っていない。
 3. 実験で使う声を決める: 話し始めの速さなら WaveNet（約0.4秒）、表現なら Gemini Flash-Lite（1文2〜3秒）。
 4. `google-tts` を `main` にマージする（必要なら push）。
 5. ユーザースタディの準備:

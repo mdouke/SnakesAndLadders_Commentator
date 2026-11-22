@@ -39,7 +39,7 @@ from threading import Event, Lock
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .tts import SpeechSettings, Voice
+    from .tts import SpeechProgress, SpeechSettings, Voice
 
 API_ROOT = "https://texttospeech.googleapis.com/v1"
 KEY_ENV = "GOOGLE_TTS_API_KEY"
@@ -97,18 +97,33 @@ def _error_detail(raw: str) -> str:
     return message
 
 
+def sentence_spans(text: str) -> list[tuple[int, int]]:
+    """Where each sentence is in ``text``: split after 。！？, tiny pieces merged."""
+    pieces: list[tuple[int, int]] = []
+    for match in _SENTENCE.finditer(text):
+        piece = match.group()
+        stripped = piece.strip()
+        if stripped:
+            start = match.start() + piece.index(stripped)
+            pieces.append((start, start + len(stripped)))
+    merged: list[tuple[int, int]] = []
+    for start, end in pieces:
+        if merged and merged[-1][1] - merged[-1][0] < _MIN_SENTENCE:
+            merged[-1] = (merged[-1][0], end)
+        else:
+            merged.append((start, end))
+    if len(merged) > 1 and merged[-1][1] - merged[-1][0] < _MIN_SENTENCE:
+        last = merged.pop()
+        merged[-1] = (merged[-1][0], last[1])
+    if not merged and text.strip():
+        start = text.index(text.strip())
+        merged.append((start, start + len(text.strip())))
+    return merged
+
+
 def split_sentences(text: str) -> list[str]:
     """Split after 。！？ and merge pieces too short to be worth a request."""
-    pieces = [piece.strip() for piece in _SENTENCE.findall(text) if piece.strip()]
-    merged: list[str] = []
-    for piece in pieces:
-        if merged and len(merged[-1]) < _MIN_SENTENCE:
-            merged[-1] += piece
-        else:
-            merged.append(piece)
-    if len(merged) > 1 and len(merged[-1]) < _MIN_SENTENCE:
-        merged[-2] += merged.pop()
-    return merged or ([text.strip()] if text.strip() else [])
+    return [text[start:end] for start, end in sentence_spans(text)]
 
 
 Transport = Callable[[str, str, dict[str, Any] | None, float], dict[str, Any]]
@@ -257,12 +272,16 @@ class GoogleTtsEngine:
                 self._cache.popitem(last=False)
         return audio
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
+    def speak(
+        self, text: str, settings: SpeechSettings, cancel: Event,
+        progress: SpeechProgress | None = None,
+    ) -> bool:
         voice = settings.google_voice
         rate = settings.google_speaking_rate
         return _speak_sentences(
             text, lambda sentence: self.synthesize(sentence, voice, rate), suffix=".mp3",
             pool=self._pool, player=self._player, volume=settings.volume, cancel=cancel,
+            progress=progress,
         )
 
 
@@ -275,11 +294,17 @@ def _speak_sentences(
     player: Callable[[Path, float, Event], bool],
     volume: float,
     cancel: Event,
+    progress: SpeechProgress | None = None,
 ) -> bool:
-    """Play sentence by sentence while the next sentence is being synthesized."""
-    sentences = split_sentences(text)
-    if not sentences:
+    """Play sentence by sentence while the next sentence is being synthesized.
+
+    ``progress`` learns after each sentence how far the text was read, so when
+    a later sentence fails the next voice reads only the rest.
+    """
+    spans = sentence_spans(text)
+    if not spans:
         return not cancel.is_set()
+    sentences = [text[start:end] for start, end in spans]
     upcoming: Future[bytes] = pool.submit(fetch, sentences[0])
     with tempfile.TemporaryDirectory(prefix="commentator-tts-") as directory:
         for index in range(len(sentences)):
@@ -290,8 +315,12 @@ def _speak_sentences(
                 upcoming = pool.submit(fetch, sentences[index + 1])
             path = Path(directory) / f"part-{index}{suffix}"
             path.write_bytes(audio)
+            if progress is not None:
+                progress.audio_started()
             if not player(path, volume, cancel):
                 return False
+            if progress is not None:
+                progress.spoken_through(spans[index][1])
     return not cancel.is_set()
 
 
@@ -445,7 +474,10 @@ class GeminiTtsEngine:
                 self._cache.popitem(last=False)
         return audio
 
-    def speak(self, text: str, settings: SpeechSettings, cancel: Event) -> bool:
+    def speak(
+        self, text: str, settings: SpeechSettings, cancel: Event,
+        progress: SpeechProgress | None = None,
+    ) -> bool:
         from .tts import GEMINI_TTS_MODELS
 
         backend = settings.gemini_backend
@@ -457,7 +489,7 @@ class GeminiTtsEngine:
             text, lambda sentence: self.synthesize(sentence, model=model, voice=voice,
                                                    style=style, backend=backend),
             suffix=".mp3" if backend == "cloud" else ".wav", pool=self._pool,
-            player=self._player, volume=settings.volume, cancel=cancel,
+            player=self._player, volume=settings.volume, cancel=cancel, progress=progress,
         )
 
 

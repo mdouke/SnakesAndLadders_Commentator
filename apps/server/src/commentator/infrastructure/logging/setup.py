@@ -19,6 +19,8 @@ OPTIONAL_FIELDS = (
     "method", "path", "statusCode",
     # Failure reasons are our own messages (never user text or keys).
     "reason", "provider",
+    # Speech: the voice name/model used and the wait until audio started.
+    "voice", "firstAudioMs",
 )
 
 
