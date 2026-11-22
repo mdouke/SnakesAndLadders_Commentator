@@ -28,10 +28,9 @@ Finder で `start.command` をダブルクリックしてもよい。秘密情�
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude の実況、Claude でのサイコロ読み取り |
 | `GOOGLE_TTS_API_KEY` | Google Cloud の WaveNet など（`AIza` で始まる Cloud のキー） |
-| `GEMINI_API_KEY` | Gemini API 経由の Gemini 読み上げ（AI Studio のキー）。1日100回しか使えないので普段は使わない |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Google Cloud 経由の Gemini 読み上げ。`var/` に置いたサービスアカウントの鍵ファイル（JSON）のパス |
+| `GEMINI_API_KEY` | （2026-11-22 削除）Gemini API 経由の Gemini 読み上げ。1日100回しか使えない |
+| `GOOGLE_APPLICATION_CREDENTIALS` | （2026-11-22 削除）Google Cloud 経由の Gemini 読み上げ用の鍵ファイルのパス |
 
-- サービスアカウント `commentator-tts@sal-commentator.iam.gserviceaccount.com` にロール「Agent Platform ユーザー」を付与済み。
 - この Mac の Python は証明書の一覧を持たないため、HTTPS は certifi を使っている（`pyproject.toml` の依存に記載済み）。
 
 ## 次にやること（上から順に）
@@ -47,12 +46,13 @@ Finder で `start.command` をダブルクリックしてもよい。秘密情�
    話し始めることがあった（生成型のため）。Gemini の実装は残すが、実験では使わない。
 4. ~~`google-tts` を `main` にマージする~~（2026-11-22 済み。push はまだ）。
 5. ユーザースタディの準備:
-   - 同意書に、サイコロのトレーの画像を Anthropic に、実況の文（プレイヤー名を含む）を Google に送ることを書く。
-   - 実機で Claude のサイコロ読み取りとトレー自動検出を試す（TODO.md の Phase 6.5）。
-6. 後片付け（安全のため）:
-   - サービスアカウントの鍵ファイルを作り直し、古い鍵（ID `0cc8fd83...`）を削除する（スクリーンショットに一部が写ったため）。
-   - IAM にあるオーナー権限のサービスアカウント `snakesandladders-commentator@...` が不要なら削除する。
-   - 使わない Gemini API キー・紐づけた API キーを削除する。
+   - 項目は TODO.md の「ユーザースタディの準備」にまとめた（同意書に書く外部送信の内容、実機での確認）。
+6. ~~後片付け（安全のため）~~（2026-11-22 済み）:
+   - Google Cloud（`sal-commentator`）のサービスアカウントの鍵・紐づけた API キー・不要なサービスアカウント、
+     AI Studio の Gemini API キーを削除した（ユーザーが操作）。
+   - この Mac の鍵ファイルを削除し、`var/secrets.env` から `GEMINI_API_KEY` と `GOOGLE_APPLICATION_CREDENTIALS` を消した。
+   - 残したキーは `ANTHROPIC_API_KEY` と `GOOGLE_TTS_API_KEY` だけ。WaveNet が使えることを確かめた（1文 0.47秒）。
+   - Gemini の読み上げを再び使うには、サービスアカウントの鍵か Gemini API キーを作り直す必要がある。
 
 ## 測った値（2026-11-19、1文あたり音声ができるまで）
 
