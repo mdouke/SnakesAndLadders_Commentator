@@ -138,6 +138,7 @@ def prepared_service(
 
 
 def drive_candidate(service: RecognitionService, *, detector: float = 1.0) -> dict[str, Any]:
+    service.process_frame(FrameObservation(0, 0.0))  # the camera has settled after start
     service.process_frame(FrameObservation(0, 0.1))
     service.process_frame(FrameObservation(0, 0.0))
     return service.process_frame(FrameObservation(

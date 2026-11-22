@@ -123,7 +123,11 @@ class DiceRecognitionPipeline:
         if not self.tray.observe(search.crop(frame), search, (width, height), now=monotonic()):
             return
         self._previous_frame = None  # the crop changed; restart the motion baseline
-        if between_throws:
+        if between_throws and self.session.guarding_present_die:
+            # Positions inside the new crop differ: learn again where the die
+            # that was lying there at (re)start is.
+            self.session.ignore_present_dice()
+        elif between_throws:
             # Positions inside the new crop differ, so a die lying in the tray
             # must not look like a new throw.
             self.session.require_motion()

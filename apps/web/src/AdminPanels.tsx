@@ -101,10 +101,36 @@ function groupTimeline(game: GameState): Group[] {
   return groups.reverse().map((group) => ({ ...group, entries: [...group.entries].reverse() }));
 }
 
+const HISTORY_OPEN_KEY = "commentator.historyPanelOpen";
+
+function readHistoryOpen(): boolean {
+  try {
+    return window.localStorage.getItem(HISTORY_OPEN_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function saveHistoryOpen(open: boolean): void {
+  try {
+    window.localStorage.setItem(HISTORY_OPEN_KEY, String(open));
+  } catch {
+    // Remembering the toggle is a convenience only.
+  }
+}
+
+/** Shown next to the title so the folded panel still tells where the game is. */
+function historySummary(game: GameState): string {
+  const last = game.turns[game.turns.length - 1];
+  if (!last) return "まだ出目はありません";
+  return `${game.turns.length}回・最新 ${playerName(game, last.playerId)} 出目${last.roll}`;
+}
+
 export function HistoryPanel({ game, run, onError }: PanelProps) {
   const [operator, setOperator] = useState("");
   const [reason, setReason] = useState("");
   const [openTurn, setOpenTurn] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(readHistoryOpen);
   const [tool, setTool] = useState<"position" | "turn" | null>(null);
   const [positionPlayer, setPositionPlayer] = useState(game.players[0]?.id ?? "");
   const [position, setPosition] = useState(0);
@@ -215,8 +241,13 @@ export function HistoryPanel({ game, run, onError }: PanelProps) {
   }
 
   return (
-    <section className="panel controls history">
-      <h2>履歴と訂正</h2>
+    <details className="panel controls history" open={panelOpen}
+      onToggle={(event) => {
+        const open = (event.target as HTMLDetailsElement).open;
+        setPanelOpen(open);
+        saveHistoryOpen(open);
+      }}>
+      <summary>履歴と訂正<span className="muted">{historySummary(game)}</span></summary>
       {aborted ? (
         <p className="muted">中止したゲームは訂正できません。続ける場合は「中止を取り消して再開」を押してください。</p>
       ) : (
@@ -360,6 +391,6 @@ export function HistoryPanel({ game, run, onError }: PanelProps) {
           </div>
         </details>
       )}
-    </section>
+    </details>
   );
 }

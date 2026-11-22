@@ -105,6 +105,7 @@ def test_die_already_present_at_start_is_ignored_until_removed() -> None:
 def test_start_with_empty_tray_accepts_the_first_throw() -> None:
     table = Table()
     table.act("start")
+    table.feed(empty())  # motion counts once the picture is still after start
     snapshot = table.throw()
     assert table.turns == 1
     assert snapshot["lastConfirmation"] is not None
@@ -154,4 +155,40 @@ def test_throw_after_flicker_is_still_recognized() -> None:
     table.act("start")
     table.feed(still_die(), empty(), empty(), empty(), still_die())
     table.throw()
+    assert table.turns == 1
+
+
+def test_motion_while_the_camera_settles_does_not_read_the_present_die() -> None:
+    """Right after (re)start the camera adjusts its exposure: the picture changes
+    although nothing moved. The die lying there must not become a new throw."""
+    table = Table()
+    table.act("start")
+    snapshot = table.feed(moving(), still_die(), moving(), still_die(), still_die())
+    assert snapshot["state"] == "removal_wait"
+    assert table.turns == 0
+
+
+def test_present_die_is_not_read_after_motion_without_a_throw() -> None:
+    """A hand or a shadow passes over the tray; the die stays where it was."""
+    table = Table()
+    table.feed(still_die())
+    table.act("start")
+    table.feed(still_die(), still_die())
+    snapshot = table.feed(moving(), still_die(), still_die(), still_die())
+    assert snapshot["state"] == "removal_wait"
+    assert table.turns == 0
+    # A real throw lands somewhere else (or shows another value) and is read.
+    landed = FrameObservation(0, 0.0, detections=(DieObservation(2, 1.0, (60, 40)),),
+                              roi_diagonal=100)
+    table.feed(moving(), empty(), landed)
+    assert table.turns == 1
+
+
+def test_a_removed_die_may_land_on_the_same_spot_again() -> None:
+    table = Table()
+    table.feed(still_die())
+    table.act("start")
+    table.feed(still_die())
+    table.feed(moving(), empty(), empty())  # picked up: out of sight for over a second
+    table.throw()  # lands on the same spot with the same value
     assert table.turns == 1

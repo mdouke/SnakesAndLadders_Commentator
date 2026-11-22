@@ -167,6 +167,13 @@ def test_automatic_confirmation_broadcasts_recognition_and_game(
     http.post(f"/api/games/{game['id']}/start", json={"expectedStateVersion": 0})
     with http.websocket_connect("/ws") as ws:
         initial_messages(ws)
+        # The camera settles after start; the die-free tray waits for a throw.
+        service.process_frame(FrameObservation(0, 0.0))
+        receive_until(
+            ws,
+            lambda message: message["type"] == "recognition"
+            and message["payload"]["state"] == "removal_wait",
+        )
         service.process_frame(FrameObservation(0, 0.1))
         service.process_frame(FrameObservation(0, 0.0))
         service.process_frame(FrameObservation(
