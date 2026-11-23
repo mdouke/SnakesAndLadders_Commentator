@@ -1,0 +1,3873 @@
+{
+ "name": "seesaw-to-99",
+ "note": "2026-11-23 の試しプレイ。74回の出目、先頭が7回入れ替わる。ハシゴ10回・ヘビ10回、両者が87→24のヘビに落ちる。あおが99で止まったまま、おれんじがゴール。実況は v6・v7（長さ短め）が中心。",
+ "savedAt": "2026-11-23T12:47:44+00:00",
+ "sourceGameId": "23e2cc62-1053-4790-9b60-e47ebb33ca94",
+ "game": {
+  "id": "23e2cc62-1053-4790-9b60-e47ebb33ca94",
+  "board": {
+   "id": "standard",
+   "name": "標準盤面",
+   "goal": 100,
+   "jumps": [
+    {
+     "type": "snake",
+     "from": 98,
+     "to": 78
+    },
+    {
+     "type": "snake",
+     "from": 95,
+     "to": 75
+    },
+    {
+     "type": "snake",
+     "from": 93,
+     "to": 73
+    },
+    {
+     "type": "snake",
+     "from": 87,
+     "to": 24
+    },
+    {
+     "type": "snake",
+     "from": 64,
+     "to": 60
+    },
+    {
+     "type": "snake",
+     "from": 62,
+     "to": 19
+    },
+    {
+     "type": "snake",
+     "from": 56,
+     "to": 53
+    },
+    {
+     "type": "snake",
+     "from": 49,
+     "to": 11
+    },
+    {
+     "type": "snake",
+     "from": 48,
+     "to": 26
+    },
+    {
+     "type": "snake",
+     "from": 16,
+     "to": 6
+    },
+    {
+     "type": "ladder",
+     "from": 1,
+     "to": 38
+    },
+    {
+     "type": "ladder",
+     "from": 4,
+     "to": 14
+    },
+    {
+     "type": "ladder",
+     "from": 9,
+     "to": 31
+    },
+    {
+     "type": "ladder",
+     "from": 21,
+     "to": 42
+    },
+    {
+     "type": "ladder",
+     "from": 28,
+     "to": 84
+    },
+    {
+     "type": "ladder",
+     "from": 36,
+     "to": 44
+    },
+    {
+     "type": "ladder",
+     "from": 51,
+     "to": 67
+    },
+    {
+     "type": "ladder",
+     "from": 71,
+     "to": 91
+    },
+    {
+     "type": "ladder",
+     "from": 80,
+     "to": 100
+    }
+   ]
+  },
+  "players": [
+   {
+    "id": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "name": "あお",
+    "displayName": "あお",
+    "spokenName": "あお",
+    "color": "#2a78d6",
+    "position": 99,
+    "rank": 2,
+    "rankConfirmed": true,
+    "reachedGoal": false,
+    "reachedGoalAt": null,
+    "remainingSquares": 1,
+    "winningRolls": [
+     1
+    ],
+    "isCurrent": false,
+    "theoreticalMinimumRolls": 1,
+    "statistics": {
+     "rolls": [
+      5,
+      6,
+      5,
+      4,
+      4,
+      3,
+      2,
+      5,
+      6,
+      3,
+      3,
+      1,
+      3,
+      4,
+      6,
+      2,
+      5,
+      4,
+      4,
+      6,
+      5,
+      1,
+      5,
+      2,
+      5,
+      2,
+      5,
+      4,
+      6,
+      1,
+      6,
+      4,
+      1,
+      2,
+      3,
+      5,
+      6
+     ],
+     "faceCounts": {
+      "1": 4,
+      "2": 5,
+      "3": 5,
+      "4": 7,
+      "5": 9,
+      "6": 7
+     },
+     "averageRoll": 3.891891891891892,
+     "normalMovementTotal": 138,
+     "actualPositionChangeTotal": 341,
+     "overshootCount": 1,
+     "ladderCount": 7,
+     "ladderDistanceTotal": 96,
+     "snakeCount": 5,
+     "snakeDistanceTotal": 135,
+     "maximumPosition": 99
+    }
+   },
+   {
+    "id": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "name": "おれんじ",
+    "displayName": "おれんじ",
+    "spokenName": "おれんじ",
+    "color": "#eb6834",
+    "position": 100,
+    "rank": 1,
+    "rankConfirmed": true,
+    "reachedGoal": true,
+    "reachedGoalAt": "2026-11-23T12:44:00.824692+00:00",
+    "remainingSquares": 0,
+    "winningRolls": [],
+    "isCurrent": false,
+    "theoreticalMinimumRolls": 0,
+    "statistics": {
+     "rolls": [
+      4,
+      4,
+      1,
+      4,
+      3,
+      2,
+      5,
+      4,
+      4,
+      4,
+      1,
+      1,
+      3,
+      5,
+      4,
+      2,
+      6,
+      3,
+      4,
+      5,
+      6,
+      1,
+      5,
+      3,
+      4,
+      1,
+      6,
+      1,
+      5,
+      6,
+      3,
+      6,
+      5,
+      6,
+      6,
+      3,
+      5
+     ],
+     "faceCounts": {
+      "1": 6,
+      "2": 2,
+      "3": 6,
+      "4": 9,
+      "5": 7,
+      "6": 7
+     },
+     "averageRoll": 3.810810810810811,
+     "normalMovementTotal": 141,
+     "actualPositionChangeTotal": 310,
+     "overshootCount": 0,
+     "ladderCount": 3,
+     "ladderDistanceTotal": 86,
+     "snakeCount": 5,
+     "snakeDistanceTotal": 127,
+     "maximumPosition": 100
+    }
+   }
+  ],
+  "status": "completed",
+  "turns": [
+   {
+    "id": "4dcab2fe-e046-58f4-b4f6-4dfa468053dd",
+    "number": 1,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 0,
+    "normalPosition": 5,
+    "finalPosition": 5,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:07:15.830902+00:00",
+    "source": "automatic",
+    "confirmationId": "2a3a6ff7-9356-42bd-acc3-dcdc1a3d3ca2:1",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9139727117433152,
+     "valueStability": 0.75,
+     "stillness": 0.6499273382748166,
+     "positionStability": 0.9918634243859726,
+     "total": 0.8329631634643117,
+     "pipSizeConsistency": 0.927338782924614,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.04090048097708719
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 1,
+    "branchId": "main",
+    "stateVersionBefore": 1,
+    "stateVersionAfter": 2
+   },
+   {
+    "id": "d5eb94c0-cf92-573b-a4c3-c797e2e479df",
+    "number": 2,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 0,
+    "normalPosition": 4,
+    "finalPosition": 14,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:08:37.944901+00:00",
+    "source": "automatic",
+    "confirmationId": "3342d848-f188-4597-a14d-0d33ea82ca2e:1",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.8182293986452048,
+     "valueStability": 1.0,
+     "stillness": 0.8560992341178159,
+     "positionStability": 1.0,
+     "total": 0.8966181145080145,
+     "pipSizeConsistency": 0.956717763751127,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.03223855762065059
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 1,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 5,
+    "stateVersionAfter": 6
+   },
+   {
+    "id": "8f51c329-9808-5a06-bf9f-13a8b4fa7705",
+    "number": 3,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 6,
+    "before": 5,
+    "normalPosition": 11,
+    "finalPosition": 11,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:10:07.280399+00:00",
+    "source": "corrected",
+    "confirmationId": "3342d848-f188-4597-a14d-0d33ea82ca2e:2",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.927787869146916,
+     "valueStability": 0.75,
+     "stillness": 0.8350533423945308,
+     "positionStability": 1.0,
+     "total": 0.8677625424752918,
+     "pipSizeConsistency": 0.9428815004262574,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": true,
+     "pipRecounted": false,
+     "pipLayoutError": 1.5525509483505833
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 2,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 6,
+    "stateVersionAfter": 7
+   },
+   {
+    "id": "71a03c46-529b-5096-9216-8f059698c177",
+    "number": 4,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 14,
+    "normalPosition": 18,
+    "finalPosition": 18,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:12:12.851868+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:1",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.8118380067063091,
+     "valueStability": 1.0,
+     "stillness": 0.8080501100048423,
+     "positionStability": 0.9991221760828284,
+     "total": 0.8864468371268484,
+     "pipSizeConsistency": 0.8465306122448979,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.10599907101873075
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 2,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 9,
+    "stateVersionAfter": 10
+   },
+   {
+    "id": "15433139-4181-5ef2-a6cc-1829473d5eca",
+    "number": 5,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 11,
+    "normalPosition": 16,
+    "finalPosition": 6,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:12:41.044488+00:00",
+    "source": "reviewed",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:2",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9620956767773398,
+     "valueStability": 0.6,
+     "stillness": 0.6209399386619529,
+     "positionStability": 0.9958361155557501,
+     "total": 0.8056676569046709,
+     "pipSizeConsistency": 0.9134751773049646,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0076451622974384485
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 3,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 10,
+    "stateVersionAfter": 11
+   },
+   {
+    "id": "ae36e94a-2035-51b3-9bcb-99041f4319e1",
+    "number": 6,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 1,
+    "before": 18,
+    "normalPosition": 19,
+    "finalPosition": 19,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:13:00.733779+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:3",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.8732544469371016,
+     "valueStability": 1.0,
+     "stillness": 0.8019642313010991,
+     "positionStability": 1.0,
+     "total": 0.9132591358168606,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.11149217949093668,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 3,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 11,
+    "stateVersionAfter": 12
+   },
+   {
+    "id": "6774e27e-6363-5ee2-b153-a8a5433a9f46",
+    "number": 7,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 4,
+    "before": 6,
+    "normalPosition": 10,
+    "finalPosition": 10,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:13:54.401920+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:4",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.8336519078246599,
+     "valueStability": 1.0,
+     "stillness": 0.770772794727236,
+     "positionStability": 0.9977702678949065,
+     "total": 0.890536304519673,
+     "pipSizeConsistency": 0.9454545454545454,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.1142972413574619
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 4,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 12,
+    "stateVersionAfter": 13
+   },
+   {
+    "id": "e3b34eb6-8e1c-5add-9d15-ca58c01bf609",
+    "number": 8,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 19,
+    "normalPosition": 23,
+    "finalPosition": 23,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:14:28.209788+00:00",
+    "source": "reviewed",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:5",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.9197140036100633,
+     "valueStability": 0.6,
+     "stillness": 0.6434432454407215,
+     "positionStability": 0.9951898491287108,
+     "total": 0.7899067733535079,
+     "pipSizeConsistency": 0.9597989949748743,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.04761482434105051
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 4,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 13,
+    "stateVersionAfter": 14
+   },
+   {
+    "id": "0b7aaed8-6f24-5f70-89ac-2c48c39d77d8",
+    "number": 9,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 4,
+    "before": 10,
+    "normalPosition": 14,
+    "finalPosition": 14,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:14:53.971453+00:00",
+    "source": "reviewed",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:6",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.8802658273816214,
+     "valueStability": 0.75,
+     "stillness": 0.6642538734401265,
+     "positionStability": 0.9965017084572443,
+     "total": 0.8204078741834732,
+     "pipSizeConsistency": 0.9640776699029125,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.08428050814977638
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 5,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 14,
+    "stateVersionAfter": 15
+   },
+   {
+    "id": "7265eba9-a23e-50db-9e35-bf1ded7df5ea",
+    "number": 10,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 3,
+    "before": 23,
+    "normalPosition": 26,
+    "finalPosition": 26,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:15:13.500579+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:7",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.7978228141969718,
+     "valueStability": 1.0,
+     "stillness": 0.8584875836968422,
+     "positionStability": 0.9991254271143111,
+     "total": 0.8877059466545948,
+     "pipSizeConsistency": 0.985191637630662,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 5,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 15,
+    "stateVersionAfter": 16
+   },
+   {
+    "id": "75b32826-db32-5dea-b2b2-4be4c770e83e",
+    "number": 11,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 3,
+    "before": 14,
+    "normalPosition": 17,
+    "finalPosition": 17,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:15:34.848863+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:8",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.8538503873514748,
+     "valueStability": 1.0,
+     "stillness": 0.8493637385157248,
+     "positionStability": 1.0,
+     "total": 0.9116372350855224,
+     "pipSizeConsistency": 0.9514637904468413,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 6,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 16,
+    "stateVersionAfter": 17
+   },
+   {
+    "id": "33f2f1e8-c6cc-5b8e-a5ab-07bf2b24e19f",
+    "number": 12,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 2,
+    "before": 26,
+    "normalPosition": 28,
+    "finalPosition": 84,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "small_roll",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:15:52.241818+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:9",
+    "originalCandidate": 2,
+    "confidence": {
+     "detector": 0.8793464177309663,
+     "valueStability": 1.0,
+     "stillness": 0.730015293850253,
+     "positionStability": 0.996846682616518,
+     "total": 0.9048928503181246,
+     "pipSizeConsistency": 0.8365963855421686,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 2,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 6,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 17,
+    "stateVersionAfter": 18
+   },
+   {
+    "id": "9216ec36-bc40-52e7-bbe8-7da32123adfa",
+    "number": 13,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 2,
+    "before": 17,
+    "normalPosition": 19,
+    "finalPosition": 19,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:16:13.689201+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:10",
+    "originalCandidate": 2,
+    "confidence": {
+     "detector": 0.8396448747414652,
+     "valueStability": 1.0,
+     "stillness": 0.8500587729116281,
+     "positionStability": 1.0,
+     "total": 0.9053490095704035,
+     "pipSizeConsistency": 0.9655172413793104,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 2,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 7,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 18,
+    "stateVersionAfter": 19
+   },
+   {
+    "id": "673eecd2-1e4f-599b-8a06-5edb9745cf23",
+    "number": 14,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 5,
+    "before": 84,
+    "normalPosition": 89,
+    "finalPosition": 89,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:16:33.055852+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:11",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9445600430849078,
+     "valueStability": 0.75,
+     "stillness": 0.652095635732015,
+     "positionStability": 0.9964744839879512,
+     "total": 0.8475138131468058,
+     "pipSizeConsistency": 0.9409351927809679,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.014628619499658648
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 7,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 19,
+    "stateVersionAfter": 20
+   },
+   {
+    "id": "7b8889aa-0ecc-5bdc-8b58-a3da5eeb1ce2",
+    "number": 15,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 19,
+    "normalPosition": 24,
+    "finalPosition": 24,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:16:54.015007+00:00",
+    "source": "automatic",
+    "confirmationId": "089603a8-1b34-45d4-8fc5-7eade98f26a1:12",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9519116261809364,
+     "valueStability": 1.0,
+     "stillness": 0.7331434045918286,
+     "positionStability": 0.9972786596819598,
+     "total": 0.9380596084383916,
+     "pipSizeConsistency": 0.9258333333333333,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.01677257846358991
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 8,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 20,
+    "stateVersionAfter": 21
+   },
+   {
+    "id": "34614b02-b5cf-525a-95b2-79471e6bd0db",
+    "number": 16,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 89,
+    "normalPosition": 93,
+    "finalPosition": 73,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:21:17.039934+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:1",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.8834492116957239,
+     "valueStability": 1.0,
+     "stillness": 0.8270346045804521,
+     "positionStability": 0.9991237062137701,
+     "total": 0.9215197065715206,
+     "pipSizeConsistency": 0.9065934065934066,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.056346519177717866
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 8,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 23,
+    "stateVersionAfter": 24
+   },
+   {
+    "id": "08bf2f9f-b598-57a2-8a94-e97958674016",
+    "number": 17,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 6,
+    "before": 24,
+    "normalPosition": 30,
+    "finalPosition": 30,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:22:03.319796+00:00",
+    "source": "corrected",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:2",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9424000234307918,
+     "valueStability": 1.0,
+     "stillness": 0.7446432088812193,
+     "positionStability": 0.9972292268875753,
+     "total": 0.9354994145647968,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.23481464786957096,
+     "pipMergeSuspected": true,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 9,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 24,
+    "stateVersionAfter": 25
+   },
+   {
+    "id": "87476b5c-561f-5083-a246-cbfd28790892",
+    "number": 18,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 73,
+    "normalPosition": 77,
+    "finalPosition": 77,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:22:28.639940+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:3",
+    "originalCandidate": 4,
+    "confidence": null,
+    "recognition": {
+     "recognizer": "vlm",
+     "readingId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:reading:1",
+     "opencvCandidate": null,
+     "vlm": {
+      "diceCount": 1,
+      "value": 4,
+      "confidence": "high",
+      "note": "六角形のトレイ内に白いサイコロが1つ、上面は4つの目",
+      "model": "claude-sonnet-5-5",
+      "durationMs": 1444
+     },
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 9,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 25,
+    "stateVersionAfter": 26
+   },
+   {
+    "id": "17936db9-f50e-5348-a7b2-b1df42dd74ba",
+    "number": 19,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 3,
+    "before": 30,
+    "normalPosition": 33,
+    "finalPosition": 33,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:23:01.381121+00:00",
+    "source": "manual",
+    "confirmationId": null,
+    "originalCandidate": null,
+    "confidence": null,
+    "recognition": null,
+    "correctedFrom": null,
+    "round": 10,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 26,
+    "stateVersionAfter": 27
+   },
+   {
+    "id": "5e307da3-a05c-51ec-94ec-4f27b3ae2ba6",
+    "number": 20,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 77,
+    "normalPosition": 81,
+    "finalPosition": 81,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:23:23.928232+00:00",
+    "source": "reviewed",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:5",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.9384990612277665,
+     "valueStability": 0.6,
+     "stillness": 0.711534819410493,
+     "positionStability": 0.9968408325886878,
+     "total": 0.8087388837229377,
+     "pipSizeConsistency": 0.878016960208741,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.04336654119166699
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 10,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 27,
+    "stateVersionAfter": 28
+   },
+   {
+    "id": "6d062126-0d9d-5ea5-a54d-3853d5922017",
+    "number": 21,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 3,
+    "before": 33,
+    "normalPosition": 36,
+    "finalPosition": 44,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:23:44.815386+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:6",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.9050828931961846,
+     "valueStability": 1.0,
+     "stillness": 0.8192413477227092,
+     "positionStability": 1.0,
+     "total": 0.9301735040966894,
+     "pipSizeConsistency": 0.980046047582502,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 11,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 28,
+    "stateVersionAfter": 29
+   },
+   {
+    "id": "12e5d5f7-b57c-5704-a486-973033c6c9f4",
+    "number": 22,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 1,
+    "before": 81,
+    "normalPosition": 82,
+    "finalPosition": 82,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:24:03.650415+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:7",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9248729185263804,
+     "valueStability": 1.0,
+     "stillness": 0.7207884870780011,
+     "positionStability": 0.9980480102230278,
+     "total": 0.9241158874208741,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.15911043340811618,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 11,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 29,
+    "stateVersionAfter": 30
+   },
+   {
+    "id": "2a67bef4-c3ba-5c56-ad96-a962cd2459a5",
+    "number": 23,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 1,
+    "before": 44,
+    "normalPosition": 45,
+    "finalPosition": 45,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:24:23.820574+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:8",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9599401448684673,
+     "valueStability": 1.0,
+     "stillness": 0.8628532552781204,
+     "positionStability": 1.0,
+     "total": 0.9614010534825284,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.07078729793027273,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 12,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 30,
+    "stateVersionAfter": 31
+   },
+   {
+    "id": "8aec264f-aef8-5f52-9e27-1045e9601108",
+    "number": 24,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 1,
+    "before": 82,
+    "normalPosition": 83,
+    "finalPosition": 83,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:24:45.133290+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:9",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9511052473036461,
+     "valueStability": 1.0,
+     "stillness": 0.7000954230315983,
+     "positionStability": 0.9966002320602396,
+     "total": 0.9326716979474045,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.03245257089070373,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 12,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 31,
+    "stateVersionAfter": 32
+   },
+   {
+    "id": "72adde2f-ad62-53a4-be07-d41a1199f3a0",
+    "number": 25,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 3,
+    "before": 45,
+    "normalPosition": 48,
+    "finalPosition": 26,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:25:09.089994+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:10",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.9632418301304382,
+     "valueStability": 1.0,
+     "stillness": 0.8802597285248339,
+     "positionStability": 0.9991294086409943,
+     "total": 0.9654107237015217,
+     "pipSizeConsistency": 0.9544015199493351,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 13,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 32,
+    "stateVersionAfter": 33
+   },
+   {
+    "id": "ae017603-fbe4-5889-b2b3-7898f7cb75b0",
+    "number": 26,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 3,
+    "before": 83,
+    "normalPosition": 86,
+    "finalPosition": 86,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:25:29.422032+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:11",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.9504714766209507,
+     "valueStability": 1.0,
+     "stillness": 0.7449596567700306,
+     "positionStability": 0.9963063936784283,
+     "total": 0.9390867523627753,
+     "pipSizeConsistency": 0.9729180771834801,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 13,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 33,
+    "stateVersionAfter": 34
+   },
+   {
+    "id": "563b89f3-0183-5973-84ee-5ad378a11ced",
+    "number": 27,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 4,
+    "before": 26,
+    "normalPosition": 30,
+    "finalPosition": 30,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:25:50.738814+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:12",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.9462262207465423,
+     "valueStability": 0.8,
+     "stillness": 0.6971664950251579,
+     "positionStability": 0.9779033841312829,
+     "total": 0.868167112002846,
+     "pipSizeConsistency": 0.9629156010230178,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.026984795298699276
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 14,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 34,
+    "stateVersionAfter": 35
+   },
+   {
+    "id": "cf21947b-1fae-588f-8cf5-a8e323a59a15",
+    "number": 28,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 5,
+    "before": 86,
+    "normalPosition": 91,
+    "finalPosition": 91,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:26:13.670327+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:13",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9089944965250396,
+     "valueStability": 1.0,
+     "stillness": 0.7394973101715246,
+     "positionStability": 0.9987689364442974,
+     "total": 0.9198490136064263,
+     "pipSizeConsistency": 0.9241635687732342,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.01374253768364311
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 14,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 35,
+    "stateVersionAfter": 36
+   },
+   {
+    "id": "9f91268e-463e-5445-9047-0675c02d3536",
+    "number": 29,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 6,
+    "before": 30,
+    "normalPosition": 36,
+    "finalPosition": 44,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:26:36.211785+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:14",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.92852259186256,
+     "valueStability": 1.0,
+     "stillness": 0.8506678928000232,
+     "positionStability": 0.9991364334477233,
+     "total": 0.9453489936029279,
+     "pipSizeConsistency": 0.8784530386740331,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.04949928142719121
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 15,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 36,
+    "stateVersionAfter": 37
+   },
+   {
+    "id": "28e29a7c-4573-5c55-bdc4-eff04c94847c",
+    "number": 30,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 91,
+    "normalPosition": 95,
+    "finalPosition": 75,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:26:59.639704+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:15",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.9377686969468707,
+     "valueStability": 1.0,
+     "stillness": 0.6553593315184116,
+     "positionStability": 0.9986345813918335,
+     "total": 0.920163271493037,
+     "pipSizeConsistency": 0.9286713286713286,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0306977424791737
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 15,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 37,
+    "stateVersionAfter": 38
+   },
+   {
+    "id": "198a2a3a-4261-510c-9877-7d8876a99c64",
+    "number": 31,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 2,
+    "before": 44,
+    "normalPosition": 46,
+    "finalPosition": 46,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:27:21.651126+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:16",
+    "originalCandidate": 2,
+    "confidence": {
+     "detector": 0.9142280248950968,
+     "valueStability": 1.0,
+     "stillness": 0.8338701397490998,
+     "positionStability": 1.0,
+     "total": 0.9364831321651585,
+     "pipSizeConsistency": 0.9620362381363244,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 2,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 16,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 38,
+    "stateVersionAfter": 39
+   },
+   {
+    "id": "59d5ef72-e124-5210-97d5-887bc4e11d1c",
+    "number": 32,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 2,
+    "before": 75,
+    "normalPosition": 77,
+    "finalPosition": 77,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:27:52.977214+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:17",
+    "originalCandidate": 2,
+    "confidence": {
+     "detector": 0.905589430527883,
+     "valueStability": 1.0,
+     "stillness": 0.8208456323482096,
+     "positionStability": 1.0,
+     "total": 0.9306420885897788,
+     "pipSizeConsistency": 0.9991666666666666,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 2,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 16,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 39,
+    "stateVersionAfter": 40
+   },
+   {
+    "id": "2202e748-4ca3-5700-a487-0169cdc68950",
+    "number": 33,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 46,
+    "normalPosition": 51,
+    "finalPosition": 67,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:28:13.891323+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:18",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9246297104487743,
+     "valueStability": 1.0,
+     "stillness": 0.5508118299767375,
+     "positionStability": 0.9883815637027495,
+     "total": 0.897543300568734,
+     "pipSizeConsistency": 0.8851454823889741,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.013359173287179494
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 17,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 40,
+    "stateVersionAfter": 41
+   },
+   {
+    "id": "9820de98-8fe6-5ae0-b369-b852cc99aeba",
+    "number": 34,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 6,
+    "before": 77,
+    "normalPosition": 83,
+    "finalPosition": 83,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:28:39.464643+00:00",
+    "source": "reviewed",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:19",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.8740491401215218,
+     "valueStability": 0.6,
+     "stillness": 0.8479389275113741,
+     "positionStability": 1.0,
+     "total": 0.800512952181391,
+     "pipSizeConsistency": 0.9596700274977086,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.05563263350070694
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 17,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 41,
+    "stateVersionAfter": 42
+   },
+   {
+    "id": "ebf09a5a-a0b0-5e6e-b6c8-efad43ff2781",
+    "number": 35,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 4,
+    "before": 67,
+    "normalPosition": 71,
+    "finalPosition": 91,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:28:58.739050+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:20",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.820514558956455,
+     "valueStability": 1.0,
+     "stillness": 0.7603719394343594,
+     "positionStability": 0.9987786074491889,
+     "total": 0.8831652031904776,
+     "pipSizeConsistency": 0.9522691705790298,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.07937288602500052
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 18,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 42,
+    "stateVersionAfter": 43
+   },
+   {
+    "id": "e27af633-6fe4-571b-97cf-42b993097c56",
+    "number": 36,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 3,
+    "before": 83,
+    "normalPosition": 86,
+    "finalPosition": 86,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:29:19.434707+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:21",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.8763816006848327,
+     "valueStability": 1.0,
+     "stillness": 0.6881155724016329,
+     "positionStability": 0.9964417903790985,
+     "total": 0.8972332352063296,
+     "pipSizeConsistency": 0.9425587467362925,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 18,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 43,
+    "stateVersionAfter": 44
+   },
+   {
+    "id": "772205b4-f516-5caf-9f6e-330bc2b69735",
+    "number": 37,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 4,
+    "before": 91,
+    "normalPosition": 95,
+    "finalPosition": 75,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:29:38.700284+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:22",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.8256815960114826,
+     "valueStability": 1.0,
+     "stillness": 0.7613195252294341,
+     "positionStability": 0.9991370074055844,
+     "total": 0.8856683477301408,
+     "pipSizeConsistency": 0.9301919720767888,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.09500014898324617
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 19,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 44,
+    "stateVersionAfter": 45
+   },
+   {
+    "id": "8c63e318-9a10-559f-a66e-fa868b528cd3",
+    "number": 38,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 86,
+    "normalPosition": 90,
+    "finalPosition": 90,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:30:06.574243+00:00",
+    "source": "corrected",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:23",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.8369795226270981,
+     "valueStability": 0.6,
+     "stillness": 0.8685668028580645,
+     "positionStability": 1.0,
+     "total": 0.7869258056109039,
+     "pipSizeConsistency": 0.6888604353393086,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.072866584703841
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 19,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 45,
+    "stateVersionAfter": 46
+   },
+   {
+    "id": "6d3fc4b6-f6d1-5795-b6b7-d60c4b2d5dad",
+    "number": 39,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 6,
+    "before": 75,
+    "normalPosition": 81,
+    "finalPosition": 81,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:30:34.460185+00:00",
+    "source": "corrected",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:24",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.8452631467421852,
+     "valueStability": 1.0,
+     "stillness": 0.7812183457426727,
+     "positionStability": 0.9987945481058575,
+     "total": 0.8974306227059701,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.26265694150286106,
+     "pipMergeSuspected": true,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 20,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 46,
+    "stateVersionAfter": 47
+   },
+   {
+    "id": "aa941285-0b6e-5281-be50-c698ff5702dc",
+    "number": 40,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 5,
+    "before": 90,
+    "normalPosition": 95,
+    "finalPosition": 75,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:30:50.578219+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:25",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9067424471819078,
+     "valueStability": 1.0,
+     "stillness": 0.6525496477261186,
+     "positionStability": 0.9939426791983117,
+     "total": 0.9053108163106075,
+     "pipSizeConsistency": 0.9408284023668639,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.032872291891483815
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 20,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 47,
+    "stateVersionAfter": 48
+   },
+   {
+    "id": "c7940e05-2847-5435-9d9c-fd9406031fa9",
+    "number": 41,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 81,
+    "normalPosition": 86,
+    "finalPosition": 86,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:31:10.383183+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:26",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9249660533821847,
+     "valueStability": 0.8,
+     "stillness": 0.6258835104526952,
+     "positionStability": 0.98477408498,
+     "total": 0.8485946590878874,
+     "pipSizeConsistency": 0.8966666666666666,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.02329535391658659
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 21,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 48,
+    "stateVersionAfter": 49
+   },
+   {
+    "id": "b24b0bdb-739f-5f39-8415-09efb0a0eac0",
+    "number": 42,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 6,
+    "before": 75,
+    "normalPosition": 81,
+    "finalPosition": 81,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:31:35.610823+00:00",
+    "source": "corrected",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:27",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.9345811308854683,
+     "valueStability": 1.0,
+     "stillness": 0.8633898794651031,
+     "positionStability": 1.0,
+     "total": 0.9500699908182262,
+     "pipSizeConsistency": 0.9472,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": true,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 21,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 49,
+    "stateVersionAfter": 50
+   },
+   {
+    "id": "b419b9bf-c6d6-5e0e-a66c-e2e333a92574",
+    "number": 43,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 1,
+    "before": 86,
+    "normalPosition": 87,
+    "finalPosition": 24,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "small_roll",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:31:54.465093+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:28",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.902838389563691,
+     "valueStability": 1.0,
+     "stillness": 0.8732960588919619,
+     "positionStability": 1.0,
+     "total": 0.9372716841374553,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.02708321961919079,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 22,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 50,
+    "stateVersionAfter": 51
+   },
+   {
+    "id": "92db72a1-3264-5dad-8111-97947be77dcf",
+    "number": 44,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 1,
+    "before": 81,
+    "normalPosition": 82,
+    "finalPosition": 82,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:32:15.781013+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:29",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9000815219547332,
+     "valueStability": 1.0,
+     "stillness": 0.6949758497066796,
+     "positionStability": 0.992704653721745,
+     "total": 0.9085535277078064,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.16367859615959843,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 22,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 51,
+    "stateVersionAfter": 52
+   },
+   {
+    "id": "d1ee2fe2-afe2-5147-b690-bedeae1ef125",
+    "number": 45,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 24,
+    "normalPosition": 29,
+    "finalPosition": 29,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:32:42.546046+00:00",
+    "source": "reviewed",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:30",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.7744479511176561,
+     "valueStability": 0.75,
+     "stillness": 0.7497683041729033,
+     "positionStability": 0.998794646624617,
+     "total": 0.7858462882913424,
+     "pipSizeConsistency": 0.8769874476987447,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.07429283245618161
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 23,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 52,
+    "stateVersionAfter": 53
+   },
+   {
+    "id": "067f9a3b-b290-5065-ae29-9a373a094ab9",
+    "number": 46,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 5,
+    "before": 82,
+    "normalPosition": 87,
+    "finalPosition": 24,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:33:03.301225+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:31",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9325830488192531,
+     "valueStability": 0.75,
+     "stillness": 0.6874635495866338,
+     "positionStability": 0.9963839398738509,
+     "total": 0.8474202983940441,
+     "pipSizeConsistency": 0.9228321400159109,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0524502024654392
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 23,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 53,
+    "stateVersionAfter": 54
+   },
+   {
+    "id": "2b83b585-940e-5d3e-86dc-bc88a7ec6462",
+    "number": 47,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 2,
+    "before": 29,
+    "normalPosition": 31,
+    "finalPosition": 31,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:33:27.327540+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:32",
+    "originalCandidate": 2,
+    "confidence": {
+     "detector": 0.8352096431627016,
+     "valueStability": 1.0,
+     "stillness": 0.7571269127850732,
+     "positionStability": 0.997589293249234,
+     "total": 0.8891723056659001,
+     "pipSizeConsistency": 0.995085995085995,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 2,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 24,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 54,
+    "stateVersionAfter": 55
+   },
+   {
+    "id": "096880df-4231-5be8-afed-3de9b811c84c",
+    "number": 48,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 3,
+    "before": 24,
+    "normalPosition": 27,
+    "finalPosition": 27,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:33:48.353478+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:33",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.9440803969377249,
+     "valueStability": 0.75,
+     "stillness": 0.783270941892018,
+     "positionStability": 0.9981919699369255,
+     "total": 0.8671460168994715,
+     "pipSizeConsistency": 0.9583613163196776,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 24,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 55,
+    "stateVersionAfter": 56
+   },
+   {
+    "id": "5d825207-e1cb-5f50-a230-b37b05c57406",
+    "number": 49,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 31,
+    "normalPosition": 36,
+    "finalPosition": 44,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:34:09.301589+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:34",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9588295635743479,
+     "valueStability": 0.75,
+     "stillness": 0.6847127797082067,
+     "positionStability": 0.9982953729090811,
+     "total": 0.8590097578555956,
+     "pipSizeConsistency": 0.9199726402188783,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.026960346335211306
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 25,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 56,
+    "stateVersionAfter": 57
+   },
+   {
+    "id": "fb34ca5a-d40b-5e05-a47b-3f1522157396",
+    "number": 50,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 4,
+    "before": 27,
+    "normalPosition": 31,
+    "finalPosition": 31,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:34:29.597655+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:35",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.8929248342056212,
+     "valueStability": 1.0,
+     "stillness": 0.8788107691022257,
+     "positionStability": 1.0,
+     "total": 0.9336377907578635,
+     "pipSizeConsistency": 0.8979999999999999,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.05737123069536717
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 25,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 57,
+    "stateVersionAfter": 58
+   },
+   {
+    "id": "e1f344c9-9d82-5024-b173-e4b74689ca50",
+    "number": 51,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 2,
+    "before": 44,
+    "normalPosition": 46,
+    "finalPosition": 46,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:34:47.152695+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:36",
+    "originalCandidate": 2,
+    "confidence": {
+     "detector": 0.9163473696084568,
+     "valueStability": 1.0,
+     "stillness": 0.8643951180080572,
+     "positionStability": 1.0,
+     "total": 0.9420155840250142,
+     "pipSizeConsistency": 0.9653751030502885,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 2,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 26,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 58,
+    "stateVersionAfter": 59
+   },
+   {
+    "id": "efa002fb-3796-503e-bbb5-e26434824ec0",
+    "number": 52,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 1,
+    "before": 31,
+    "normalPosition": 32,
+    "finalPosition": 32,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:35:54.809287+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:37",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.8404038158220537,
+     "valueStability": 1.0,
+     "stillness": 0.8362896226656934,
+     "positionStability": 1.0,
+     "total": 0.9036251605197781,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.13725631862446758,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 26,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 59,
+    "stateVersionAfter": 60
+   },
+   {
+    "id": "d148d212-0e6f-5238-bc77-bc7444bd2dda",
+    "number": 53,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 46,
+    "normalPosition": 51,
+    "finalPosition": 67,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:36:22.430872+00:00",
+    "source": "reviewed",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:38",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9227131448412011,
+     "valueStability": 0.6,
+     "stillness": 0.727276157742987,
+     "positionStability": 0.9975872160167558,
+     "total": 0.8040710604416643,
+     "pipSizeConsistency": 0.8948247078464107,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.014915665118106939
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 27,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 60,
+    "stateVersionAfter": 61
+   },
+   {
+    "id": "1a6da8f6-1f0d-55ce-96d7-6c267237c211",
+    "number": 54,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 6,
+    "before": 32,
+    "normalPosition": 38,
+    "finalPosition": 38,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:36:43.244676+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:39",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.8682289459655741,
+     "valueStability": 1.0,
+     "stillness": 0.8539884031439821,
+     "positionStability": 1.0,
+     "total": 0.9188012861561057,
+     "pipSizeConsistency": 0.862124898621249,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.04851429294596363
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 27,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 61,
+    "stateVersionAfter": 62
+   },
+   {
+    "id": "b906f5f0-c079-5547-87a5-5250a2aca53c",
+    "number": 55,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 4,
+    "before": 67,
+    "normalPosition": 71,
+    "finalPosition": 91,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "ladder"
+    ],
+    "occurredAt": "2026-11-23T12:37:03.638741+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:40",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.9237255049828188,
+     "valueStability": 1.0,
+     "stillness": 0.37479474271337193,
+     "positionStability": 0.9794576671932574,
+     "total": 0.8698414553686,
+     "pipSizeConsistency": 0.9377990430622009,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.014083676565818505
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 28,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 62,
+    "stateVersionAfter": 63
+   },
+   {
+    "id": "b580a552-6e6c-5058-912f-d30778da59b6",
+    "number": 56,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 1,
+    "before": 38,
+    "normalPosition": 39,
+    "finalPosition": 39,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:37:22.252765+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:41",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9137983467705446,
+     "valueStability": 1.0,
+     "stillness": 0.62541782297194,
+     "positionStability": 0.9897482825796914,
+     "total": 0.9039967577505053,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.1436819020382752,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 28,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 63,
+    "stateVersionAfter": 64
+   },
+   {
+    "id": "65c2ad1e-db7d-547e-ad41-2b59a61f1af4",
+    "number": 57,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 6,
+    "before": 91,
+    "normalPosition": 97,
+    "finalPosition": 97,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll",
+     "near_goal"
+    ],
+    "occurredAt": "2026-11-23T12:37:49.839013+00:00",
+    "source": "corrected",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:42",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9221067062956338,
+     "valueStability": 1.0,
+     "stillness": 0.86693646836405,
+     "positionStability": 1.0,
+     "total": 0.9449884880876427,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.16504095340461636,
+     "pipMergeSuspected": true,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 29,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 64,
+    "stateVersionAfter": 65
+   },
+   {
+    "id": "d992c894-f32f-5c49-a57f-2de5b9311c0e",
+    "number": 58,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 5,
+    "before": 39,
+    "normalPosition": 44,
+    "finalPosition": 44,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:38:17.104509+00:00",
+    "source": "reviewed",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:43",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9366060519822476,
+     "valueStability": 0.6,
+     "stillness": 0.754953485292693,
+     "positionStability": 0.9973052147618046,
+     "total": 0.8144462676620958,
+     "pipSizeConsistency": 0.9479768786127167,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.017546669102941035
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 29,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 65,
+    "stateVersionAfter": 66
+   },
+   {
+    "id": "67f4d725-e706-5641-b9bf-a81d3524c1c5",
+    "number": 59,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 1,
+    "before": 97,
+    "normalPosition": 98,
+    "finalPosition": 78,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "small_roll",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:38:35.314845+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:44",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9065259379126677,
+     "valueStability": 1.0,
+     "stillness": 0.8004541305514673,
+     "positionStability": 0.9991471824039646,
+     "total": 0.927919509883817,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.10545093047403568,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 30,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 66,
+    "stateVersionAfter": 67
+   },
+   {
+    "id": "1da6fc06-9248-5797-b427-2c6044c4ad44",
+    "number": 60,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 6,
+    "before": 44,
+    "normalPosition": 50,
+    "finalPosition": 50,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:39:03.013053+00:00",
+    "source": "corrected",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:45",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.8675511988801717,
+     "valueStability": 1.0,
+     "stillness": 0.8526763364983102,
+     "positionStability": 0.9991427053007694,
+     "total": 0.9182137605009008,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.21251283217793515,
+     "pipMergeSuspected": true,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 30,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 67,
+    "stateVersionAfter": 68
+   },
+   {
+    "id": "d3d2079d-3fe5-594a-a2aa-4e57225bceef",
+    "number": 61,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 6,
+    "before": 78,
+    "normalPosition": 84,
+    "finalPosition": 84,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:39:20.227873+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:46",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.9449611473377381,
+     "valueStability": 1.0,
+     "stillness": 0.7756721762319406,
+     "positionStability": 0.999041515387885,
+     "total": 0.9414874942755618,
+     "pipSizeConsistency": 0.9288922155688624,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.02749920495728612
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 31,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 68,
+    "stateVersionAfter": 69
+   },
+   {
+    "id": "2d97d731-f72b-5382-a20d-7ae1bc397a48",
+    "number": 62,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 3,
+    "before": 50,
+    "normalPosition": 53,
+    "finalPosition": 53,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:39:42.095114+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:47",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.9381111234528827,
+     "valueStability": 1.0,
+     "stillness": 0.8432172501149277,
+     "positionStability": 1.0,
+     "total": 0.9486325930710364,
+     "pipSizeConsistency": 0.9659090909090909,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 31,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 69,
+    "stateVersionAfter": 70
+   },
+   {
+    "id": "9b3fcb10-d3f0-567f-94a9-d2843ee19ac8",
+    "number": 63,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 4,
+    "before": 84,
+    "normalPosition": 88,
+    "finalPosition": 88,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:40:03.527576+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:48",
+    "originalCandidate": 4,
+    "confidence": {
+     "detector": 0.7903980265320799,
+     "valueStability": 1.0,
+     "stillness": 0.7192905439684788,
+     "positionStability": 0.9980799516522667,
+     "total": 0.8633806886999345,
+     "pipSizeConsistency": 0.9279141104294478,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.09364409997729221
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 4,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 32,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 70,
+    "stateVersionAfter": 71
+   },
+   {
+    "id": "306de6c9-a714-5c38-b3b0-2a3802e70378",
+    "number": 64,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 6,
+    "before": 53,
+    "normalPosition": 59,
+    "finalPosition": 59,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:40:22.365294+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:49",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.9437461203946221,
+     "valueStability": 1.0,
+     "stillness": 0.854228354524821,
+     "positionStability": 1.0,
+     "total": 0.9528200073563031,
+     "pipSizeConsistency": 0.8879202988792031,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.026783427342204038
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 32,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 71,
+    "stateVersionAfter": 72
+   },
+   {
+    "id": "6a56230e-1135-5629-9605-974516c6b047",
+    "number": 65,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 1,
+    "before": 88,
+    "normalPosition": 89,
+    "finalPosition": 89,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:40:43.649127+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:50",
+    "originalCandidate": 1,
+    "confidence": {
+     "detector": 0.9393320738896845,
+     "valueStability": 1.0,
+     "stillness": 0.5700799704839786,
+     "positionStability": 0.9873740996820238,
+     "total": 0.9069488387911572,
+     "pipSizeConsistency": 1.0,
+     "singlePipCenterOffset": 0.10139178363335624,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 1,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 33,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 72,
+    "stateVersionAfter": 73
+   },
+   {
+    "id": "f00512af-7087-50d3-b268-53044031c0fb",
+    "number": 66,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 5,
+    "before": 59,
+    "normalPosition": 64,
+    "finalPosition": 60,
+    "overshoot": false,
+    "jumpType": "snake",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "snake"
+    ],
+    "occurredAt": "2026-11-23T12:41:05.401131+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:51",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9229909809731938,
+     "valueStability": 1.0,
+     "stillness": 0.7021959473689398,
+     "positionStability": 0.9991449392807092,
+     "total": 0.9205898274713491,
+     "pipSizeConsistency": 0.8386824324324323,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.04041444080505434
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 33,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 73,
+    "stateVersionAfter": 74
+   },
+   {
+    "id": "b11e4f64-7d3c-572a-addc-b90750e1a8d5",
+    "number": 67,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 2,
+    "before": 89,
+    "normalPosition": 91,
+    "finalPosition": 91,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "small_roll"
+    ],
+    "occurredAt": "2026-11-23T12:41:28.040575+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:52",
+    "originalCandidate": 2,
+    "confidence": {
+     "detector": 0.9204642698235901,
+     "valueStability": 1.0,
+     "stillness": 0.7168451625232896,
+     "positionStability": 0.9964744943380476,
+     "total": 0.9213831452329138,
+     "pipSizeConsistency": 0.8503679476696648,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 2,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 34,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 74,
+    "stateVersionAfter": 75
+   },
+   {
+    "id": "d4684945-d405-5041-b057-f511621cb4d2",
+    "number": 68,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 6,
+    "before": 60,
+    "normalPosition": 66,
+    "finalPosition": 66,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:41:47.211487+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:53",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.9496066746652092,
+     "valueStability": 0.75,
+     "stillness": 0.8501904658041894,
+     "positionStability": 0.999157112248516,
+     "total": 0.8797672846948241,
+     "pipSizeConsistency": 0.906856403622251,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.024153518884547403
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 34,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 75,
+    "stateVersionAfter": 76
+   },
+   {
+    "id": "5cb28e3f-2d33-53b2-a3ce-317bd904e858",
+    "number": 69,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 3,
+    "before": 91,
+    "normalPosition": 94,
+    "finalPosition": 94,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "near_goal"
+    ],
+    "occurredAt": "2026-11-23T12:42:09.488985+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:54",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.8807677002436217,
+     "valueStability": 1.0,
+     "stillness": 0.8416856086502472,
+     "positionStability": 0.999157112248516,
+     "total": 0.9225140176320183,
+     "pipSizeConsistency": 0.8207301173402868,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 35,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 76,
+    "stateVersionAfter": 77
+   },
+   {
+    "id": "72d9008e-9728-5ebf-aa9f-81c743842173",
+    "number": 70,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 6,
+    "before": 66,
+    "normalPosition": 72,
+    "finalPosition": 72,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll"
+    ],
+    "occurredAt": "2026-11-23T12:42:37.947574+00:00",
+    "source": "corrected",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:55",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.9457059222273477,
+     "valueStability": 0.6,
+     "stillness": 0.8541089589707553,
+     "positionStability": 0.999157112248516,
+     "total": 0.8335997200727714,
+     "pipSizeConsistency": 0.9262222222222222,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": true,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 35,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 77,
+    "stateVersionAfter": 78
+   },
+   {
+    "id": "9e9a5f0f-7956-5f67-908a-29ed1642aa76",
+    "number": 71,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 5,
+    "before": 94,
+    "normalPosition": 99,
+    "finalPosition": 99,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move",
+     "large_roll",
+     "near_goal"
+    ],
+    "occurredAt": "2026-11-23T12:42:59.017015+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:56",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9234295013853124,
+     "valueStability": 1.0,
+     "stillness": 0.6459606840896109,
+     "positionStability": 0.9967903790654932,
+     "total": 0.9121164161433816,
+     "pipSizeConsistency": 0.9443983402489626,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.044438409556308775
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 36,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 78,
+    "stateVersionAfter": 79
+   },
+   {
+    "id": "0f0c79c3-6336-5517-988f-368d9c6ce795",
+    "number": 72,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 3,
+    "before": 72,
+    "normalPosition": 75,
+    "finalPosition": 75,
+    "overshoot": false,
+    "jumpType": null,
+    "events": [
+     "normal_move"
+    ],
+    "occurredAt": "2026-11-23T12:43:18.676780+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:57",
+    "originalCandidate": 3,
+    "confidence": {
+     "detector": 0.8162038393888498,
+     "valueStability": 1.0,
+     "stillness": 0.8663937711777786,
+     "positionStability": 1.0,
+     "total": 0.8972507934016491,
+     "pipSizeConsistency": 0.8960055096418733,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.0
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 3,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 36,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 79,
+    "stateVersionAfter": 80
+   },
+   {
+    "id": "baf56d9d-b2ac-5b3f-b912-5a461ab7acde",
+    "number": 73,
+    "playerId": "781d5ce9-1fb9-4301-be71-f85e4ae115e3",
+    "roll": 6,
+    "before": 99,
+    "normalPosition": 99,
+    "finalPosition": 99,
+    "overshoot": true,
+    "jumpType": null,
+    "events": [
+     "goal_overshoot",
+     "large_roll",
+     "near_goal"
+    ],
+    "occurredAt": "2026-11-23T12:43:36.189080+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:58",
+    "originalCandidate": 6,
+    "confidence": {
+     "detector": 0.936141032855862,
+     "valueStability": 1.0,
+     "stillness": 0.7680363710969687,
+     "positionStability": 1.0,
+     "total": 0.9364689204496832,
+     "pipSizeConsistency": 0.9489100817438693,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.024429453347567052
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 6,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 37,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 80,
+    "stateVersionAfter": 81
+   },
+   {
+    "id": "71c12873-787a-5cba-9418-3a78ccd2f308",
+    "number": 74,
+    "playerId": "d7a422c0-b67b-4f96-a08d-4a1251cbe63d",
+    "roll": 5,
+    "before": 75,
+    "normalPosition": 80,
+    "finalPosition": 100,
+    "overshoot": false,
+    "jumpType": "ladder",
+    "events": [
+     "normal_move",
+     "large_roll",
+     "ladder",
+     "goal"
+    ],
+    "occurredAt": "2026-11-23T12:44:00.824692+00:00",
+    "source": "automatic",
+    "confirmationId": "e4ae2be8-0f5f-4c03-bbef-6a334b797c78:59",
+    "originalCandidate": 5,
+    "confidence": {
+     "detector": 0.9242055192569345,
+     "valueStability": 1.0,
+     "stillness": 0.8178294976241887,
+     "positionStability": 0.999153400758045,
+     "total": 0.9384822483850533,
+     "pipSizeConsistency": 0.9454870420017872,
+     "singlePipCenterOffset": 0.0,
+     "pipMergeSuspected": false,
+     "pipRecounted": false,
+     "pipLayoutError": 0.02184618056019561
+    },
+    "recognition": {
+     "recognizer": "opencv",
+     "readingId": null,
+     "opencvCandidate": 5,
+     "vlm": null,
+     "vlmError": null
+    },
+    "correctedFrom": null,
+    "round": 37,
+    "branchId": "a203fcbe-6421-4441-b9ce-b35cd6defa9b",
+    "stateVersionBefore": 81,
+    "stateVersionAfter": 82
+   }
+  ],
+  "startedAt": "2026-11-23T12:07:05.446889+00:00",
+  "endedAt": "2026-11-23T12:44:00.824692+00:00"
+ },
+ "shownComments": [
+  {
+   "turnId": "4dcab2fe-e046-58f4-b4f6-4dfa468053dd",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、惜しいー！あおさん、1が出ていれば38まで一気にハシゴでした！そのハシゴ、次はおれんじさんが1を出せば登れます。あおさんは4で31へのハシゴ。始まったばかりの勝負、早くも見どころたっぷりです！"
+  },
+  {
+   "turnId": "d5eb94c0-cf92-573b-a4c3-c797e2e479df",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おっ、いいですね！おれんじさん、狙っていた1で38とはいきませんでしたが、ハシゴで14へ！あおさんを抜いて先頭に立ちました。あおさんは次に4が出れば、31へのハシゴです！"
+  },
+  {
+   "turnId": "8f51c329-9808-5a06-bf9f-13a8b4fa7705",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "くぅー、惜しい！あおさん、狙っていた31へのハシゴは4の目でした。大きな6でしたが、ハシゴには届かず！先頭は変わらずおれんじさん。そのおれんじさんは次に2が出ると、ヘビで6まで戻ってしまいます。2以外を祈りたいところです！"
+  },
+  {
+   "turnId": "71a03c46-529b-5096-9216-8f059698c177",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おれんじさん、心配された2は出ず、ヘビをしっかりかわしました！次は3が出れば、42へのハシゴが待っています。"
+  },
+  {
+   "turnId": "15433139-4181-5ef2-a6cc-1829473d5eca",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うーん、残念！あおさん、ヘビで6まで戻ってしまいました。それでも次に3が出れば、31へのハシゴで一気に巻き返せます！"
+  },
+  {
+   "turnId": "ae36e94a-2035-51b3-9bcb-99041f4319e1",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ああっと、惜しい！おれんじさん、予告の3なら42へのハシゴでした。次は2で同じハシゴ。あおさんは3で31へ、接戦です！"
+  },
+  {
+   "turnId": "6774e27e-6363-5ee2-b153-a8a5433a9f46",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、惜しいー！あおさん、待っていた3なら31へのハシゴでしたが、一つ多い4！次は6の目だと、ヘビで6へ逆戻りです。"
+  },
+  {
+   "turnId": "e3b34eb6-8e1c-5add-9d15-ca58c01bf609",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あーっ、もう一息！おれんじさん、2なら42へのハシゴでしたが、出たのは4！それでも次に5が出れば、84まで一気に駆け上がります！"
+  },
+  {
+   "turnId": "0b7aaed8-6f24-5f70-89ac-2c48c39d77d8",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あおさん、恐れていた6ではなく4で、ヘビはやり過ごしました。さあ、おれんじさんは6分の1の5が出れば、84への大ハシゴです！"
+  },
+  {
+   "turnId": "7265eba9-a23e-50db-9e35-bf1ded7df5ea",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おおっと、あと二つ！おれんじさん、待望の5なら84への大ハシゴでしたが3！次は2で同じハシゴに届きます、勝負は互角！"
+  },
+  {
+   "turnId": "75b32826-db32-5dea-b2b2-4be4c770e83e",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あおさん、2ならヘビで6へ逆戻りでしたが、ここは回避！おれんじさんは2を出せば、84への大ハシゴが待っています。"
+  },
+  {
+   "turnId": "33f2f1e8-c6cc-5b8e-a5ab-07bf2b24e19f",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "やったー！待っていた2で、おれんじさんが84まで大ハシゴ、一気に優勢へ！ただ次に3ならヘビで24へ、あおさんはその3に望みをかけます。"
+  },
+  {
+   "turnId": "9216ec36-bc40-52e7-bbe8-7da32123adfa",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、惜しいー！あおさん、4なら42へのハシゴでした。さあ次はおれんじさん、3が出るとヘビで24まで落ちる運命の一投です！"
+  },
+  {
+   "turnId": "673eecd2-1e4f-599b-8a06-5edb9745cf23",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！運命の一投は5、3ならヘビで24まで落ちていたおれんじさん、優勢をがっちりキープ！あおさんは2で42へのハシゴを狙います。"
+  },
+  {
+   "turnId": "7b8889aa-0ecc-5bdc-8b58-a3da5eeb1ce2",
+   "promptVersion": "commentary-v6",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "くうっ、届かない！狙っていた42へのハシゴは2が必要でした。次は4がカギ、あおさんなら84への大ハシゴ、おれんじさんならヘビで73へ！"
+  },
+  {
+   "turnId": "34614b02-b5cf-525a-95b2-79471e6bd0db",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あちゃー！予告していた4が出て、おれんじさんはヘビで73へ。今度はあおさん、4なら84への大ハシゴ、6分の1の大チャンスです！"
+  },
+  {
+   "turnId": "08bf2f9f-b598-57a2-8a94-e97958674016",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ああっ、惜しすぎるー！あおさん、狙っていた4から2つ行き過ぎて、84への大ハシゴはお預け！おれんじさんのリードは揺らぎません。"
+  },
+  {
+   "turnId": "87476b5c-561f-5083-a246-cbfd28790892",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おれんじさん、ついにゴールが射程圏内！次に3が出ればそのまま100で勝負あり。あおさんは6が出れば44へのハシゴです。"
+  },
+  {
+   "turnId": "17936db9-f50e-5348-a7b2-b1df42dd74ba",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おれんじさん、3が出ればいよいよゴールです！あおさんは44へのハシゴにあと3つ届かず、次も3で再挑戦です。"
+  },
+  {
+   "turnId": "5e307da3-a05c-51ec-94ec-4f27b3ae2ba6",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、あと1つ行き過ぎたー！予告の3ならゴールでしたが、4でお預けです。次の6は87のヘビで24まで落ちる、おれんじさん冷や汗です！"
+  },
+  {
+   "turnId": "6d062126-0d9d-5ea5-a54d-3853d5922017",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おっ、いいですね！再挑戦の3が出て、あおさんハシゴで44へ！おれんじさんは6だと24まで落ちるヘビ、6以外を祈りたいところ！"
+  },
+  {
+   "turnId": "12e5d5f7-b57c-5704-a486-973033c6c9f4",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "危なーい！恐れていた6は出ず、おれんじさんヘビを回避！でも次は5が出ると24まで落ちてしまう、ひやひやの接戦です！"
+  },
+  {
+   "turnId": "2a67bef4-c3ba-5c56-ad96-a962cd2459a5",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！5なら11まで転落のあおさん、1で無事！さあ次はおれんじさん、5が出るとヘビで24まで落ちてしまいます！"
+  },
+  {
+   "turnId": "8aec264f-aef8-5f52-9e27-1045e9601108",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ふうー、セーフ！心配された5は出ず、おれんじさん24への転落を回避！ただ次は4が出ると同じヘビで24へ、危険はまだ去りません！"
+  },
+  {
+   "turnId": "72adde2f-ad62-53a4-be07-d41a1199f3a0",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あちゃー！あおさんヘビで26へ、おれんじさんが優勢に！そのおれんじさんは4なら24へ転落、あおさんは2が出ればハシゴで84へ！"
+  },
+  {
+   "turnId": "ae017603-fbe4-5889-b2b3-7898f7cb75b0",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわー、間一髪！4は出ず、おれんじさん24行きのヘビをかわした！でも次は1が出ると同じヘビへ、6分の1の落とし穴が残ります！"
+  },
+  {
+   "turnId": "563b89f3-0183-5973-84ee-5ad378a11ced",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "くうっ、惜しいー！待望の2は出ず、あおさん行き過ぎて84へのハシゴならず！おれんじさんは次に1でヘビの24へ、あおさんの望みはその1です！"
+  },
+  {
+   "turnId": "cf21947b-1fae-588f-8cf5-a8e323a59a15",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "危なーい！恐れられた1は出ず、おれんじさん24へのヘビを振り切った！勝利が見えてきました。次は2か4でヘビが待ちます！"
+  },
+  {
+   "turnId": "9f91268e-463e-5445-9047-0675c02d3536",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おっ、いいですね！あおさんハシゴで44へ！おれんじさんは2なら73、4なら75へヘビで下がります。あおさんが追い上げる鍵はその目です！"
+  },
+  {
+   "turnId": "28e29a7c-4573-5c55-bdc4-eff04c94847c",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おっと、痛い！心配された4で、おれんじさんヘビで75へ！それでも次に5ならゴール。あおさんは5だと11まで転落です！"
+  },
+  {
+   "turnId": "198a2a3a-4261-510c-9877-7d8876a99c64",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！あおさん、5なら11まで落ちるところでした！さあおれんじさんは次に5でゴール、6分の1の決着が迫ります！"
+  },
+  {
+   "turnId": "59d5ef72-e124-5210-97d5-887bc4e11d1c",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うおお、惜しすぎるー！狙っていた5まであと3つ、おれんじさんゴールならず！それでも次は3でゴール、あおさんは5でハシゴの67へ行けます！"
+  },
+  {
+   "turnId": "2202e748-4ca3-5700-a487-0169cdc68950",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "いいぞ！予告どおりの5、あおさんハシゴで67へ！勝負は一気に接戦に。ただおれんじさんは次に3でゴールです！"
+  },
+  {
+   "turnId": "9820de98-8fe6-5ae0-b369-b852cc99aeba",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、惜しいー！待っていた3を通り越して6、おれんじさんゴールならず！次は4だと24までヘビで落ちます！"
+  },
+  {
+   "turnId": "ebf09a5a-a0b0-5e6e-b6c8-efad43ff2781",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "よし！あおさんハシゴで91へ、おれんじさんを抜いてトップに！そのおれんじさんは、4が出ると24まで落ちるヘビが待っています！"
+  },
+  {
+   "turnId": "e27af633-6fe4-571b-97cf-42b993097c56",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "危なーい！おれんじさん、警戒していた24へのヘビの1つ手前で止まって回避！ただ次に1が出ると、そのヘビで24へ落ちます！"
+  },
+  {
+   "turnId": "772205b4-f516-5caf-9f6e-330bc2b69735",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あちゃー！あおさんヘビで75へ、おれんじさんがトップを奪い返します！それでもあおさんは次に5が出れば一気にゴールです！"
+  },
+  {
+   "turnId": "8c63e318-9a10-559f-a66e-fa868b528cd3",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！心配された1は出ず、おれんじさんは24行きのヘビを飛び越えました！でも、あおさんは5が出れば逆転ゴールです！"
+  },
+  {
+   "turnId": "6d3fc4b6-f6d1-5795-b6b7-d60c4b2d5dad",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "なんということだ！予告の5に1つ行き過ぎて、あおさんゴールならず！これでおれんじさんが優勢に。"
+  },
+  {
+   "turnId": "aa941285-0b6e-5281-be50-c698ff5702dc",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ああっ、痛い！おれんじさんヘビで75へ、あおさんがトップを奪い返して接戦に！それでもおれんじさん、5が出ればそのままゴールインです！"
+  },
+  {
+   "turnId": "c7940e05-2847-5435-9d9c-fd9406031fa9",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "セーフ！あおさん、24行きのヘビのすぐ手前でぴたりと止まりました！次はおれんじさん、6分の1の5で一発ゴールの場面です！"
+  },
+  {
+   "turnId": "b24b0bdb-739f-5f39-8415-09efb0a0eac0",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うおお、惜しいー！おれんじさん、待っていた5にひとつ行き過ぎてゴールならず！次はあおさん、1が出ると24行きのヘビに落ちてしまいます！"
+  },
+  {
+   "turnId": "b419b9bf-c6d6-5e0e-a66c-e2e333a92574",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あーっと！恐れていた1が出て、あおさんヘビで24へ！おれんじさんが逆転して優勢に。おれんじさんとしては、6だけは出てほしくない！"
+  },
+  {
+   "turnId": "92db72a1-3264-5dad-8111-97947be77dcf",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！おれんじさん、恐れていた6は出ず、ヘビの手前で止まりました！ただ次の手番も、5が出ると24へ落ちてしまいます！"
+  },
+  {
+   "turnId": "d1ee2fe2-afe2-5147-b690-bedeae1ef125",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あぁーっ、惜しい！あおさん、4ならハシゴで84だったのに、ひとつ行き過ぎ！次のおれんじさん、5だとヘビで24へ真っ逆さまです！"
+  },
+  {
+   "turnId": "067f9a3b-b290-5065-ae29-9a373a094ab9",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "なんということだ！予告どおりの5でおれんじさんもヘビで24へ！あおさんが逆転して接戦に。おれんじさん、次は4でハシゴが待っています！"
+  },
+  {
+   "turnId": "2b83b585-940e-5d3e-86dc-bc88a7ec6462",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あおさんは31で一息。次のおれんじさん、4が出ればハシゴで一気に84へ！6分の1で流れが大きく動きます。"
+  },
+  {
+   "turnId": "096880df-4231-5be8-afed-3de9b811c84c",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、惜しいー！おれんじさん、待望の4にあと一つ届かず、84へのハシゴはお預け！それでも次に1が出れば、まだ登れます！"
+  },
+  {
+   "turnId": "5d825207-e1cb-5f50-a230-b37b05c57406",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おっ、いいですね！あおさん、ハシゴで44へ！でも次のおれんじさんには、1で84まで登るハシゴが待っています、6分の1の大チャンス！"
+  },
+  {
+   "turnId": "fb34ca5a-d40b-5e05-a47b-3f1522157396",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "くうーっ、惜しい！おれんじさん、狙っていた1のハシゴは3つ行き過ぎて、84はお預け！"
+  },
+  {
+   "turnId": "e1f344c9-9d82-5024-b173-e4b74689ca50",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！あおさん、ヘビの3つ手前で止まって11への転落を回避！次は5が出れば67へのハシゴです！"
+  },
+  {
+   "turnId": "efa002fb-3796-503e-bbb5-e26434824ec0",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おれんじさんは32へ。さあ次はあおさん、3なら11までヘビで転落、5ならハシゴで67へ！天国か地獄かの一振りです！"
+  },
+  {
+   "turnId": "d148d212-0e6f-5238-bc77-bc7444bd2dda",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "よし！あおさん、予告の5でハシゴを登って67へ！3なら11まで転落のヘビは行き過ぎてかわしました。接戦を抜け出して優勢です！"
+  },
+  {
+   "turnId": "1a6da8f6-1f0d-55ce-96d7-6c267237c211",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "さあ次はあおさん、4が出ればハシゴで91まで一気に駆け上がります！おれんじさんは44へのハシゴを2つ行き過ぎて38です。"
+  },
+  {
+   "turnId": "b906f5f0-c079-5547-87a5-5250a2aca53c",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "いいぞ！あおさん、予告どおりの4でハシゴを駆け上がり91へ！勝利が見えてきました。ただ次は2か4ならヘビで70台へ転落です！"
+  },
+  {
+   "turnId": "b580a552-6e6c-5058-912f-d30778da59b6",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "次はあおさん、2なら73、4なら75へヘビで転落します。おれんじさんとしては、この3分の1に望みを託したいところ！"
+  },
+  {
+   "turnId": "65c2ad1e-db7d-547e-ad41-2b59a61f1af4",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！あおさん、2でも4でもヘビでしたが、6で通り過ぎて97へ！次は3でゴール、ただ1なら98のヘビで78へ転落です！"
+  },
+  {
+   "turnId": "d992c894-f32f-5c49-a57f-2de5b9311c0e",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おれんじさんは44へ。次のあおさんは3が出れば決着！おれんじさんとしては、ヘビで78へ戻る1が出てほしいところです！"
+  },
+  {
+   "turnId": "67f4d725-e706-5641-b9bf-a81d3524c1c5",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "あちゃー！あおさん、ゴールに2つ届かず、予告の1でヘビに飲まれ78へ！勝利目前から、まだ優勢という局面に戻りました！"
+  },
+  {
+   "turnId": "1da6fc06-9248-5797-b427-2c6044c4ad44",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "危なーい！おれんじさん、5なら11までヘビで転落でした！次のあおさんは2が出れば一気にゴール、6分の1の大勝負です！"
+  },
+  {
+   "turnId": "d3d2079d-3fe5-594a-a2aa-4e57225bceef",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、惜しいー！あおさん、狙いの2を通り過ぎて84へ。これで勝負は接戦に！次に3なら87のヘビで24まで真っ逆さまです！"
+  },
+  {
+   "turnId": "2d97d731-f72b-5382-a20d-7ae1bc397a48",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "くぅー、惜しい！おれんじさん、1なら67へのハシゴでしたが2つ行き過ぎた！あおさんは3なら、前にも落ちた87のヘビで24へ！"
+  },
+  {
+   "turnId": "9b3fcb10-d3f0-567f-94a9-d2843ee19ac8",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！あおさん、3なら24まで落ちる87のヘビを1つ通り過ぎてかわした！接戦から、あおさん優勢の局面へ！"
+  },
+  {
+   "turnId": "306de6c9-a714-5c38-b3b0-2a3802e70378",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おれんじさん、次に3なら62のヘビで19へ真っ逆さま！あおさんも5なら93のヘビで73へ。あおさん優勢のまま、互いに怖い目を抱えます！"
+  },
+  {
+   "turnId": "6a56230e-1135-5629-9605-974516c6b047",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ふぅー、セーフ！あおさん、警戒していた93のヘビには届かず回避！続くおれんじさんは、3なら62のヘビで19まで転落です！"
+  },
+  {
+   "turnId": "f00512af-7087-50d3-b268-53044031c0fb",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うーん、残念！おれんじさん、心配された62のヘビは通り過ぎたのに、64のヘビにつかまり60へ。次に2なら、そのヘビで19まで落ちます！"
+  },
+  {
+   "turnId": "b11e4f64-7d3c-572a-addc-b90750e1a8d5",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "危なーい！あおさん、4なら93のヘビで73へ落ちていました！おれんじさんは次に2が出ると、62のヘビで19まで転落です！"
+  },
+  {
+   "turnId": "d4684945-d405-5041-b057-f511621cb4d2",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわー、危なかった！おれんじさん、恐れていた2は出ず、62のヘビを通り過ぎた！勝負は接戦に！次に5なら71のハシゴで91へ！"
+  },
+  {
+   "turnId": "5cb28e3f-2d33-53b2-a3ce-317bd904e858",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "ひやっとしました！あおさん、2なら93のヘビで73へ。次は6でゴール、1ならヘビで75へ。あおさん、一歩抜け出しました！"
+  },
+  {
+   "turnId": "72d9008e-9728-5ebf-aa9f-81c743842173",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "うわぁ、惜しいー！おれんじさん、狙っていた71のハシゴを一つ行き過ぎた！あおさんは次に6でゴール、ただし1か4ならヘビで落ちます！"
+  },
+  {
+   "turnId": "9e9a5f0f-7956-5f67-908a-29ed1642aa76",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "くうーっ、惜しい！あおさん、6ならゴールのところ一つ足りず99へ。心配された1と4のヘビはかわし、次は1が出ればゴールです！"
+  },
+  {
+   "turnId": "0f0c79c3-6336-5517-988f-368d9c6ce795",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "おれんじさん、次に5が出れば一気にゴールです！ただその前にあおさんの番、1が出ればそこで決着です！"
+  },
+  {
+   "turnId": "baf56d9d-b2ac-5b3f-b912-5a461ab7acde",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "もったいなーい！あおさん、1でゴールのところを行き過ぎて99のまま！勝負はもつれてきた！おれんじさんは5でゴールです！"
+  },
+  {
+   "turnId": "71c12873-787a-5cba-9418-3a78ccd2f308",
+   "promptVersion": "commentary-v7",
+   "model": "claude-opus-5-5 (fast)",
+   "text": "やったー！待っていた5が出た！おれんじさん、80のハシゴで一気にゴール！99のあおさんを抜き去って、大逆転の勝利です！"
+  }
+ ]
+}

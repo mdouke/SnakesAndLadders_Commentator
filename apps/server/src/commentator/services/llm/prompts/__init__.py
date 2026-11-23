@@ -12,9 +12,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .. import outlook, outlook_v2, outlook_v4, outlook_v5, outlook_v7
+from .. import outlook, outlook_v2, outlook_v4, outlook_v5, outlook_v7, outlook_v8
 from ..settings import LATEST_PROMPT_VERSION, PROMPT_VERSIONS
-from . import v1, v2, v3, v4, v5, v6, v7
+from . import v1, v2, v3, v4, v5, v6, v7, v8
 
 if TYPE_CHECKING:
     from ..settings import CommentarySettings
@@ -78,6 +78,12 @@ VERSIONS: dict[str, PromptVersion] = {
             "v6 に加え、惜しかったハシゴ・ゴール・避けたヘビが、出目が大きすぎて通り過ぎたのか、"
             "小さくて届かなかったのかを渡し、言い分ける。",
             v7.system_prompt, outlook_v7.analyze_turn, previous_comments=5,
+        ),
+        PromptVersion(
+            "commentary-v8", "v8：v7＋同じ種類の展開をまとめる",
+            "v7 に加え、同じ人の同じ種類の展開（隣り合う48と49のヘビなど）を1つにまとめて渡し、"
+            "「2か3でヘビ」のように一緒に言えるようにする。",
+            v8.system_prompt, outlook_v8.analyze_turn, previous_comments=5,
         ),
     )
 }

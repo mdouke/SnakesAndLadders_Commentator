@@ -10,6 +10,7 @@ Usage (from the repository root):
     .venv/bin/python -m commentator.tools.compare_commentary --turns 14-22
     .venv/bin/python -m commentator.tools.compare_commentary --dry-run  # prompts only
     .venv/bin/python -m commentator.tools.compare_commentary --version commentary-v2
+    .venv/bin/python -m commentator.tools.compare_commentary --sample long-close-race
 
 The report is written to ``var/prompt-comparisons/`` (not in Git: it holds
 player names). Calling the model costs one request per roll; ``--dry-run``
@@ -37,6 +38,7 @@ from ..services.llm.prompts import get_version
 from ..services.llm.providers import ProviderError, template_commentary
 from ..services.llm.safety import review
 from ..services.llm.settings import PROMPT_VERSIONS, CommentarySettingsStore
+from .save_sample_game import load_sample
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 VAR = REPOSITORY_ROOT / "var"
@@ -144,6 +146,8 @@ def summarize_facts(facts: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--game", help="game ID (default: the game commented most recently)")
+    parser.add_argument("--sample",
+                        help="a saved sample (name in data/sample-games/ or a JSON path)")
     parser.add_argument("--turns", help="rolls to remake, e.g. 14-22 (1 = the first roll)")
     parser.add_argument("--dry-run", action="store_true", help="write prompts, call nothing")
     parser.add_argument("--db", type=Path, default=VAR / "commentator.sqlite3")
@@ -156,19 +160,27 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     load_secrets(default_secrets_path(REPOSITORY_ROOT))
-    log = SQLiteCommentaryLog(args.db)
-    game_id = args.game or newest_game_id(log)
-    stored = SQLiteGameRepository(args.db).get(game_id) if game_id else None
-    if stored is None:
-        print("比較するゲームが見つかりません", file=sys.stderr)
-        return 1
-    game = stored.to_dict()
+    if args.sample:
+        sample = load_sample(args.sample)
+        game = sample["game"]
+        shown = {
+            item["turnId"]: {"final_text": item["text"], "prompt_version": item["promptVersion"]}
+            for item in sample["shownComments"]
+        }
+    else:
+        log = SQLiteCommentaryLog(args.db)
+        game_id = args.game or newest_game_id(log)
+        stored = SQLiteGameRepository(args.db).get(game_id) if game_id else None
+        if stored is None:
+            print("比較するゲームが見つかりません", file=sys.stderr)
+            return 1
+        game = stored.to_dict()
+        shown = shown_comments(log, game["id"])
     settings = CommentarySettingsStore(args.settings).get()
     if args.version:
         settings = replace(settings, prompt_version=args.version)
     provider = default_providers().get(settings.provider)
     snapshots = replay(game)
-    shown = shown_comments(log, game["id"])
     selected = parse_turns(args.turns, len(snapshots))
     names = {player["id"]: player["displayName"] for player in game["players"]}
 
@@ -207,7 +219,8 @@ def main(argv: list[str] | None = None) -> int:
     lines = [
         f"# 実況の比較: {' 対 '.join(names.values())}",
         "",
-        f"- ゲーム: `{game['id']}`（{len(snapshots)}回の出目、{game['status']}）",
+        f"- ゲーム: `{game['id']}`（{len(snapshots)}回の出目、{game['status']}）"
+        + (f"・サンプル `{args.sample}`" if args.sample else ""),
         f"- 作成: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"- 新しい実況: `{version}`・{settings.provider}（{settings.model}）・"
         f"{settings.length}・{settings.style}",

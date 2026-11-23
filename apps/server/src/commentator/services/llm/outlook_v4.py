@@ -85,9 +85,12 @@ def _emotion(
 
 def analyze_turn(
     game: dict[str, Any], turn_index: int, name: NamePlayer,
-    *, keep_actual_jump: bool = False,
+    *, keep_actual_jump: bool = False, trim: bool = True,
 ) -> dict[str, Any]:
-    """v4's facts; ``keep_actual_jump`` is v5's change (see ``_emotion``)."""
+    """v4's facts; ``keep_actual_jump`` is v5's change (see ``_emotion``).
+
+    ``trim=False`` keeps every swing (v8 groups them before trimming).
+    """
     facts = analyze_v3(game, turn_index, name, max_swings=None)
     goal = int(game["board"]["goal"])
     swings: list[dict[str, Any]] = facts["biggestSwings"]
@@ -112,5 +115,5 @@ def analyze_turn(
 
     result = {key: value for key, value in facts.items() if key != "reaction"}
     result["emotion"] = emotion
-    result["biggestSwings"] = swings[:MAX_SWINGS]
+    result["biggestSwings"] = swings[:MAX_SWINGS] if trim else swings
     return result

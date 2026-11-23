@@ -15,6 +15,6 @@ from .outlook_v4 import analyze_turn as analyze_v4
 
 
 def analyze_turn(
-    game: dict[str, Any], turn_index: int, name: NamePlayer
+    game: dict[str, Any], turn_index: int, name: NamePlayer, *, trim: bool = True
 ) -> dict[str, Any]:
-    return analyze_v4(game, turn_index, name, keep_actual_jump=True)
+    return analyze_v4(game, turn_index, name, keep_actual_jump=True, trim=trim)

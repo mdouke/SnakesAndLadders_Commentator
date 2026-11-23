@@ -25,9 +25,9 @@ def _direction(needed: int, rolled: int) -> dict[str, Any]:
 
 
 def analyze_turn(
-    game: dict[str, Any], turn_index: int, name: NamePlayer
+    game: dict[str, Any], turn_index: int, name: NamePlayer, *, trim: bool = True
 ) -> dict[str, Any]:
-    facts = analyze_v5(game, turn_index, name)
+    facts = analyze_v5(game, turn_index, name, trim=trim)
     rolled = int(game["turns"][turn_index]["roll"])
     for swing in facts["biggestSwings"]:
         if swing["kind"] in NEAR_MISSES:

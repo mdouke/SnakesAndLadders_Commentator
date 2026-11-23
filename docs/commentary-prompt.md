@@ -1,7 +1,7 @@
 # 実況のプロンプト仕様
 
 実況文を作るときに LLM（Claude / OpenAI）へ送るプロンプトと、その前後の処理をまとめる。
-プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v7`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
+プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v8`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
 この文書は v3 を中心に書き、v4 で加えたことは「v4 で加えたこと」、v5 以降で変えたことは版ごとの節（「v5 で変えたこと」など）にまとめる。
 設計の判断は [ADR 0005](decisions/0005-commentary-and-speech.md) にある。
 
@@ -42,6 +42,7 @@
 | `commentary-v5` | [prompts/v5.py](../apps/server/src/commentator/services/llm/prompts/v5.py)（v4 と同じ） | [outlook_v5.py](../apps/server/src/commentator/services/llm/outlook_v5.py)（v4 の事実。`emotion` の決め方だけ下の「v5 で変えたこと」のとおり）と直前の実況 |
 | `commentary-v6` | [prompts/v6.py](../apps/server/src/commentator/services/llm/prompts/v6.py)（v4 の文面＋短くするときの残し方） | v5 と同じ |
 | `commentary-v7` | [prompts/v7.py](../apps/server/src/commentator/services/llm/prompts/v7.py)（v6＋通り過ぎた／届かない） | [outlook_v7.py](../apps/server/src/commentator/services/llm/outlook_v7.py)（v5 の事実に `direction`・`byPips`） |
+| `commentary-v8` | [prompts/v8.py](../apps/server/src/commentator/services/llm/prompts/v8.py)（v7＋まとめられた展開） | [outlook_v8.py](../apps/server/src/commentator/services/llm/outlook_v8.py)（v7 の事実。同じ人の同じ種類の展開を `alsoWith` にまとめる） |
 
 比較の仕組みでも `--version commentary-v2` のように版を選べる。
 
@@ -94,6 +95,16 @@ v6 で遊んだ感想: 「くうっ、届かない！狙っていた42へのハ�
   `passed` は出目が大きすぎて通り過ぎた、`short` は小さくて届かなかった。`byPips` は何目ずれたか。
 - プロンプトに、`passed` なら「通り過ぎた」「行き過ぎた」、`short` なら「届かない」「あと一歩」と言い分けるよう書く。
 - 同じ出目を v7 で作り直すと「狙っていた42へのハシゴは3つ行き過ぎ！」になった。
+
+## v8 で変えたこと（2026-11-23）
+
+v7 で遊んだ感想: 隣り合う48と49のヘビは、毎回49のほうしか言わない。事実では、同じ人について「4なら48のヘビ」「5なら49のヘビ」
+「次に2なら48」「次に3なら49」が別々の4項目になり、触れるのは多くても2つまでなので、大きいほう（49）だけが選ばれていた。
+
+- `biggestSwings` を上位5つに絞る前に、同じ人の同じ種類の展開（`missed_ladder`・`avoided_snake`・`next_ladder`・`next_snake`）を
+  1項目にまとめる。いちばん大きいものを前に残し、ほかは `alsoWith`（`roll`・`from`・`to`・`squares` など）に入れる。
+- プロンプトに、`alsoWith` は1つの話題として「2か3でヘビ」のようにまとめて言ってよいと書く。
+- サンプル `seesaw-to-99` の51回目を作り直すと「4か5ならヘビで26や11まで落ちるところでした！次は5で67へのハシゴ、2か3ならヘビです！」になった。
 
 ## 全体の流れ
 
@@ -376,12 +387,29 @@ v6 で遊んだ感想: 「くうっ、届かない！狙っていた42へのハ�
 .venv/bin/python -m commentator.tools.compare_commentary --turns 14-22   # 14〜22回目の出目だけ
 .venv/bin/python -m commentator.tools.compare_commentary --game <ID>     # ゲームを指定
 .venv/bin/python -m commentator.tools.compare_commentary --dry-run       # LLM を呼ばずにプロンプトだけ
+.venv/bin/python -m commentator.tools.compare_commentary --sample seesaw-to-99 --version commentary-v8
 ```
 
 - 出力は `var/prompt-comparisons/`（Git 管理外。プレイヤー名を含むため）。
 - 各出目に、前の実況・新しい実況・反応の強さ・局面・勝つ確率の変化・上位の展開と、送ったユーザープロンプトを載せる。
 - LLM を出目1回につき1回呼ぶ（1ゲーム26回なら26回）。サーバーと同じ検査・代替文の処理をするが、再試行はしない。
 - 再現するのは出目だけで、手で行った位置の訂正・手番の変更は含まない。
+
+### 代表的なゲームをサンプルとして残す（[save_sample_game.py](../apps/server/src/commentator/tools/save_sample_game.py)）
+
+データベースを片付けても同じゲームで比べられるよう、盤・プレイヤー・すべての出目・出た実況を `data/sample-games/<名前>.json` に保存する
+（Git で管理する。Undo の履歴などは入れない）。`--sample <名前>` で比較に使う。
+
+```bash
+.venv/bin/python -m commentator.tools.save_sample_game --name seesaw-to-99 --note "なぜ代表的か"   # いちばん最近のゲーム
+.venv/bin/python -m commentator.tools.save_sample_game --game <ID> --name <名前> --names "本名=あか"  # 名前を置き換える
+```
+
+- プレイヤー名はそのまま保存される。個人の名前なら `--names` で置き換える（実況の文の中も置き換わる）。
+
+| サンプル | 内容 |
+|---|---|
+| `seesaw-to-99` | 2026-11-23 の試しプレイ。74回の出目、先頭が7回入れ替わる。ハシゴ・ヘビ各10回、両者が87→24のヘビに落ちる。あおが99で止まったまま、おれんじがゴール。出た実況は v6・v7（長さ短め） |
 
 ## プロンプトを変えるとき
 
