@@ -203,7 +203,10 @@ class CommentaryService:
         user: str | None = None
         turn_number: int | None = None
         if game is not None and game["turns"]:
-            context = build_context(game, game["turns"][-1]["id"], settings)
+            newest = game["turns"][-1]["id"]
+            context = build_context(
+                game, newest, settings, self._previous_comments(game, newest)
+            )
             user = build_prompt(context, settings).user
             turn_number = context.turn_number
         return {
@@ -225,7 +228,9 @@ class CommentaryService:
 
     def _start(self, game: dict[str, Any], turn_id: str, *, trigger: str, revision: int) -> _Job:
         settings = self.settings.get()
-        context = build_context(game, turn_id, settings)
+        context = build_context(
+            game, turn_id, settings, self._previous_comments(game, turn_id)
+        )
         prompt = build_prompt(context, settings)
         provider = self.providers.get(settings.provider) or self.providers["fake"]
         request_id = uuid4().hex
@@ -269,6 +274,31 @@ class CommentaryService:
             prompt=prompt,
             provider=provider,
         )
+
+    def _previous_comments(
+        self, game: dict[str, Any], turn_id: str, limit: int = 5
+    ) -> list[str]:
+        """The comments shown for earlier turns of this game, oldest first.
+
+        One per turn (the last one shown), only for turns still in the game
+        before ``turn_id`` (undone turns and the turn itself are left out).
+        """
+        ids = [turn["id"] for turn in game["turns"]]
+        earlier = set(ids[: ids.index(turn_id)]) if turn_id in ids else set(ids)
+        comments: list[str] = []
+        seen: set[str] = set()
+        for row in self.log.list(game_id=game["id"], limit=50):  # newest first
+            if (
+                row["turn_id"] not in earlier or row["turn_id"] in seen
+                or row["status"] not in {"displayed", "superseded"}
+            ):
+                continue
+            if row.get("final_text"):
+                seen.add(row["turn_id"])
+                comments.append(str(row["final_text"]))
+            if len(comments) >= limit:
+                break
+        return comments[::-1]
 
     def _clear(self) -> None:
         self._target = None

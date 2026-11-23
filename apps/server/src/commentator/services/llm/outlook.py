@@ -192,9 +192,13 @@ def _swing(
 
 
 def analyze_turn(
-    game: dict[str, Any], turn_index: int, name: NamePlayer
+    game: dict[str, Any], turn_index: int, name: NamePlayer,
+    max_swings: int | None = MAX_SWINGS,
 ) -> dict[str, Any]:
     """Facts about possibilities and the race for ``game["turns"][turn_index]``.
+
+    ``max_swings`` limits ``biggestSwings`` (None: all of them, for later
+    versions that look at every swing before trimming).
 
     ``name`` gives the name the prompt uses for a player payload.
     """
@@ -279,7 +283,7 @@ def analyze_turn(
         ),
         "nextForPlayer": next_for_player,
         "nextForNextPlayer": next_for_next_player,
-        "biggestSwings": swings[:MAX_SWINGS],
+        "biggestSwings": swings[:max_swings],
         "race": _race_facts(
             players, name, mover_id, before, after, chances_before, chances_after
         ),

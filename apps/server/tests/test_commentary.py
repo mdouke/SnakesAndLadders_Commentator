@@ -323,6 +323,7 @@ def test_unexpected_provider_exceptions_are_contained() -> None:
     [
         ("   ", "empty"),
         ("ハルさんはバカだね", "blocked_word"),
+        ("始まったばかりなのにバカだね", "blocked_word"),
         ("あ" * 400, "too_long"),
     ],
 )
@@ -333,6 +334,13 @@ def test_unusable_responses_are_replaced(response: str, reason: str) -> None:
     assert table.state["source"] == "fallback"
     assert table.state["fallbackReason"] == reason
     assert table.row()["response_text"] == response
+
+
+def test_ordinary_words_containing_a_blocked_word_are_allowed() -> None:
+    from commentator.services.llm.safety import review
+
+    result = review("まだ始まったばかり！カスタネットも鳴ります。", language="ja", maximum=130)
+    assert result.problem is None
 
 
 def test_long_responses_are_cut_at_a_sentence_end() -> None:
@@ -415,7 +423,7 @@ def test_the_request_log_keeps_prompt_response_and_timing() -> None:
     row = table.row()
     assert row["game_id"] == game.id
     assert row["turn_id"] == game.turns[-1].id
-    assert row["prompt_version"] == "commentary-v3"
+    assert row["prompt_version"] == "commentary-v4"
     assert '"roll": 3' in row["user_prompt"]
     assert "ヘビとハシゴ" in row["system_prompt"]
     assert row["response_text"] == "アオイさん、いい出目です。"
@@ -677,3 +685,28 @@ def test_prompt_versions_can_be_switched_and_keep_their_own_facts() -> None:
 
         assert http.put("/api/settings/commentary",
                         json={"promptVersion": "commentary-v99"}).status_code == 422
+
+
+def test_v4_sees_the_comments_of_earlier_turns_but_not_undone_ones() -> None:
+    import json
+
+    http, scheduler = api_table()
+    with http:
+        http.put("/api/settings/commentary", json={"promptVersion": "commentary-v4"})
+        game = start_game(http)
+        shown = []
+        for value in (2, 3, 4):
+            game = http.post(f"/api/games/{game['id']}/rolls", json={
+                "value": value, "expectedStateVersion": game["stateVersion"],
+            }).json()
+            scheduler.run()
+            shown.append(http.get("/api/commentary").json()["text"])
+
+        def previous() -> list[str]:
+            user = http.get("/api/commentary/prompt").json()["user"]
+            return list(json.loads(user.split("\n", 1)[1]).get("previousComments", []))
+
+        assert previous() == shown[:2]  # not the newest turn's own comment
+        game = http.post(f"/api/games/{game['id']}/undo",
+                         json={"expectedStateVersion": game["stateVersion"]}).json()
+        assert previous() == shown[:1]  # the undone turn's comment is gone

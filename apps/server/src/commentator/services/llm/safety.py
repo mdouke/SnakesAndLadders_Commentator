@@ -20,6 +20,11 @@ BLOCKED_WORDS: tuple[str, ...] = (
     "kill", "stupid", "idiot", "loser", "shut up", "damn", "hell", "suck",
 )
 
+# Ordinary words that contain a blocked word ("始まったばかり" contains "ばか").
+# They are removed before matching. Found when a comment was replaced for saying
+# the game had "just begun" (2026-11-22).
+ALLOWED_WORDS: tuple[str, ...] = ("ばかり", "バカンス", "カスタ", "カステラ", "カスケード")
+
 _SENTENCE_END_JA = "。！？!?"
 _MARKUP = re.compile(r"[*_`#>\[\]]|^\s*[-・]\s*", re.MULTILINE)
 _QUOTES = re.compile(r"^[\s「『\"“']+|[\s」』\"”']+$")
@@ -43,6 +48,8 @@ def clean(text: str) -> str:
 
 
 def _contains_blocked(text: str) -> str | None:
+    for allowed in ALLOWED_WORDS:
+        text = text.replace(allowed, "")
     lowered = text.lower()
     for word in BLOCKED_WORDS:
         if word.isascii():

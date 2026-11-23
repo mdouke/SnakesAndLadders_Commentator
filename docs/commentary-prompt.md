@@ -1,8 +1,8 @@
 # 実況のプロンプト仕様
 
 実況文を作るときに LLM（Claude / OpenAI）へ送るプロンプトと、その前後の処理をまとめる。
-プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v3`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
-この文書は v3 を中心に書く。
+プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v4`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
+この文書は v3 を中心に書き、v4 で加えたことは「v4 で加えたこと」にまとめる。
 設計の判断は [ADR 0005](decisions/0005-commentary-and-speech.md) にある。
 
 ## 実況の方針（v3、2026-11-22）
@@ -24,6 +24,7 @@
 | v1 | ターンの事実・全員の位置・直前6回の出目を渡し、事実だけで実況する |
 | v2 | 起こり得たこと・次の可能性・勝負の状況を加え、移動マス数の大きい展開を優先する。`overshotGoalAndBouncedBack` を `overshotGoalStayedPut` に改名（ゴールを超える目ではその場にとどまるルールに合わせた） |
 | v3 | 1ゲーム通しのレビューを受けて変更。勝つ確率で影響を測る、反応の強さ（`reaction`）、局面（`phase`）、直前の出目（`previousRoll`）、中立の立場、数字を言わない、目を選べるような言い方をしない。`thisRollOptions` は `biggestSwings` と重なるので削除 |
+| v4 | v3 で1ゲーム遊んだレビューを受けて変更。惜しい・危ないにも感情を込める（`emotion`）、直前の実況5つを渡して繰り返さない・予告の結果につなげる（`previousComments`）、出目と移動を毎回言わない、序盤は「始まったばかり」（`opening`）、続くチャンス（`stillInReach`）、根拠のない見通しを言わない |
 
 ### 版の切り替え（2026-11-22）
 
@@ -37,8 +38,27 @@
 | `commentary-v1` | [prompts/v1.py](../apps/server/src/commentator/services/llm/prompts/v1.py) | なし（`overshotGoalAndBouncedBack` の名前を使う） |
 | `commentary-v2` | [prompts/v2.py](../apps/server/src/commentator/services/llm/prompts/v2.py) | [outlook_v2.py](../apps/server/src/commentator/services/llm/outlook_v2.py)（`thisRollOptions`、マス数順の `biggestSwings`、`race`、`gameFlow`） |
 | `commentary-v3` | [prompts/v3.py](../apps/server/src/commentator/services/llm/prompts/v3.py) | [outlook.py](../apps/server/src/commentator/services/llm/outlook.py)（この文書で説明するもの） |
+| `commentary-v4` | [prompts/v4.py](../apps/server/src/commentator/services/llm/prompts/v4.py) | [outlook_v4.py](../apps/server/src/commentator/services/llm/outlook_v4.py)（v3 の事実に、下の「v4 で加えたこと」を足す）と直前の実況 |
 
 比較の仕組みでも `--version commentary-v2` のように版を選べる。
+
+## v4 で加えたこと（2026-11-22）
+
+v3 で1ゲーム遊んだ感想: 全体に事実を言うだけで感情がない、毎回「○を出して△から□へ」で始まる、同じことを繰り返す、
+前に予告したハシゴを「実は」と言う、最初の一投を「接戦」と言う、根拠なく「まだまだここから」と言う。
+
+| 項目 | 内容 |
+|---|---|
+| `emotion` | `reaction` の代わり。`kind`（`joy` 喜び・`disappointment` 落胆・`so_close` 惜しい・`relief` ひやり・`calm`）、`strength`（`huge`・`big`・`mild`）、`about`（`actual` か、きっかけになった `missed_goal`・`missed_ladder`・`avoided_snake`）。惜しい・ひやりは、その別の目の影響が `decisive`・`big` か、ハシゴ・ヘビが15マス以上のときだけ（ゴールを逃したときは常に `big` 以上）。実際の結果と比べて強いほうを使う |
+| `race.phase` | 全員が2回ずつ振るまでは `opening`（始まったばかり。接戦とは言わない） |
+| `stillInReach` | `next_ladder`・`next_snake` に付く。今回逃した（避けた）ハシゴ・ヘビに、次の手番でも届く（チャンス・危険が続いている） |
+| `previousComments` | このゲームで直前に出した実況を古い順に最大5つ。1ターンにつき最後に出したもの。今の出目の実況と、Undo で取り消したターンの実況は含めない |
+
+システムプロンプトでは、感嘆の言葉の例を感情ごとに示し、`previousComments` で使った感嘆・決まり文句（「さっきお話しした」「〜を願うしかない」など）を使わないこと、
+予告の結果が大きな展開ならつなぎ方を変えながら話すこと、出目と移動は意味があるときだけ言うこと、
+追う人の望みは根拠と一緒に、その人の立場からの願いとして中立に言うこと（「○○さんとしては、□以外を願うしかない！」）を指示する。
+
+比較の仕組みでは、v4 は出目の順に作り、作った実況を次の出目の `previousComments` に使う（実際のゲームと同じ）。
 
 ## 全体の流れ
 
@@ -297,6 +317,8 @@
 3. 禁止語（「バカ」「死ね」など、`BLOCKED_WORDS`）を含むなら使わない（`blocked_word`）。
 4. 上限を超えたら、上限内で最後の文末（。！？!?）で切る。切れる位置がなければ使わない（`too_long`）。
 5. 出力の上限で途中で切れた応答は、文末で切り直していなければ使わない（`truncated`）。
+
+禁止語を含む普通の言葉（「始まったばかり」の「ばか」、「カスタネット」の「カス」など。`ALLOWED_WORDS`）は、照合の前に取り除く（2026-11-22。v4 が「始まったばかり」と言って代替文になったため）。
 
 使えなかったとき、または LLM を呼べなかったときは、事実だけで作るテンプレート文に置き換える（`template_commentary`）。
 例: 「あおいさん、出目は4！5マス目から9マス目へ進みます。ハシゴを登って一気に31マス目！現在トップを走っています。」

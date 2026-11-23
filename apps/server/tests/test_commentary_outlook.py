@@ -28,7 +28,7 @@ BOARD = Board("test", "Test", 30, (
     Jump(JumpType.SNAKE, 7, 1),
     Jump(JumpType.SNAKE, 27, 10),
 ))
-SETTINGS = CommentarySettings(provider="claude")
+SETTINGS = CommentarySettings(provider="claude", prompt_version="commentary-v3")
 LEVELS = ["decisive", "big", "notable", "small"]
 
 
@@ -188,3 +188,57 @@ def test_no_next_rolls_once_the_game_is_over() -> None:
     assert result["nextForPlayer"] is None and result["nextForNextPlayer"] is None
     assert result["reaction"] == "huge_cheer"
     assert ("reached_goal", "あおい", 4) in kinds(result)
+
+
+# -- v4 -----------------------------------------------------------------------------
+
+V4 = CommentarySettings(provider="claude", prompt_version="commentary-v4")
+
+
+def outlook_v4(game: dict[str, Any], comments: tuple[str, ...] = ()) -> dict[str, Any]:
+    return build_context(game, game["turns"][-1]["id"], V4, comments).facts()
+
+
+def test_v4_opening_phase_until_everyone_rolled_twice() -> None:
+    assert outlook_v4(play(1))["race"]["phase"] == "opening"
+    assert outlook_v4(play(1, 1, 1))["race"]["phase"] == "opening"
+    assert outlook_v4(play(1, 1, 1, 1))["race"]["phase"] != "opening"
+
+
+def test_v4_emotion_for_a_missed_goal_and_a_hit_ladder() -> None:
+    # From 26 a 2 lands on 28, but a 1 would have hit the 27 snake (to 10): relief.
+    dodged = outlook_v4(play(3, 1, 6, 1, 2))
+    assert "reaction" not in dodged
+    assert dodged["emotion"]["kind"] == "relief"
+    assert dodged["emotion"]["about"] == "avoided_snake"
+    # From 28 a 1 lands on 29, while a 2 would have reached the goal (30).
+    missed = outlook_v4(play(3, 1, 6, 1, 2, 1, 1))
+    assert missed["emotion"]["kind"] == "so_close"
+    assert missed["emotion"]["about"] == "missed_goal"
+    climbed = outlook_v4(play(3))
+    assert climbed["emotion"]["kind"] == "joy"
+    assert climbed["emotion"]["strength"] in {"huge", "big"}
+
+
+def test_v4_small_near_misses_are_not_a_moment() -> None:
+    # あおい 0 -> 1 on the standard board: no big ladder or snake within one pip.
+    facts = outlook_v4(play(6, board=load_board_preset()))
+    assert facts["emotion"]["kind"] in {"calm", "joy", "so_close"}
+    if facts["emotion"]["kind"] == "so_close":
+        assert facts["emotion"]["strength"] in {"huge", "big"}
+
+
+def test_v4_marks_a_chance_that_is_still_in_reach() -> None:
+    # あおい 0 -> 1: a 3 would have climbed 3->20, and from 1 a 2 still does.
+    swings = outlook_v4(play(1))["biggestSwings"]
+    still = [item for item in swings if item.get("stillInReach")]
+    assert [(item["player"], item["from"]) for item in still] == [("あおい", 3)]
+
+
+def test_v4_sends_the_last_five_previous_comments_only() -> None:
+    comments = tuple(f"実況{number}" for number in range(1, 8))
+    game = play(1)
+    facts = outlook_v4(game, comments)
+    assert facts["previousComments"] == ["実況3", "実況4", "実況5", "実況6", "実況7"]
+    v3 = build_context(game, game["turns"][-1]["id"], SETTINGS, comments).facts()
+    assert "previousComments" not in v3  # v3 does not use them

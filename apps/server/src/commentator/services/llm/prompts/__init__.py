@@ -12,9 +12,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .. import outlook, outlook_v2
+from .. import outlook, outlook_v2, outlook_v4
 from ..settings import LATEST_PROMPT_VERSION, PROMPT_VERSIONS
-from . import v1, v2, v3
+from . import v1, v2, v3, v4
 
 if TYPE_CHECKING:
     from ..settings import CommentarySettings
@@ -32,6 +32,8 @@ class PromptVersion:
     analyze: Analyze | None
     # v1 called a roll past the goal "bounced back"; the rule keeps the piece in place.
     overshoot_key: str = "overshotGoalStayedPut"
+    # How many of the last comments in the game to send (0: none).
+    previous_comments: int = 0
 
 
 VERSIONS: dict[str, PromptVersion] = {
@@ -52,6 +54,12 @@ VERSIONS: dict[str, PromptVersion] = {
             "勝つ確率の変化で展開の大きさを測り、反応の強さ・局面・直前の出目を加える。"
             "中立で、勝つ確率は言葉だけで伝える。",
             v3.system_prompt, outlook.analyze_turn,
+        ),
+        PromptVersion(
+            "commentary-v4", "v4：感情・流れ・繰り返さない",
+            "惜しい・危ないにも感情を込め、直前の実況を踏まえて繰り返さない。"
+            "出目と移動を毎回は言わず、序盤は「始まったばかり」、続くチャンスも伝える。",
+            v4.system_prompt, outlook_v4.analyze_turn, previous_comments=5,
         ),
     )
 }

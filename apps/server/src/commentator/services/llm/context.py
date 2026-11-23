@@ -8,6 +8,7 @@ cannot change what happened.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -68,6 +69,8 @@ class CommentaryContext:
     # Extra facts of the prompt version (see prompts/), already in prompt form.
     outlook: dict[str, Any] = field(default_factory=dict)
     overshoot_key: str = "overshotGoalStayedPut"
+    # The last comments said in this game, oldest first (only for versions that use them).
+    previous_comments: tuple[str, ...] = ()
 
     def facts(self) -> dict[str, Any]:
         """JSON-ready facts for the prompt; keys are English and self-explanatory."""
@@ -111,6 +114,8 @@ class CommentaryContext:
                 for turn in self.recent_turns
             ],
             **self.outlook,
+            **({"previousComments": list(self.previous_comments)}
+               if self.previous_comments else {}),
         }
 
 
@@ -132,10 +137,17 @@ def player_label(order: int, language: str) -> str:
 
 
 def build_context(
-    game: dict[str, Any], turn_id: str, settings: CommentarySettings
+    game: dict[str, Any], turn_id: str, settings: CommentarySettings,
+    previous_comments: Sequence[str] = (),
 ) -> CommentaryContext:
-    """Build the context from a game payload (``GameState.to_dict()``)."""
+    """Build the context from a game payload (``GameState.to_dict()``).
+
+    ``previous_comments`` are the comments said before this one in the game,
+    oldest first; a version keeps the last ``previous_comments`` of them.
+    """
     version = get_version(settings.prompt_version)
+    kept = tuple(previous_comments)[-version.previous_comments:] \
+        if version.previous_comments else ()
     order = {player["id"]: index + 1 for index, player in enumerate(game["players"])}
 
     def name(player: dict[str, Any]) -> str:
@@ -195,6 +207,7 @@ def build_context(
         ),
         outlook=version.analyze(game, index, name) if version.analyze else {},
         overshoot_key=version.overshoot_key,
+        previous_comments=kept,
     )
 
 

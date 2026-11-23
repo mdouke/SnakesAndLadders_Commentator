@@ -33,6 +33,7 @@ from ..infrastructure.persistence.sqlite import SQLiteGameRepository
 from ..infrastructure.secrets import default_secrets_path, load_secrets
 from ..services.commentary import default_providers
 from ..services.llm.context import CommentaryPrompt, build_context, build_prompt
+from ..services.llm.prompts import get_version
 from ..services.llm.providers import ProviderError, template_commentary
 from ..services.llm.safety import review
 from ..services.llm.settings import PROMPT_VERSIONS, CommentarySettingsStore
@@ -124,8 +125,13 @@ def summarize_facts(facts: dict[str, Any]) -> str:
         f"{item['kind']}（{item['player']} {item['roll']}・{item['impact']}）"
         for item in (facts.get("biggestSwings") or [])[:3]
     )
+    emotion = facts.get("emotion")
+    feeling = (
+        f"{emotion['kind']}・{emotion['strength'] or '—'}（{emotion['about']}）"
+        if emotion else facts.get("reaction", "—")
+    )
     parts = [
-        f"反応 {facts.get('reaction', '—')}",
+        f"反応 {feeling}",
         f"局面 {race.get('phaseBefore', '—')}→{race.get('phase', '—')}",
     ]
     if chances:
@@ -166,21 +172,36 @@ def main(argv: list[str] | None = None) -> int:
     selected = parse_turns(args.turns, len(snapshots))
     names = {player["id"]: player["displayName"] for player in game["players"]}
 
-    prompts = []
-    for number in selected:
-        snapshot = snapshots[number - 1]
-        turn = snapshot["turns"][number - 1]
-        prompts.append((number, snapshot, build_prompt(
-            build_context(snapshot, turn["id"], settings), settings
-        )))
-
-    def make(item: tuple[int, dict[str, Any], CommentaryPrompt]) -> tuple[str, str]:
+    def make(prompt: CommentaryPrompt) -> tuple[str, str]:
         if args.dry_run or provider is None:
             return "（--dry-run のため作っていません）", "—"
-        return generate(item[2], provider)
+        return generate(prompt, provider)
 
-    with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
-        made = list(pool.map(make, prompts))
+    def prompt_for(number: int, said: list[str]) -> CommentaryPrompt:
+        snapshot = snapshots[number - 1]
+        turn = snapshot["turns"][number - 1]
+        return build_prompt(build_context(snapshot, turn["id"], settings, said), settings)
+
+    prompts: list[tuple[int, dict[str, Any], CommentaryPrompt]] = []
+    made: list[tuple[str, str]] = []
+    if get_version(settings.prompt_version).previous_comments:
+        # This version reads the comments said before, so they are made in order and
+        # each new comment is what the next one sees. Rolls before the selected
+        # range use the comments shown during the game.
+        said = [
+            shown[turn["id"]]["final_text"]
+            for turn in game["turns"][: selected.start - 1] if turn["id"] in shown
+        ]
+        for number in selected:
+            prompt = prompt_for(number, said)
+            prompts.append((number, snapshots[number - 1], prompt))
+            made.append(make(prompt))
+            said.append(made[-1][0])
+    else:
+        prompts = [(number, snapshots[number - 1], prompt_for(number, []))
+                   for number in selected]
+        with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+            made = list(pool.map(make, [prompt for _, _, prompt in prompts]))
 
     version = prompts[0][2].version if prompts else "—"
     lines = [
