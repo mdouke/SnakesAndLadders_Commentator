@@ -129,6 +129,10 @@ class RecognitionService:
         self._camera_configure_pending = False
         self._last_result: Any = None
         self._frame_times: deque[float] = deque(maxlen=30)
+        # Recognition log (no images): what happened to each throw.
+        self._log_tray_changes = 0
+        self._waiting_die_since: float | None = None
+        self._waiting_die_logged = False
         # Reading the value with the vision model (ADR 0006).
         self.dice_reader = dice_reader
         self.vlm_settings = vlm_settings or VlmSettingsStore()
@@ -666,10 +670,66 @@ class RecognitionService:
         )
         self._remember_frame(frame, result)
         if observe:
+            self._log_recognition_locked(before, result)
             self._capture_cycle_context(before, result.snapshot.state)
             self._handle_snapshot_locked(result.snapshot)
             self._start_reading_if_needed_locked(frame, result.snapshot)
         self._apply_pending_config_locked()
+
+    def _log_recognition_locked(self, before: RecognitionState, result: Any) -> None:
+        """Write what recognition decided, so a throw that ended up typed by hand
+        can be traced from the log. Numbers and state names only, never images."""
+        assert self.pipeline is not None
+        snapshot: RecognitionSnapshot = result.snapshot
+        session = self.pipeline.session
+        tray_changes = getattr(self.pipeline, "tray_changes", 0)
+        if tray_changes != self._log_tray_changes:
+            self._log_tray_changes = tray_changes
+            _recognition_log("tray outline changed", "recognition_tray_changed",
+                             {"state": snapshot.state.value})
+        detections = getattr(result, "detections", ())
+        if snapshot.state is RecognitionState.WAITING and detections:
+            now = self.clock()
+            if self._waiting_die_since is None:
+                self._waiting_die_since = now
+            elif not self._waiting_die_logged and now - self._waiting_die_since >= 3.0:
+                # A die has been lying there without starting a throw.
+                self._waiting_die_logged = True
+                _recognition_log("die visible while waiting", "recognition_die_ignored", {
+                    "values": [getattr(item, "value", None) for item in detections],
+                    "motionScore": round(float(result.motion_score), 4),
+                    "motionRequired": bool(getattr(session, "motion_required", False)),
+                })
+        else:
+            self._waiting_die_since = None
+            self._waiting_die_logged = False
+        discarded = snapshot.discarded_candidate
+        if discarded is not None:
+            _recognition_log("candidate discarded", "recognition_candidate_discarded", {
+                "value": discarded.value,
+                "confidence": _rounded(_confidence_dict(discarded.confidence)),
+            })
+        after = snapshot.state
+        if after is before:
+            return
+        details: dict[str, Any] = {"from": before.value, "to": after.value}
+        if after in {
+            RecognitionState.CONFIRMED, RecognitionState.NEEDS_CONFIRMATION,
+            RecognitionState.READING,
+        }:
+            details["candidate"] = snapshot.candidate_value
+            if snapshot.confidence is not None:
+                details["confidence"] = _rounded(_confidence_dict(snapshot.confidence))
+            failed = getattr(session, "last_failed_checks", ())
+            if failed:
+                details["failedChecks"] = list(failed)
+            if snapshot.recognition:
+                details["recognizer"] = snapshot.recognition.get("recognizer")
+        if snapshot.confirmation is not None:
+            details["source"] = snapshot.confirmation.source.value
+        if snapshot.error_code:
+            details["errorCode"] = snapshot.error_code
+        _recognition_log("recognition state changed", "recognition_state_changed", details)
 
     # --- vision model ------------------------------------------------------
 
@@ -1236,6 +1296,19 @@ def _tuning_hints(payload: dict[str, Any], settings: Any) -> list[str]:
     if payload["pendingRecognitionSettings"]:
         hints.append("判定の設定は、今の投擲が終わってから反映されます。")
     return hints
+
+
+def _recognition_log(message: str, event: str, details: dict[str, Any]) -> None:
+    logging.getLogger("commentator.recognition").info(
+        message, extra={"event": event, "recognition": details}
+    )
+
+
+def _rounded(values: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: round(value, 3) if isinstance(value, float) else value
+        for key, value in values.items()
+    }
 
 
 def _confidence_dict(value: ConfidenceBreakdown) -> dict[str, Any]:

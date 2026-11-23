@@ -21,6 +21,8 @@ OPTIONAL_FIELDS = (
     "reason", "provider",
     # Speech: the voice name/model used and the wait until audio started.
     "voice", "firstAudioMs",
+    # Dice recognition: states, candidate values and confidences (no images).
+    "recognition",
 )
 
 
