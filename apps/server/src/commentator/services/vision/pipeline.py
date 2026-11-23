@@ -110,8 +110,11 @@ class DiceRecognitionPipeline:
         if not self.tray_detection:
             return
         acquiring = self.tray.shape is None
+        # A recognition error also waits for the next throw: a tray pushed aside
+        # (often the reason the die was not found) is followed there too.
         between_throws = self.session.state in {
             RecognitionState.WAITING, RecognitionState.REMOVAL_WAIT,
+            RecognitionState.RECOGNITION_ERROR,
         }
         # Once an outline is in use it only changes between throws.
         if not acquiring and not between_throws:

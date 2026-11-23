@@ -107,6 +107,41 @@ def test_tracker_adopts_stable_outlines_and_follows_a_moved_tray() -> None:
     assert shape_iou(tracker.shape, original) < 0.92
 
 
+
+def test_tracker_follows_a_small_shift_but_not_jitter() -> None:
+    # 2026-11-23: shifts up to ~20 px were taken as "not moved", and a die
+    # lying near the rim of the shifted tray was masked out.
+    tracker = TrayTracker()
+    first, _ = scene()
+    region = search_region(first)
+
+    def observe(frame: np.ndarray) -> bool:
+        return tracker.observe(region.crop(frame), region, (WIDTH, HEIGHT), now=time.monotonic())
+
+    assert [observe(first) for _ in range(3)] == [False, False, True]
+    original = tracker.shape
+    nudged, _ = scene((641, 290))  # one pixel: detection noise, not a move
+    assert [observe(nudged) for _ in range(3)] == [False, False, False]
+    assert tracker.shape == original
+    shifted, _ = scene((652, 290))  # 12 px
+    assert [observe(shifted) for _ in range(3)] == [False, False, True]
+    assert tracker.shape != original
+
+
+def test_outline_is_followed_after_a_recognition_error() -> None:
+    frame, _ = scene()
+    tracked = pipeline(tray_detection=True)
+    for index in range(3):
+        tracked.process(frame, monotonic_time=float(index))
+    adopted = tracked.tray.shape
+    tracked.session.state = RecognitionState.RECOGNITION_ERROR
+    moved, _ = scene((700, 300))
+    for index in range(40):
+        # observe=False keeps the session in its error state for this check.
+        tracked.process(moved, monotonic_time=10.0 + index, observe=False)
+    assert tracked.session.state is RecognitionState.RECOGNITION_ERROR
+    assert tracked.tray.shape != adopted
+
 def pipeline(**kwargs: Any) -> DiceRecognitionPipeline:
     return DiceRecognitionPipeline(
         detector=DiceDetector(white_threshold=180, pip_threshold=120),
