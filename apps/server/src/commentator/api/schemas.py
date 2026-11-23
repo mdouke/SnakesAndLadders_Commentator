@@ -132,6 +132,7 @@ class CommentarySettingsUpdate(RequestModel):
     length: Literal["short", "medium", "long"] | None = None
     style: Literal["lively", "calm", "kids"] | None = None
     use_names: bool | None = None
+    fast_mode: bool | None = None
     timeout_seconds: float | None = Field(default=None, ge=1, le=60)
     max_retries: int | None = Field(default=None, ge=0, le=3)
     # One of the prompt versions listed in the settings response.

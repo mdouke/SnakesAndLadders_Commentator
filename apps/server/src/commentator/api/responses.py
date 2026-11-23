@@ -532,6 +532,7 @@ class CommentarySettingsResponse(ResponseModel):
     length: Literal["short", "medium", "long"]
     style: Literal["lively", "calm", "kids"]
     use_names: bool
+    fast_mode: bool
     timeout_seconds: float
     max_retries: int
     prompt_version: str

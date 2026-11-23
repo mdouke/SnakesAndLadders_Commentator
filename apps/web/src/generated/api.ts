@@ -973,6 +973,8 @@ export interface components {
             style: "lively" | "calm" | "kids";
             /** Usenames */
             useNames: boolean;
+            /** Fastmode */
+            fastMode: boolean;
             /** Timeoutseconds */
             timeoutSeconds: number;
             /** Maxretries */
@@ -1007,6 +1009,8 @@ export interface components {
             style?: ("lively" | "calm" | "kids") | null;
             /** Usenames */
             useNames?: boolean | null;
+            /** Fastmode */
+            fastMode?: boolean | null;
             /** Timeoutseconds */
             timeoutSeconds?: number | null;
             /** Maxretries */

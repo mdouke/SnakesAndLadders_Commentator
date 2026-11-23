@@ -2388,6 +2388,10 @@
             "type": "boolean",
             "title": "Usenames"
           },
+          "fastMode": {
+            "type": "boolean",
+            "title": "Fastmode"
+          },
           "timeoutSeconds": {
             "type": "number",
             "title": "Timeoutseconds"
@@ -2426,6 +2430,7 @@
           "length",
           "style",
           "useNames",
+          "fastMode",
           "timeoutSeconds",
           "maxRetries",
           "promptVersion",
@@ -2546,6 +2551,17 @@
               }
             ],
             "title": "Usenames"
+          },
+          "fastMode": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fastmode"
           },
           "timeoutSeconds": {
             "anyOf": [

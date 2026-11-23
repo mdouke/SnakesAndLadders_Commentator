@@ -407,6 +407,11 @@ export function CommentarySettingsPanel({ onError }: { onError: (message: string
             onChange={(event) => save({ useNames: event.target.checked })} />
           プレイヤーの名前を使う（オフにすると「プレイヤー1」などと呼びます）
         </label>
+        <label className="check">
+          <input type="checkbox" checked={settings.fastMode}
+            onChange={(event) => save({ fastMode: event.target.checked })} />
+          高速モードを使う（Claude Opus 5.5 のみ。生成が速くなる代わりに料金が2倍）
+        </label>
         <label>タイムアウト（秒）
           <input type="number" min={1} max={60} value={settings.timeoutSeconds}
             onChange={(event) => save({ timeoutSeconds: Number(event.target.value) })} />

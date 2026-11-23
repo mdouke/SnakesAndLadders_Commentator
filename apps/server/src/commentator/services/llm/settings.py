@@ -43,6 +43,8 @@ class CommentarySettings:
     length: Length = "medium"
     style: Style = "lively"
     use_names: bool = True
+    # Claude fast mode (faster output at a higher price) where the model has it.
+    fast_mode: bool = True
     timeout_seconds: float = 10.0
     max_retries: int = 1
     prompt_version: str = LATEST_PROMPT_VERSION
@@ -90,6 +92,7 @@ class CommentarySettings:
             "length": self.length,
             "style": self.style,
             "useNames": self.use_names,
+            "fastMode": self.fast_mode,
             "timeoutSeconds": self.timeout_seconds,
             "maxRetries": self.max_retries,
             "promptVersion": self.prompt_version,
@@ -107,6 +110,7 @@ class CommentarySettings:
             length=value.get("length", defaults.length),
             style=value.get("style", defaults.style),
             use_names=bool(value.get("useNames", defaults.use_names)),
+            fast_mode=bool(value.get("fastMode", defaults.fast_mode)),
             timeout_seconds=float(value.get("timeoutSeconds", defaults.timeout_seconds)),
             max_retries=int(value.get("maxRetries", defaults.max_retries)),
             prompt_version=str(value.get("promptVersion", defaults.prompt_version)),

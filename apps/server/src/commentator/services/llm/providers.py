@@ -108,6 +108,8 @@ _CLAUDE_FALLBACK_MODELS = {
     "claude-fable-5-2", "claude-fable-5-1", "claude-opus-5-5", "claude-opus-5",
     "claude-sonnet-5-5",
 }
+# Models with fast mode (``speed: "fast"``): faster output, twice the price.
+CLAUDE_FAST_MODELS = {"claude-opus-5-5"}
 _CLAUDE_EFFORT_PREFIXES = (
     "claude-fable-5", "claude-mythos-5", "claude-opus-5", "claude-sonnet-5",
     "claude-haiku-5", "claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8",
@@ -141,6 +143,12 @@ class ClaudeCommentaryProvider:
                 self._client = anthropic.Anthropic(max_retries=0)
             return self._client
 
+    @staticmethod
+    def _create(client: Any, request: dict[str, Any]) -> Any:
+        if "betas" in request:
+            return client.beta.messages.create(**request)
+        return client.messages.create(**request)
+
     def generate(self, prompt: CommentaryPrompt, *, timeout: float) -> ProviderOutput:
         import anthropic
 
@@ -157,12 +165,19 @@ class ClaudeCommentaryProvider:
         if model in _CLAUDE_FALLBACK_MODELS:
             request["betas"] = ["server-side-fallback-2026-07-01"]
             request["fallbacks"] = "default"
+        fast = prompt.settings.fast_mode and model in CLAUDE_FAST_MODELS
+        if fast:
+            request["speed"] = "fast"
         try:
             client = self._get_client().with_options(timeout=timeout)
-            if "betas" in request:
-                response = client.beta.messages.create(**request)
-            else:
-                response = client.messages.create(**request)
+            try:
+                response = self._create(client, request)
+            except anthropic.RateLimitError:
+                if not fast:
+                    raise
+                # Fast mode has its own rate limit: fall back to standard speed.
+                request.pop("speed")
+                response = self._create(client, request)
         except anthropic.APITimeoutError as error:
             raise ProviderError("Claude の応答がタイムアウトしました",
                                 code="provider_timeout", retryable=True) from error
@@ -186,9 +201,10 @@ class ClaudeCommentaryProvider:
             raise ProviderError("Claude が応答を断りました", code="provider_refused",
                                 retryable=False)
         text = "".join(block.text for block in response.content if block.type == "text")
+        speed = getattr(getattr(response, "usage", None), "speed", None)
         return ProviderOutput(
             text=text,
-            model=str(response.model),
+            model=f"{response.model} (fast)" if speed == "fast" else str(response.model),
             finish_reason=response.stop_reason,
             truncated=response.stop_reason == "max_tokens",
             request_id=getattr(response, "_request_id", None),
