@@ -242,3 +242,34 @@ def test_v4_sends_the_last_five_previous_comments_only() -> None:
     assert facts["previousComments"] == ["実況3", "実況4", "実況5", "実況6", "実況7"]
     v3 = build_context(game, game["turns"][-1]["id"], SETTINGS, comments).facts()
     assert "previousComments" not in v3  # v3 does not use them
+
+
+# -- v5 ------------------------------------------------------------------------------
+
+V5 = CommentarySettings(provider="claude", prompt_version="commentary-v5")
+# Ladder 13->20 next to a bigger snake 12->1: from 7, a 6 climbs, a 5 would slide.
+LADDER_BY_SNAKE = Board("test-v5", "Test", 40, (
+    Jump(JumpType.LADDER, 13, 20),
+    Jump(JumpType.SNAKE, 12, 1),
+))
+
+
+def test_v5_keeps_the_joy_of_a_ladder_climbed_past_a_bigger_snake() -> None:
+    # 2026-11-23: v4 opened "Phew!" because the snake dodged (to 11) outranked
+    # the ladder actually climbed (51 -> 67).
+    game = play(6, 1, 1, 1, 6, board=LADDER_BY_SNAKE)
+    assert game["turns"][-1]["jumpType"] == "ladder"
+    v4 = build_context(game, game["turns"][-1]["id"], V4).facts()
+    assert v4["emotion"]["kind"] == "relief"  # v4 is frozen as it was
+    v5 = build_context(game, game["turns"][-1]["id"], V5).facts()
+    assert v5["emotion"]["kind"] == "joy"
+    assert v5["emotion"]["about"] == "actual"
+    kinds_v5 = {item["kind"] for item in v5["biggestSwings"]}
+    assert {"hit_ladder", "avoided_snake"} <= kinds_v5  # the dodge is still told
+
+
+def test_v5_still_feels_near_misses_on_a_plain_move() -> None:
+    # From 26 a 2 lands on 28 (no jump), while a 1 would have hit the 27 snake.
+    game = play(3, 1, 6, 1, 2)
+    facts = build_context(game, game["turns"][-1]["id"], V5).facts()
+    assert facts["emotion"]["kind"] == "relief"

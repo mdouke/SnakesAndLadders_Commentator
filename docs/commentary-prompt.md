@@ -1,8 +1,8 @@
 # 実況のプロンプト仕様
 
 実況文を作るときに LLM（Claude / OpenAI）へ送るプロンプトと、その前後の処理をまとめる。
-プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v4`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
-この文書は v3 を中心に書き、v4 で加えたことは「v4 で加えたこと」にまとめる。
+プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v5`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
+この文書は v3 を中心に書き、v4 で加えたことは「v4 で加えたこと」、v5 で変えたことは「v5 で変えたこと」にまとめる。
 設計の判断は [ADR 0005](decisions/0005-commentary-and-speech.md) にある。
 
 ## 実況の方針（v3、2026-11-22）
@@ -39,6 +39,7 @@
 | `commentary-v2` | [prompts/v2.py](../apps/server/src/commentator/services/llm/prompts/v2.py) | [outlook_v2.py](../apps/server/src/commentator/services/llm/outlook_v2.py)（`thisRollOptions`、マス数順の `biggestSwings`、`race`、`gameFlow`） |
 | `commentary-v3` | [prompts/v3.py](../apps/server/src/commentator/services/llm/prompts/v3.py) | [outlook.py](../apps/server/src/commentator/services/llm/outlook.py)（この文書で説明するもの） |
 | `commentary-v4` | [prompts/v4.py](../apps/server/src/commentator/services/llm/prompts/v4.py) | [outlook_v4.py](../apps/server/src/commentator/services/llm/outlook_v4.py)（v3 の事実に、下の「v4 で加えたこと」を足す）と直前の実況 |
+| `commentary-v5` | [prompts/v5.py](../apps/server/src/commentator/services/llm/prompts/v5.py)（v4 と同じ） | [outlook_v5.py](../apps/server/src/commentator/services/llm/outlook_v5.py)（v4 の事実。`emotion` の決め方だけ下の「v5 で変えたこと」のとおり）と直前の実況 |
 
 比較の仕組みでも `--version commentary-v2` のように版を選べる。
 
@@ -59,6 +60,17 @@ v3 で1ゲーム遊んだ感想: 全体に事実を言うだけで感情がな�
 追う人の望みは根拠と一緒に、その人の立場からの願いとして中立に言うこと（「○○さんとしては、□以外を願うしかない！」）を指示する。
 
 比較の仕組みでは、v4 は出目の順に作り、作った実況を次の出目の `previousComments` に使う（実際のゲームと同じ）。
+
+## v5 で変えたこと（2026-11-23）
+
+v4 で遊んだ感想: 「危なーい！4なら49のヘビで11まで落ちていたところ、出たのは待望の6！51のハシゴで67まで」のように、
+実際にハシゴを登ったのに、一言目が「ひやり」になった。避けたヘビ（38マス、影響 decisive）が、登ったハシゴ（16マス、big）より
+強いと判定され、`emotion` が relief になっていた。
+
+- ハシゴ・ヘビ・ゴールが実際に起きた出目では、`emotion` は実際の結果のもの（joy / disappointment）にする。
+  「惜しい」「ひやり」は、ジャンプのない移動のときだけ使う。
+- 避けたヘビなどは `biggestSwings` に残るので、二言目以降で話せる。
+- システムプロンプトは v4 と同じ。v4 は使ったので変えず、新しい版にした。
 
 ## 全体の流れ
 
@@ -95,6 +107,7 @@ v3 で1ゲーム遊んだ感想: 全体に事実を言うだけで感情がな�
 | `length` | `short` / `medium` / `long` | `medium` | 長さの指示と上限（下の表） |
 | `style` | `lively` / `calm` / `kids` | `lively` | 話し方の指示 |
 | `useNames` | true / false | true | プレイヤーを名前で呼ぶか、「プレイヤー1」などで呼ぶか |
+| `fastMode` | true / false | true | Claude の高速モード（`speed: fast`）。今は Claude Opus 5.5 だけ。料金は2倍。2026-11-23 のゲームで平均 4.8 秒 → 2.0 秒 |
 | `timeoutSeconds` | 1〜60 | 10 | 1回の呼び出しの待ち時間 |
 | `maxRetries` | 0〜3 | 1 | 再試行の回数 |
 
@@ -303,7 +316,7 @@ v3 で1ゲーム遊んだ感想: 全体に事実を言うだけで感情がな�
 |---|---|---|
 | API | Messages API（`system` にシステムプロンプト、`messages` の user にユーザープロンプト） | Responses API（`instructions` と `input`） |
 | 出力の上限 | `max_tokens` 4000 | `max_output_tokens` 4000 |
-| その他 | Claude 5 世代などでは `effort: low`（短い実況なので考える量を減らし、速くする）。一部のモデルでは、断られたときにサーバー側で別のモデルに切り替える設定を付ける | なし |
+| その他 | Claude 5 世代などでは `effort: low`（短い実況なので考える量を減らし、速くする）。一部のモデルでは、断られたときにサーバー側で別のモデルに切り替える設定を付ける。`fastMode` がオンで Opus 5.5 なら `speed: fast`（高速モードの利用上限に当たったら、その回は普通の速さで送り直す。記録のモデル名は `claude-opus-5-5 (fast)`） | なし |
 | 鍵 | `ANTHROPIC_API_KEY`（`var/secrets.env`） | `OPENAI_API_KEY` |
 
 - 1回の待ち時間は `timeoutSeconds`。時間切れ・接続失敗・利用上限・HTTP 5xx は、`maxRetries` 回まで再試行する（間隔は0.5秒、1秒、2秒…）。

@@ -48,10 +48,20 @@ def _stronger(first: str | None, second: str | None) -> str | None:
     return min(ranked, key=STRENGTHS.index) if ranked else None
 
 
-def _emotion(facts: dict[str, Any], swings: list[dict[str, Any]], goal: int) -> dict[str, Any]:
-    """The feeling of this roll: what happened, or what nearly happened."""
+def _emotion(
+    facts: dict[str, Any], swings: list[dict[str, Any]], goal: int,
+    *, actual_jump: bool = False,
+) -> dict[str, Any]:
+    """The feeling of this roll: what happened, or what nearly happened.
+
+    With ``actual_jump`` (v5) a roll that climbed a ladder, slid down a snake or
+    reached the goal keeps the feeling of what happened: a bigger snake dodged
+    on the way must not turn the joy of a ladder into relief.
+    """
     kind, strength = _REACTION_TO_EMOTION[facts["reaction"]]
     best: dict[str, Any] = {"kind": kind, "strength": strength, "about": "actual"}
+    if actual_jump:
+        return best
     for swing in swings:
         if swing["kind"] not in {"missed_goal", "missed_ladder", "avoided_snake"}:
             continue
@@ -74,8 +84,10 @@ def _emotion(facts: dict[str, Any], swings: list[dict[str, Any]], goal: int) -> 
 
 
 def analyze_turn(
-    game: dict[str, Any], turn_index: int, name: NamePlayer
+    game: dict[str, Any], turn_index: int, name: NamePlayer,
+    *, keep_actual_jump: bool = False,
 ) -> dict[str, Any]:
+    """v4's facts; ``keep_actual_jump`` is v5's change (see ``_emotion``)."""
     facts = analyze_v3(game, turn_index, name, max_swings=None)
     goal = int(game["board"]["goal"])
     swings: list[dict[str, Any]] = facts["biggestSwings"]
@@ -89,7 +101,9 @@ def analyze_turn(
         if item["kind"] in {"next_ladder", "next_snake"}:
             item["stillInReach"] = (item["player"], item["from"]) in this_roll
 
-    emotion = _emotion(facts, swings, goal)
+    turn = game["turns"][turn_index]
+    jumped = bool(turn.get("jumpType")) or int(turn["finalPosition"]) >= goal
+    emotion = _emotion(facts, swings, goal, actual_jump=keep_actual_jump and jumped)
     rolls = len(game["turns"][: turn_index + 1])
     race = facts["race"]
     if rolls < OPENING_ROLLS_PER_PLAYER * len(game["players"]):

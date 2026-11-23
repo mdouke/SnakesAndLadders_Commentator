@@ -12,9 +12,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .. import outlook, outlook_v2, outlook_v4
+from .. import outlook, outlook_v2, outlook_v4, outlook_v5
 from ..settings import LATEST_PROMPT_VERSION, PROMPT_VERSIONS
-from . import v1, v2, v3, v4
+from . import v1, v2, v3, v4, v5
 
 if TYPE_CHECKING:
     from ..settings import CommentarySettings
@@ -60,6 +60,12 @@ VERSIONS: dict[str, PromptVersion] = {
             "惜しい・危ないにも感情を込め、直前の実況を踏まえて繰り返さない。"
             "出目と移動を毎回は言わず、序盤は「始まったばかり」、続くチャンスも伝える。",
             v4.system_prompt, outlook_v4.analyze_turn, previous_comments=5,
+        ),
+        PromptVersion(
+            "commentary-v5", "v5：v4＋実際の結果を優先",
+            "v4 と同じ指示。ハシゴ・ヘビ・ゴールが実際に起きた出目では、"
+            "避けたヘビなど「起き得たこと」より実際の結果の感情（喜び・落胆）を優先する。",
+            v5.system_prompt, outlook_v5.analyze_turn, previous_comments=5,
         ),
     )
 }
