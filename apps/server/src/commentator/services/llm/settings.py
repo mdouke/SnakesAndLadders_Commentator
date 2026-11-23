@@ -26,7 +26,7 @@ STYLES: tuple[Style, ...] = ("lively", "calm", "kids")
 # Prompt versions (see prompts/); the newest is the default.
 PROMPT_VERSIONS: tuple[str, ...] = (
     "commentary-v1", "commentary-v2", "commentary-v3", "commentary-v4",
-    "commentary-v5",
+    "commentary-v5", "commentary-v6", "commentary-v7",
 )
 LATEST_PROMPT_VERSION = PROMPT_VERSIONS[-1]
 

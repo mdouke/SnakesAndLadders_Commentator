@@ -12,9 +12,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .. import outlook, outlook_v2, outlook_v4, outlook_v5
+from .. import outlook, outlook_v2, outlook_v4, outlook_v5, outlook_v7
 from ..settings import LATEST_PROMPT_VERSION, PROMPT_VERSIONS
-from . import v1, v2, v3, v4, v5
+from . import v1, v2, v3, v4, v5, v6, v7
 
 if TYPE_CHECKING:
     from ..settings import CommentarySettings
@@ -66,6 +66,18 @@ VERSIONS: dict[str, PromptVersion] = {
             "v4 と同じ指示。ハシゴ・ヘビ・ゴールが実際に起きた出目では、"
             "避けたヘビなど「起き得たこと」より実際の結果の感情（喜び・落胆）を優先する。",
             v5.system_prompt, outlook_v5.analyze_turn, previous_comments=5,
+        ),
+        PromptVersion(
+            "commentary-v6", "v6：v5＋短くするときの残し方",
+            "v5 に、必ず残すもの（感嘆・いちばん大きな展開・局面の変化）と削る順番"
+            "（言い直し→途中のマス目→差のマス数）を加える。長さ「短め」と組み合わせて使う。",
+            v6.system_prompt, outlook_v5.analyze_turn, previous_comments=5,
+        ),
+        PromptVersion(
+            "commentary-v7", "v7：v6＋通り過ぎた／届かない",
+            "v6 に加え、惜しかったハシゴ・ゴール・避けたヘビが、出目が大きすぎて通り過ぎたのか、"
+            "小さくて届かなかったのかを渡し、言い分ける。",
+            v7.system_prompt, outlook_v7.analyze_turn, previous_comments=5,
         ),
     )
 }

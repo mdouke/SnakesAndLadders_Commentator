@@ -1,8 +1,8 @@
 # 実況のプロンプト仕様
 
 実況文を作るときに LLM（Claude / OpenAI）へ送るプロンプトと、その前後の処理をまとめる。
-プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v5`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
-この文書は v3 を中心に書き、v4 で加えたことは「v4 で加えたこと」、v5 で変えたことは「v5 で変えたこと」にまとめる。
+プロンプトの版は設定で切り替えられる（既定は最新の `commentary-v7`）。各版は [prompts/](../apps/server/src/commentator/services/llm/prompts/) にある。
+この文書は v3 を中心に書き、v4 で加えたことは「v4 で加えたこと」、v5 以降で変えたことは版ごとの節（「v5 で変えたこと」など）にまとめる。
 設計の判断は [ADR 0005](decisions/0005-commentary-and-speech.md) にある。
 
 ## 実況の方針（v3、2026-11-22）
@@ -40,6 +40,8 @@
 | `commentary-v3` | [prompts/v3.py](../apps/server/src/commentator/services/llm/prompts/v3.py) | [outlook.py](../apps/server/src/commentator/services/llm/outlook.py)（この文書で説明するもの） |
 | `commentary-v4` | [prompts/v4.py](../apps/server/src/commentator/services/llm/prompts/v4.py) | [outlook_v4.py](../apps/server/src/commentator/services/llm/outlook_v4.py)（v3 の事実に、下の「v4 で加えたこと」を足す）と直前の実況 |
 | `commentary-v5` | [prompts/v5.py](../apps/server/src/commentator/services/llm/prompts/v5.py)（v4 と同じ） | [outlook_v5.py](../apps/server/src/commentator/services/llm/outlook_v5.py)（v4 の事実。`emotion` の決め方だけ下の「v5 で変えたこと」のとおり）と直前の実況 |
+| `commentary-v6` | [prompts/v6.py](../apps/server/src/commentator/services/llm/prompts/v6.py)（v4 の文面＋短くするときの残し方） | v5 と同じ |
+| `commentary-v7` | [prompts/v7.py](../apps/server/src/commentator/services/llm/prompts/v7.py)（v6＋通り過ぎた／届かない） | [outlook_v7.py](../apps/server/src/commentator/services/llm/outlook_v7.py)（v5 の事実に `direction`・`byPips`） |
 
 比較の仕組みでも `--version commentary-v2` のように版を選べる。
 
@@ -71,6 +73,27 @@ v4 で遊んだ感想: 「危なーい！4なら49のヘビで11まで落ちて�
   「惜しい」「ひやり」は、ジャンプのない移動のときだけ使う。
 - 避けたヘビなどは `biggestSwings` に残るので、二言目以降で話せる。
 - システムプロンプトは v4 と同じ。v4 は使ったので変えず、新しい版にした。
+
+## v6 で変えたこと（2026-11-23）
+
+実況を半分くらいの長さにしたい（話す内容は変えずに）。長さの設定を「短め」にするだけでは、平均101字 → 60字になったが、
+いちばん大きな危険より小さな危険を選んだり、局面の話が抜けたりした。
+
+- 長さは設定の「短め」（40字程度、多くても70字）で決める。v6 を選んでも長さは変わらないので、管理画面で「短め」にする。
+- 必ず残す: 感嘆、`biggestSwings` の先頭、局面の変化（phaseBefore からの変化、逆転・追い越し）。
+- 長さに収まらないときに削る順番: 同じことの言い直し → 途中のマス目（「51の」など。行き先は残す）→ 差のマス数。
+- 今回の出目で実際に起きたハシゴ・ヘビ・ゴールは、影響が小さくても「ヘビで26へ」のように言う（「後退」とぼかさない）。
+- 2026-11-23 のゲーム（18回）を短めで作り直すと、平均約60字（もとの約6割）で、話題の取りこぼしはなかった。
+
+## v7 で変えたこと（2026-11-23）
+
+v6 で遊んだ感想: 「くうっ、届かない！狙っていた42へのハシゴは2が必要でした」。実際は5を出して、2で止まれたハシゴを
+通り過ぎていた。v6 までの事実は「2ならハシゴ」としか言わず、通り過ぎたのか届かなかったのかが分からなかった。
+
+- `missed_goal` / `missed_ladder` / `avoided_snake` と、それについての `emotion` に `direction` と `byPips` を足す。
+  `passed` は出目が大きすぎて通り過ぎた、`short` は小さくて届かなかった。`byPips` は何目ずれたか。
+- プロンプトに、`passed` なら「通り過ぎた」「行き過ぎた」、`short` なら「届かない」「あと一歩」と言い分けるよう書く。
+- 同じ出目を v7 で作り直すと「狙っていた42へのハシゴは3つ行き過ぎ！」になった。
 
 ## 全体の流れ
 

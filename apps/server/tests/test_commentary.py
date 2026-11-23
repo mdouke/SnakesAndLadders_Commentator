@@ -423,7 +423,7 @@ def test_the_request_log_keeps_prompt_response_and_timing() -> None:
     row = table.row()
     assert row["game_id"] == game.id
     assert row["turn_id"] == game.turns[-1].id
-    assert row["prompt_version"] == "commentary-v5"
+    assert row["prompt_version"] == "commentary-v7"
     assert '"roll": 3' in row["user_prompt"]
     assert "ヘビとハシゴ" in row["system_prompt"]
     assert row["response_text"] == "アオイさん、いい出目です。"

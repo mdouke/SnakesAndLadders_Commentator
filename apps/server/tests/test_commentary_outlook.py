@@ -273,3 +273,46 @@ def test_v5_still_feels_near_misses_on_a_plain_move() -> None:
     game = play(3, 1, 6, 1, 2)
     facts = build_context(game, game["turns"][-1]["id"], V5).facts()
     assert facts["emotion"]["kind"] == "relief"
+
+
+def test_v6_adds_keep_and_cut_rules_to_v5() -> None:
+    from commentator.services.llm.prompts import get_version
+
+    for language in ("ja", "en"):
+        settings = CommentarySettings(provider="claude", language=language, length="short")
+        v5 = get_version("commentary-v5").system_prompt(settings)
+        v6 = get_version("commentary-v6").system_prompt(settings)
+        assert v6.startswith(v5)
+        assert len(v6) > len(v5)
+    ja = get_version("commentary-v6").system_prompt(
+        CommentarySettings(provider="claude", length="short")
+    )
+    # Saying the same thing twice is cut first.
+    assert ja.index("言い直し") < ja.index("途中のマス目") < ja.index("差のマス数")
+
+
+# -- v7 ------------------------------------------------------------------------------
+
+V7 = CommentarySettings(provider="claude", prompt_version="commentary-v7")
+
+
+def test_v7_says_whether_a_missed_ladder_was_passed_or_not_reached() -> None:
+    # 2026-11-23: a 5 went past the ladder a 2 would have hit, and v6 said "fell short".
+    # From 0 on the test board a 3 hits the 3->20 ladder.
+    passed = play(5)
+    facts = build_context(passed, passed["turns"][-1]["id"], V7).facts()
+    missed = [item for item in facts["biggestSwings"] if item["kind"] == "missed_ladder"]
+    assert missed and missed[0]["direction"] == "passed" and missed[0]["byPips"] == 2
+    short = play(2)
+    facts = build_context(short, short["turns"][-1]["id"], V7).facts()
+    missed = [item for item in facts["biggestSwings"] if item["kind"] == "missed_ladder"]
+    assert missed and missed[0]["direction"] == "short" and missed[0]["byPips"] == 1
+    if facts["emotion"]["about"] == "missed_ladder":
+        assert facts["emotion"]["direction"] == "short"
+
+
+def test_v7_prompt_explains_passed_and_short() -> None:
+    from commentator.services.llm.prompts import get_version
+
+    text = get_version("commentary-v7").system_prompt(CommentarySettings(provider="claude"))
+    assert "通り過ぎた" in text and "届かない" in text
