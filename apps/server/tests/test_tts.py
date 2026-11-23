@@ -315,3 +315,63 @@ def test_comment_is_revealed_when_speech_fails_or_is_off() -> None:
         assert service.snapshot()["revealedRequestId"] == "r2"
     finally:
         service.stop()
+
+
+def test_speech_times_are_reported_for_each_comment() -> None:
+    spoken: list[dict[str, Any]] = []
+    engine = FakeEngine(hold=True)
+    service = SpeechService(engine=engine, is_current=lambda _r: True, on_spoken=spoken.append)
+    service.start()
+    try:
+        service.commentary_changed(ready("r1", "読み終わる実況"))
+        assert engine.started.wait(2)
+        time.sleep(0.05)
+        engine.release.set()
+        wait_until(lambda: len(spoken) == 1)
+        engine.release.clear()
+        engine.started.clear()
+        service.commentary_changed(ready("r2", "途中で止まる実況"))
+        assert engine.started.wait(2)
+        service.commentary_changed({"status": "idle", "requestId": None, "text": None})
+        wait_until(lambda: len(spoken) == 2)
+    finally:
+        engine.release.set()
+        service.stop()
+    finished, stopped = spoken
+    assert finished["requestId"] == "r1" and finished["status"] == "finished"
+    assert finished["provider"] and finished["startedAt"] < finished["endedAt"]
+    assert stopped["requestId"] == "r2" and stopped["status"] == "stopped"
+
+
+def test_speech_times_are_kept_in_the_commentary_record(tmp_path: Path) -> None:
+    import sqlite3
+
+    from commentator.infrastructure.persistence.commentary_log import SQLiteCommentaryLog
+
+    path = tmp_path / "old.sqlite3"
+    with sqlite3.connect(path) as connection:  # a table made before the speech columns
+        connection.execute("CREATE TABLE commentary_requests (seq INTEGER PRIMARY KEY, "
+                           "id TEXT, game_id TEXT, turn_id TEXT, state_version INTEGER, "
+                           "revision INTEGER, trigger TEXT, provider TEXT, model TEXT, "
+                           "prompt_version TEXT, system_prompt TEXT, user_prompt TEXT, "
+                           "status TEXT, outcome TEXT, response_text TEXT, final_text TEXT, "
+                           "fallback_reason TEXT, error_code TEXT, error_message TEXT, "
+                           "attempts INTEGER, errors TEXT, provider_request_ids TEXT, "
+                           "started_at TEXT, finished_at TEXT, duration_ms REAL)")
+    log = SQLiteCommentaryLog(path)
+    repository = MemoryGameRepository()
+    service = CommentaryService(GameService(repository), log=log)
+    log.start({"id": "r1", "game_id": "g", "turn_id": "t", "state_version": 1, "revision": 0,
+               "trigger": "turn", "provider": "fake", "prompt_version": "v",
+               "system_prompt": "s", "user_prompt": "u", "status": "displayed",
+               "attempts": 1, "errors": [], "provider_request_ids": [],
+               "started_at": "2026-11-23T00:00:00+00:00"})
+    service.record_speech({"requestId": "r1", "status": "finished", "provider": "macos",
+                           "startedAt": "2026-11-23T00:00:03+00:00",
+                           "endedAt": "2026-11-23T00:00:12+00:00"})
+    service.record_speech({"requestId": "missing", "status": "finished"})  # ignored
+    row = log.get("r1")
+    assert row is not None
+    assert row["speech_status"] == "finished" and row["speech_provider"] == "macos"
+    assert row["speech_started_at"] == "2026-11-23T00:00:03+00:00"
+    assert row["speech_ended_at"] == "2026-11-23T00:00:12+00:00"

@@ -9,6 +9,11 @@ One row per generation request. ``status`` tells what happened on screen:
 
 ``outcome`` tells how the text was produced: ``generated``, ``fallback`` (the template
 comment replaced a failed, refused or unusable response) or ``error``.
+
+``duration_ms`` runs from the request to the model until the checked text is ready
+(retries included); the request starts a few tens of milliseconds after the roll
+is saved. ``speech_*`` tell when the comment was read aloud: ``speech_started_at``
+is the first sound, ``speech_ended_at`` the end (or the stop), both UTC.
 """
 
 from __future__ import annotations
@@ -25,8 +30,14 @@ COLUMNS = (
     "model", "prompt_version", "system_prompt", "user_prompt", "status", "outcome",
     "response_text", "final_text", "fallback_reason", "error_code", "error_message",
     "attempts", "errors", "provider_request_ids", "started_at", "finished_at",
-    "duration_ms",
+    "duration_ms", "speech_status", "speech_provider", "speech_started_at",
+    "speech_ended_at",
 )
+# Added after the table was first made; created on start-up when missing.
+_ADDED_COLUMNS = {
+    "speech_status": "TEXT", "speech_provider": "TEXT", "speech_started_at": "TEXT",
+    "speech_ended_at": "TEXT",
+}
 _JSON_COLUMNS = {"errors", "provider_request_ids"}
 _CAMEL = {
     "game_id": "gameId", "turn_id": "turnId", "state_version": "stateVersion",
@@ -35,6 +46,8 @@ _CAMEL = {
     "fallback_reason": "fallbackReason", "error_code": "errorCode",
     "error_message": "errorMessage", "provider_request_ids": "providerRequestIds",
     "started_at": "startedAt", "finished_at": "finishedAt", "duration_ms": "durationMs",
+    "speech_status": "speechStatus", "speech_provider": "speechProvider",
+    "speech_started_at": "speechStartedAt", "speech_ended_at": "speechEndedAt",
 }
 
 
@@ -119,6 +132,14 @@ class SQLiteCommentaryLog:
                 )
                 """
             )
+            existing = {
+                row[1] for row in connection.execute("PRAGMA table_info(commentary_requests)")
+            }
+            for name, kind in _ADDED_COLUMNS.items():
+                if name not in existing:
+                    connection.execute(
+                        f"ALTER TABLE commentary_requests ADD COLUMN {name} {kind}"
+                    )
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS commentary_requests_game "
                 "ON commentary_requests (game_id, seq)"

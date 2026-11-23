@@ -2133,6 +2133,55 @@
               }
             ],
             "title": "Durationms"
+          },
+          "speechStatus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "finished",
+                  "stopped",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speechstatus"
+          },
+          "speechProvider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speechprovider"
+          },
+          "speechStartedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speechstartedat"
+          },
+          "speechEndedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speechendedat"
           }
         },
         "additionalProperties": false,
@@ -2161,7 +2210,11 @@
           "providerRequestIds",
           "startedAt",
           "finishedAt",
-          "durationMs"
+          "durationMs",
+          "speechStatus",
+          "speechProvider",
+          "speechStartedAt",
+          "speechEndedAt"
         ],
         "title": "CommentaryRequestRecord",
         "description": "One stored generation request (prompt, full response, timing, errors)."

@@ -140,6 +140,19 @@ class CommentaryService:
         with self._lock:
             return request_id is not None and request_id == self._target
 
+    def record_speech(self, spoken: dict[str, Any]) -> None:
+        """Keep when a comment was read aloud in its request row (speech callback)."""
+        request_id = spoken.get("requestId")
+        if not request_id or self.log.get(request_id) is None:
+            return
+        self.log.update(
+            request_id,
+            speech_status=spoken.get("status"),
+            speech_provider=spoken.get("provider"),
+            speech_started_at=spoken.get("startedAt"),
+            speech_ended_at=spoken.get("endedAt"),
+        )
+
     # -- reacting to the game -------------------------------------------------
 
     def game_changed(self, game: dict[str, Any] | None) -> None:

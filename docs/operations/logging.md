@@ -39,4 +39,7 @@
 | `firstAudioMs` | 実況ができてから（試聴はボタンを押してから）最初の音が出るまでのミリ秒。音が出なかったときは付かない |
 | `durationMs` | 実況ができてから読み終わる（または止まる）までのミリ秒 |
 
+読み始めと読み終わりの時刻は、実況ごとに `var/commentator.sqlite3` の `commentary_requests`（`speech_started_at`・`speech_ended_at`・
+`speech_status`・`speech_provider`）にも残す（2026-11-23 追加）。各列の意味は [commentary-prompt.md](../commentary-prompt.md) の「時刻と時間」。
+
 途中の文で失敗したときは、読み終えた文の続きから次の声（Gemini → WaveNet → macOS）で読む。そのときの `speech_fallback` には `reason: "resumed mid-comment"` が付く。

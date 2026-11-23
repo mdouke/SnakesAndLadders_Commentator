@@ -378,6 +378,23 @@ v7 で遊んだ感想: 隣り合う48と49のヘビは、毎回49のほうしか
   SQLite の `commentary_requests` テーブルに保存される（`GET /api/commentary/requests`）。
 - 通常のログ（`var/log/commentator.jsonl`）にはプロンプトや実況の文を書かない（[logging.md](operations/logging.md)）。
 
+### 時刻と時間（`commentary_requests`）
+
+1回の出目は、次の順に進む。ゲームの記録（`turns` の `occurredAt`）と `commentary_requests` を `turn_id` で突き合わせると、全体が分かる。
+
+| 列 | 意味 |
+|---|---|
+| `turns.occurredAt` | 出目が確定してゲームに記録された時刻（サイコロが止まって読み取るまでの時間は含まない） |
+| `started_at` | 実況の要求を始めた時刻。出目の記録から数十ミリ秒後（2026-11-23 のゲームで中央値 34ミリ秒、最大 69ミリ秒。勝つ確率などの計算を含む） |
+| `duration_ms` | モデルに送ってから、検査を終えた文ができるまで（再試行を含む） |
+| `finished_at` | 文ができた時刻 |
+| `speech_started_at` | 読み上げの最初の音が出た時刻（2026-11-23 追加） |
+| `speech_ended_at` | 読み上げが終わった（止めた・失敗した）時刻 |
+| `speech_status` | `finished`（読み終えた）、`stopped`（次の出目や Undo で止めた）、`failed`（音を出せなかった） |
+| `speech_provider` | 実際に読んだ声（`macos` など。途中で切り替えたら `gemini>macos` のように並べる） |
+
+時刻はどれも UTC。読み上げがオフのとき、試聴のとき、文ができる前に次の出目が来たときは `speech_*` は空のまま。
+
 ## 遊んだゲームで比べる（[compare_commentary.py](../apps/server/src/commentator/tools/compare_commentary.py)）
 
 保存されたゲームを出目ごとに再現し、今のプロンプトと設定で実況を作り直して、ゲーム中に出た実況と並べた Markdown を書き出す。

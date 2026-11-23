@@ -901,6 +901,14 @@ export interface components {
             finishedAt: string | null;
             /** Durationms */
             durationMs: number | null;
+            /** Speechstatus */
+            speechStatus: ("finished" | "stopped" | "failed") | null;
+            /** Speechprovider */
+            speechProvider: string | null;
+            /** Speechstartedat */
+            speechStartedAt: string | null;
+            /** Speechendedat */
+            speechEndedAt: string | null;
         };
         /**
          * CommentaryResponse

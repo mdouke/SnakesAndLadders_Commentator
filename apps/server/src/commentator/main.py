@@ -220,6 +220,7 @@ def create_app(
     speech.is_current = commentary.is_current
     speech.readings = player_readings
     speech.language = lambda: commentary.settings.get().language
+    speech.on_spoken = commentary.record_speech
     # After the hub subscriber, so the screen shows a comment before it is spoken.
     commentary.subscribe(speech.commentary_changed)
     speech.subscribe(lambda payload: hub.publish("speech", payload))

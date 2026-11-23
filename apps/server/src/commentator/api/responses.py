@@ -571,7 +571,13 @@ class CommentaryRequestRecord(ResponseModel):
     provider_request_ids: list[str]
     started_at: str
     finished_at: str | None
+    # From the request to the model until the checked text is ready.
     duration_ms: float | None
+    # Reading aloud: finished / stopped / failed, the voice, first sound and end (UTC).
+    speech_status: Literal["finished", "stopped", "failed"] | None
+    speech_provider: str | None
+    speech_started_at: str | None
+    speech_ended_at: str | None
 
 
 class CommentaryPromptPreview(ResponseModel):

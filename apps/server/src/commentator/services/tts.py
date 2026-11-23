@@ -20,6 +20,7 @@ import tempfile
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Condition, Event, Thread
 from time import monotonic
@@ -394,6 +395,7 @@ class SpeechService:
         is_current: Callable[[str | None], bool] = lambda _request_id: False,
         readings: Callable[[], dict[str, str]] = dict,
         language: Callable[[], str] = lambda: "ja",
+        on_spoken: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         # ``engine`` serves every provider (tests); ``engines`` maps provider names.
         self._default_engine: TtsEngine = engine or SilentTtsEngine()
@@ -402,6 +404,9 @@ class SpeechService:
         self.is_current = is_current
         self.readings = readings
         self.language = language
+        # Called after each comment was read (or stopped / failed): request ID,
+        # status, provider, and the UTC times of the first sound and of the end.
+        self.on_spoken = on_spoken
         self._condition = Condition()
         self._pending: _SpeechJob | None = None
         self._cancel = Event()
@@ -613,6 +618,24 @@ class SpeechService:
                 completed, error = not cancel.is_set(), None
                 break
         finished_at = monotonic()
+        if job.kind == "commentary" and self.on_spoken is not None:
+            ended = datetime.now(UTC)
+            started = (
+                ended - timedelta(seconds=finished_at - first_audio_at)
+                if first_audio_at is not None else None
+            )
+            try:
+                self.on_spoken({
+                    "requestId": job.request_id,
+                    "status": ("finished" if completed
+                               else "failed" if error is not None else "stopped"),
+                    "provider": ">".join(spoken_by) or None,
+                    "startedAt": started.isoformat() if started else None,
+                    "endedAt": ended.isoformat(),
+                })
+            except Exception:  # recording must never break speech
+                logger.exception("speech record failed",
+                                 extra={"event": "speech_record_failed"})
         logger.info(
             "speech finished" if completed else "speech stopped",
             extra={"event": "speech_finished" if completed else "speech_cancelled",
