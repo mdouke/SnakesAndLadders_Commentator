@@ -22,8 +22,14 @@ from .motion import Frame, Roi
 
 MIN_AREA_RATIO = 0.15  # of the search area
 STABLE_DETECTIONS = 3
-SAME_SHAPE_IOU = 0.92
-_IOU_SIZE = 160
+# Outlines found in a row agree when they overlap this much. Detection of a
+# still tray jitters by under a pixel (overlap 0.997 or more on the real camera).
+SAME_SHAPE_IOU = 0.97
+# A new outline is adopted when it overlaps the current one less than this.
+# 0.92 ignored shifts up to ~20 px (6% of the tray), enough to mask out a die
+# lying near the rim (2026-11-23); 0.98 follows a shift of about 5 px.
+MOVED_IOU = 0.98
+_IOU_SIZE = 480
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +145,7 @@ class TrayTracker:
         if len(self._candidates) < STABLE_DETECTIONS:
             return False
         self._candidates = self._candidates[-STABLE_DETECTIONS:]
-        if self.shape is not None and shape_iou(self.shape, found) >= SAME_SHAPE_IOU:
+        if self.shape is not None and shape_iou(self.shape, found) >= MOVED_IOU:
             return False  # the tray has not moved
         self.shape = found
         self.updated_at = now

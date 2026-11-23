@@ -66,6 +66,8 @@ class DiceRecognitionPipeline:
         self.tray = TrayTracker()
         self._frame_index = 0
         self._last_motion = 0.0
+        # How many times the tray outline was adopted (for the recognition log).
+        self.tray_changes = 0
         self._mask_cache: tuple[tuple[object, ...], np.ndarray] | None = None
 
     def set_tray_detection(self, enabled: bool) -> None:
@@ -108,8 +110,11 @@ class DiceRecognitionPipeline:
         if not self.tray_detection:
             return
         acquiring = self.tray.shape is None
+        # A recognition error also waits for the next throw: a tray pushed aside
+        # (often the reason the die was not found) is followed there too.
         between_throws = self.session.state in {
             RecognitionState.WAITING, RecognitionState.REMOVAL_WAIT,
+            RecognitionState.RECOGNITION_ERROR,
         }
         # Once an outline is in use it only changes between throws.
         if not acquiring and not between_throws:
@@ -120,17 +125,18 @@ class DiceRecognitionPipeline:
             return
         search = self.roi.to_pixels(frame)
         height, width = frame.shape[:2]
+        before, _ = self.region(frame)
         if not self.tray.observe(search.crop(frame), search, (width, height), now=monotonic()):
             return
         self._previous_frame = None  # the crop changed; restart the motion baseline
-        if between_throws and self.session.guarding_present_die:
-            # Positions inside the new crop differ: learn again where the die
-            # that was lying there at (re)start is.
-            self.session.ignore_present_dice()
-        elif between_throws:
-            # Positions inside the new crop differ, so a die lying in the tray
-            # must not look like a new throw.
-            self.session.require_motion()
+        self.tray_changes += 1
+        if between_throws:
+            # Positions inside the new crop differ: move the remembered ones with
+            # the crop, so the die lying there is still known and a die elsewhere
+            # still starts a throw. (Requiring clear motion instead left a die
+            # thrown in without a hand crossing the tray unread.)
+            after, _ = self.region(frame)
+            self.session.shift_positions(before.x - after.x, before.y - after.y)
         else:
             # First outline found mid-cycle (just after start): what was seen
             # through the table corners is discarded.

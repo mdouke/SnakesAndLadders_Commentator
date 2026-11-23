@@ -614,3 +614,19 @@ def test_server_boots_with_recognition_unavailable(monkeypatch: pytest.MonkeyPat
             assert response.json()["available"] is False
 
     asyncio.run(scenario())
+
+
+def test_recognition_decisions_are_logged(caplog: pytest.LogCaptureFixture) -> None:
+    service, _, _ = prepared_service()
+    with caplog.at_level("INFO", logger="commentator.recognition"):
+        snapshot = drive_candidate(service, detector=0.7)
+    assert snapshot["state"] == "needs_confirmation"
+    changes = [
+        record.recognition  # type: ignore[attr-defined]
+        for record in caplog.records
+        if getattr(record, "event", None) == "recognition_state_changed"
+    ]
+    asked = [item for item in changes if item["to"] == "needs_confirmation"]
+    assert asked and asked[-1]["candidate"] == 4
+    assert "detector" in asked[-1]["failedChecks"]
+    assert asked[-1]["confidence"]["detector"] == 0.7

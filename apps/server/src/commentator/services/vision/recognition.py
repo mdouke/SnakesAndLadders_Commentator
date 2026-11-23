@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass
 from enum import StrEnum
 from math import dist
@@ -197,6 +197,9 @@ class DiceRecognitionSession:
     # A die that was lying in the tray at (re)start and has been out of sight
     # this long was picked up; after that the same spot may hold a new throw.
     _RESTING_DIE_REMOVED_SECONDS = 1.0
+    # A tray empty this many frames and this long while waiting: the die was
+    # picked up (a few missed detections of a die lying there are not enough).
+    _PICKED_UP_FRAMES = 10
 
     def __init__(
         self,
@@ -228,6 +231,20 @@ class DiceRecognitionSession:
         self._resting_die: tuple[tuple[float, float], int, float] | None = None
         self._resting_absent_since: float | None = None
         self._settle_frames_left = 0
+        # The die just confirmed (center, value seen, ROI diagonal). Until it has
+        # been out of sight for ``removal_frames``, a die that comes to rest at the
+        # same spot with the same value is that die, not a new throw: a die still
+        # rocking after its confirmation must not be read twice.
+        self._confirmed_die: tuple[tuple[float, float], int, float] | None = None
+        self._confirmed_absent_frames = 0
+        # Since when no die has been seen while waiting (see _observe_waiting_absence).
+        self._waiting_absent_since: float | None = None
+        self._waiting_absent_frames = 0
+        # Values read in still frames during this throw; on a timeout the most
+        # common one is offered for confirmation instead of failing.
+        self._value_tally: Counter[int] = Counter()
+        # The automatic-confirmation checks the last candidate failed (for logs).
+        self.last_failed_checks: tuple[str, ...] = ()
         self._samples: deque[_CandidateSample] = deque(
             maxlen=self.config.candidate_window_frames
         )
@@ -261,6 +278,7 @@ class DiceRecognitionSession:
         }:
             self._die_seen_in_cycle = True
         self._track_resting_die(frame)
+        self._track_confirmed_die(frame)
         if self._settle_frames_left > 0 and self.state in {
             RecognitionState.WAITING, RecognitionState.REMOVAL_WAIT,
         }:
@@ -273,13 +291,25 @@ class DiceRecognitionSession:
             self._remember_resting_die(frame)
             return self.snapshot()
         if self._recognition_timed_out(frame.monotonic_time):
+            likely = self._most_likely_value()
             self._reset_transient()
+            if likely is not None:
+                # The value never settled, but one was read: ask the operator
+                # instead of failing silently.
+                self._set_candidate(likely)
+                self._recognition = {
+                    "recognizer": "opencv", "readingId": None, "opencvCandidate": likely,
+                    "vlm": None, "vlmError": None,
+                }
+                self.state = RecognitionState.NEEDS_CONFIRMATION
+                return self.snapshot()
             self.state = RecognitionState.RECOGNITION_ERROR
             self._recognition_error_code = "recognition_timeout"
             return self.snapshot(error_code="recognition_timeout")
         if self.state is RecognitionState.WAITING:
             self._remember_resting_die(frame)
             die_visible = bool(frame.detections or frame.rejected_count)
+            self._observe_waiting_absence(frame, die_visible)
             moved = frame.motion_score >= self.config.movement_threshold
             new_position = (
                 not self._motion_required
@@ -469,6 +499,7 @@ class DiceRecognitionSession:
         disappear for ``removal_frames`` or move clearly before a new throw counts.
         """
         self._last_confirmed_center = None
+        self._confirmed_die = None
         self._cycle_started_time = None
         self._reset_cycle(RecognitionState.REMOVAL_WAIT)
         # The die's position is unknown, so a die that "reappears" after a few missed
@@ -488,6 +519,11 @@ class DiceRecognitionSession:
         """True until the die present at (re)start is removed or a throw is confirmed."""
         return self._guard_present_die
 
+    @property
+    def motion_required(self) -> bool:
+        """True while only clear motion may start the next throw."""
+        return self._motion_required
+
     def require_motion(self) -> None:
         """Start the next throw only on clear motion (the crop has just changed)."""
         self._motion_required = True
@@ -495,6 +531,7 @@ class DiceRecognitionSession:
     def reset_to_waiting(self) -> None:
         """Discard transient camera state before a new camera session starts."""
         self._last_confirmed_center = None
+        self._confirmed_die = None
         self._motion_required = False
         self._clear_resting_die()
         self._last_observation_time = None
@@ -532,6 +569,9 @@ class DiceRecognitionSession:
                 if self._is_resting_die(frame):
                     self._back_to_resting_die()
                     return
+                if self._is_confirmed_die(frame):
+                    self._back_to_confirmed_die()
+                    return
                 self._reset_cycle(RecognitionState.STATIONARY)
                 if self.reading_mode == "vlm":
                     # The model reads the value, even when OpenCV sees no die
@@ -559,6 +599,11 @@ class DiceRecognitionSession:
         if self._is_resting_die(frame):
             self._back_to_resting_die()
             return
+        if self._is_confirmed_die(frame):
+            self._back_to_confirmed_die()
+            return
+        if frame.motion_score <= self.config.stationary_threshold:
+            self._value_tally[frame.detections[0].value] += 1
         sample = _CandidateSample(
             frame.detections[0], frame.motion_score, frame.roi_diagonal
         )
@@ -640,24 +685,28 @@ class DiceRecognitionSession:
             pip_recounted=pip_recounted,
             pip_layout_error=pip_layout_error,
         )
-        automatic = (
-            total >= self.config.automatic_threshold
-            and pip_size_consistency >= self.config.min_pip_size_consistency
+        checks = {
+            "total": total >= self.config.automatic_threshold,
+            "pipSizeConsistency": (
+                pip_size_consistency >= self.config.min_pip_size_consistency
+            ),
             # Fused pips that a lower-threshold recount could not separate.
             # A successful recount was right in all 9 labelled cases, so it
             # may auto-confirm; the layout check below still applies to it.
-            and not (pip_merge_suspected and not pip_recounted)
-            and pip_layout_error <= self.config.max_pip_layout_error
+            "pipMerge": not (pip_merge_suspected and not pip_recounted),
+            "pipLayoutError": pip_layout_error <= self.config.max_pip_layout_error,
             # A die seen obliquely shows a side face; its outline is no longer
             # square and side-face pips can be counted as top-face pips
             # (4 read as 6, 3 read as 5 at shape confidence 0.72-0.77).
-            and detector >= self.config.min_detector_confidence
-            and (
+            "detector": detector >= self.config.min_detector_confidence,
+            "singlePipCenterOffset": (
                 candidate != 1
                 or single_pip_center_offset
                 <= self.config.max_single_pip_center_offset
-            )
-        )
+            ),
+        }
+        self.last_failed_checks = tuple(name for name, ok in checks.items() if not ok)
+        automatic = not self.last_failed_checks
         if self.reading_mode == "hybrid" and (
             automatic or total >= self.config.confirmation_threshold
         ):
@@ -713,6 +762,10 @@ class DiceRecognitionSession:
             latest = self._samples[-1]
             self._last_confirmed_center = latest.observation.center
             self._last_confirmed_roi_diagonal = latest.roi_diagonal
+            self._confirmed_die = (
+                latest.observation.center, latest.observation.value, latest.roi_diagonal,
+            )
+            self._confirmed_absent_frames = 0
         else:
             self._last_confirmed_center = None
             if source is not ConfirmationSource.MANUAL:
@@ -782,6 +835,82 @@ class DiceRecognitionSession:
         self._cycle_started_time = None
         self._motion_required = True
 
+    def _track_confirmed_die(self, frame: FrameObservation) -> None:
+        """Forget the confirmed die once it has been out of sight (picked up)."""
+        if self._confirmed_die is None:
+            return
+        if frame.detections or frame.rejected_count:
+            self._confirmed_absent_frames = 0
+            return
+        self._confirmed_absent_frames += 1
+        if self._confirmed_absent_frames >= self.config.removal_frames:
+            self._confirmed_die = None
+
+    def _is_confirmed_die(self, frame: FrameObservation) -> bool:
+        """The die at rest is the one just confirmed and never picked up."""
+        if self._confirmed_die is None or len(frame.detections) != 1:
+            return False
+        center, value, diagonal = self._confirmed_die
+        die = frame.detections[0]
+        limit = max(frame.roi_diagonal, diagonal) * self._DUPLICATE_POSITION_RATIO
+        return die.value == value and dist(die.center, center) <= limit
+
+    def _back_to_confirmed_die(self) -> None:
+        """The confirmed die only rocked or was nudged: wait for it to be picked up."""
+        assert self._confirmed_die is not None
+        center, _, diagonal = self._confirmed_die
+        self._reset_cycle(RecognitionState.REMOVAL_WAIT)
+        self._cycle_started_time = None
+        self._last_confirmed_center = center
+        self._last_confirmed_roi_diagonal = diagonal
+
+    def _observe_waiting_absence(self, frame: FrameObservation, die_visible: bool) -> None:
+        """A tray empty for a while means the die was picked up.
+
+        "Only clear motion starts the next throw" protects against reading a die
+        lying there again. Once no die has been seen for a second, any die that
+        appears is a new throw, even one thrown in without a hand crossing the
+        tray (a die alone moves too little to count as clear motion).
+        """
+        if die_visible:
+            self._waiting_absent_since = None
+            self._waiting_absent_frames = 0
+            return
+        self._waiting_absent_frames += 1
+        if self._waiting_absent_since is None:
+            self._waiting_absent_since = frame.monotonic_time
+        elif (
+            frame.monotonic_time - self._waiting_absent_since
+            >= self._RESTING_DIE_REMOVED_SECONDS
+            and self._waiting_absent_frames >= self._PICKED_UP_FRAMES
+        ):
+            self._motion_required = False
+            self._last_confirmed_center = None
+
+    def shift_positions(self, dx: float, dy: float) -> None:
+        """The crop moved by (-dx, -dy): move remembered die positions with it.
+
+        Called when the tray outline is found again between throws, so a die lying
+        where the last one was confirmed is still recognized as that die, and a
+        die elsewhere still starts a throw.
+        """
+        def moved(point: tuple[float, float]) -> tuple[float, float]:
+            return (point[0] + dx, point[1] + dy)
+
+        if self._last_confirmed_center is not None:
+            self._last_confirmed_center = moved(self._last_confirmed_center)
+        if self._confirmed_die is not None:
+            center, value, diagonal = self._confirmed_die
+            self._confirmed_die = (moved(center), value, diagonal)
+        if self._resting_die is not None:
+            center, value, diagonal = self._resting_die
+            self._resting_die = (moved(center), value, diagonal)
+
+    def _most_likely_value(self) -> int | None:
+        if not self._value_tally:
+            return None
+        return self._value_tally.most_common(1)[0][0]
+
     def _die_is_away_from_last_confirmation(self, frame: FrameObservation) -> bool:
         previous = self._last_confirmed_center
         if previous is None:
@@ -818,6 +947,9 @@ class DiceRecognitionSession:
         self._opencv_candidate = None
         self._opencv_automatic = False
         self._recognition = None
+        self._value_tally.clear()
+        self._waiting_absent_since = None
+        self._waiting_absent_frames = 0
 
     def _require_candidate(self) -> int:
         if self._candidate_value is None:

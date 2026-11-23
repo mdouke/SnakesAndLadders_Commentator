@@ -947,6 +947,108 @@ def test_confirmation_id_contains_session_uuid_and_sequence() -> None:
     assert first.id != second.id
 
 
+def _confirmed_and_waiting() -> DiceRecognitionSession:
+    """A 4 confirmed at (50, 50), picked up, and the tray empty again."""
+    session = ready_session()
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert confirmed is not None
+    session.acknowledge_committed(confirmed.id)
+    session.observe(frame(6, 0.0))
+    assert session.observe(frame(7, 0.0)).state is RecognitionState.WAITING
+    return session
+
+
+def test_rocking_confirmed_die_is_not_read_twice() -> None:
+    # 2026-11-23: a die confirmed while still rocking moved a little, and the
+    # same 4 was registered again 0.86 s later as the next player's roll.
+    session = ready_session()
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert confirmed is not None
+    session.acknowledge_committed(confirmed.id)
+    assert session.observe(frame(6, 0.2, value=4)).state is RecognitionState.MOVING
+    for timestamp in range(7, 15):
+        result = session.observe(frame(float(timestamp), 0.0, value=4, center=(51.0, 50.0)))
+        assert result.confirmation is None
+        assert result.state is not RecognitionState.NEEDS_CONFIRMATION
+    assert session.state is RecognitionState.REMOVAL_WAIT
+
+
+def test_confirmed_die_picked_up_and_thrown_again_counts() -> None:
+    session = ready_session()
+    confirmed = session.observe(frame(5, 0.0, value=4)).confirmation
+    assert confirmed is not None
+    session.acknowledge_committed(confirmed.id)
+    session.observe(frame(6, 0.2))  # the hand picks the die up
+    session.observe(frame(7, 0.0))
+    session.observe(frame(8, 0.0))
+    session.observe(frame(9, 0.2, value=4))  # thrown again, lands at the same spot
+    for timestamp in range(10, 15):
+        result = session.observe(frame(float(timestamp), 0.0, value=4))
+        if result.confirmation is not None:
+            break
+    assert result.state is RecognitionState.CONFIRMED
+    assert result.confirmation is not None and result.confirmation.id != confirmed.id
+
+
+def test_die_thrown_in_after_the_tray_was_empty_for_a_while_starts_a_throw() -> None:
+    # A die alone moves too little to count as clear motion; once the tray has
+    # been empty for a second, any die that appears is a new throw.
+    session = _confirmed_and_waiting()
+    session.require_motion()
+    for index in range(12):
+        session.observe(frame(8 + index * 0.1, 0.0))
+    started = session.observe(frame(9.3, 0.01, value=3, center=(50.0, 50.0)))
+    assert started.state is RecognitionState.MOVING
+
+
+def test_a_few_missed_detections_do_not_unlock_motion_requirement() -> None:
+    session = _confirmed_and_waiting()
+    session.require_motion()
+    for index in range(3):
+        session.observe(frame(8 + index * 0.5, 0.0))
+    assert session.observe(frame(10, 0.0, value=3)).state is RecognitionState.WAITING
+
+
+def test_shifted_crop_keeps_the_confirmed_die_known() -> None:
+    # 2026-11-23: after the tray outline was found again, only clear motion
+    # could start a throw, so a die thrown in by itself was never read.
+    session = _confirmed_and_waiting()
+    session.shift_positions(-10.0, -5.0)  # the crop moved right and down
+    same = session.observe(frame(8, 0.0, value=4, center=(40.0, 45.0)))
+    assert same.state is RecognitionState.WAITING
+    elsewhere = session.observe(frame(9, 0.0, value=2, center=(80.0, 80.0)))
+    assert elsewhere.state is RecognitionState.MOVING
+
+
+def test_timeout_with_unsettled_value_asks_for_confirmation() -> None:
+    session = DiceRecognitionSession(RecognitionConfig(
+        stationary_frames=2,
+        removal_frames=2,
+        recognition_timeout_seconds=3,
+    ))
+    session.observe(frame(0, 0.2, value=6))
+    session.observe(frame(0.5, 0.0, value=6))
+    session.observe(frame(1, 0.0, value=6))
+    assert session.state is RecognitionState.STATIONARY
+    # The value flips between 4 and 6 and never settles for three frames.
+    for timestamp, value in ((1.5, 4), (2, 6), (2.2, 4), (2.4, 4), (2.6, 6)):
+        session.observe(frame(timestamp, 0.0, value=value))
+    result = session.observe(frame(3, 0.0, value=6))
+    assert result.state is RecognitionState.NEEDS_CONFIRMATION
+    assert result.candidate_value in {4, 6}
+    assert result.candidate_id is not None
+    confirmed = session.confirm_candidate(value=4, monotonic_time=3.1)
+    assert confirmed.value == 4
+    assert confirmed.source in {ConfirmationSource.REVIEWED, ConfirmationSource.CORRECTED}
+
+
+def test_failed_checks_are_reported() -> None:
+    session = ready_session(detector_confidence=0.70)
+    result = session.observe(frame(5, 0.0, value=4, confidence=0.70))
+    assert result.state is RecognitionState.NEEDS_CONFIRMATION
+    assert "detector" in session.last_failed_checks
+
+
 def _draw_die(
     canvas: np.ndarray,
     center: tuple[int, int],
